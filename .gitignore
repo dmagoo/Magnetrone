@@ -1,0 +1,27 @@
+# KiCad
+fp-info-cache
+*-backups/
+*.kicad_prl
+_autosave-*
+*.lck
+*.000
+#auto_saved_files#
+*.log
+*.lnk
+
+# Arduino / Teensy / PlatformIO
+build/
+.pio/
+.pioenvs/
+.piolibdeps/
+*.elf
+*.hex
+*.bin
+*.o
+*.d
+
+# Claude Code
+.claude/
+
+# Personal notes
+notes/

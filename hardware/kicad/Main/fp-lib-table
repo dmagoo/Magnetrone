@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "music-table-footprints")(type "KiCad")(uri "${KIPRJMOD}/music-table-footprints.pretty")(options "")(descr ""))
+)
