@@ -463,7 +463,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "Music Table.kicad_pro",
+    "filename": "MagnetronSensorArm.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -662,50 +662,6 @@
     [
       "a200339a-72b8-45b5-a453-e4d4f113bf3a",
       "Root"
-    ],
-    [
-      "2aca4921-d59a-4cbe-99fc-39638f448988",
-      "Sensor Array"
-    ],
-    [
-      "c51a2d12-469d-49d2-9b7c-6b48bfbf1efd",
-      "mcu"
-    ],
-    [
-      "215a6cdd-134a-46bc-a137-d7b1ff5e8c97",
-      "motor_driver"
-    ],
-    [
-      "0294582b-5a67-4c5f-9a16-ec02e4e1e936",
-      "ui"
-    ],
-    [
-      "6fe42ffa-c8f4-41ce-934a-c3d504b77d4c",
-      "midi_audio"
-    ],
-    [
-      "1fa06de9-ef31-4bec-ac8d-485e9cffdee4",
-      "power"
-    ],
-    [
-      "62d80e6b-067d-413f-816f-3edcde750cce",
-      "menu_encoder"
-    ],
-    [
-      "8104d3ca-8c67-438a-b152-95992a8487f0",
-      "speed_encoder"
-    ],
-    [
-      "308fdc06-59d5-4936-97b0-581effa02ac1",
-      "volume_encoder"
-    ],
-    [
-      "d9472a81-a6dc-4355-9e43-8a07fccccf19",
-      "encoder_aux1"
-    ],
-    [
-      "abde9a7a-6886-474c-9972-6ec01ebc54f7",
-      "encoder_aux2"
     ]
   ],
   "text_variables": {}
