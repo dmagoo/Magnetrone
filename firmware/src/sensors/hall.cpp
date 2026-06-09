@@ -17,7 +17,7 @@ static uint16_t baseline  = HALL_BASELINE_DEFAULT;
 static uint16_t threshold = HALL_THRESHOLD_DEFAULT;
 
 void hallInit() {
-    analogReadResolution(12);
+    analogReadResolution(HALL_ADC_BITS);
     // TEMPORARY - pull hall pins low to reduce noise from floating inputs during
     // bench testing. Remove before connecting real sensors.
     // for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {

@@ -154,7 +154,7 @@
 	(net 3 "/hall3")
 	(net 4 "/hall4")
 	(net 5 "/hall2")
-	(net 6 "+3.3V")
+	(net 6 "+5V")
 	(net 7 "/hall1")
 	(net 8 "/hall5")
 	(net 9 "/hall8")
@@ -385,7 +385,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "9044cada-78a4-4b1a-9490-95d0d4375dc8")
@@ -766,7 +766,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "58c255c5-91db-4602-9f03-65e544693f0f")
@@ -1022,7 +1022,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "9bbc4f76-3749-4fa5-b550-9ec6d052abec")
@@ -1278,7 +1278,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "2b817f2e-6d8d-4a12-8438-4b87b75082fd")
@@ -1534,7 +1534,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "4dec7ca0-46b4-45d9-83e4-769157e1949c")
@@ -1790,7 +1790,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "4f9549de-e28d-4e34-9973-2ce385970109")
@@ -2046,7 +2046,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "05150281-d824-4b92-a7ac-4ae4f63a7097")
@@ -2302,7 +2302,7 @@
 			(size 1 0.7)
 			(layers "F.Cu" "F.Mask" "F.Paste")
 			(roundrect_rratio 0.25)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "VCC")
 			(pintype "power_in")
 			(uuid "d349728d-1d82-4fac-9c12-39d2b2d5ea43")
@@ -2738,7 +2738,7 @@
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
 			(roundrect_rratio 0.147059)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pinfunction "Pin_1")
 			(pintype "passive")
 			(uuid "bf25e787-492c-419b-8c2c-d3c5cc90ce00")
@@ -2873,7 +2873,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -3068,7 +3068,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -3263,7 +3263,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -3458,7 +3458,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -3653,7 +3653,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -3848,7 +3848,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -4043,7 +4043,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -4402,7 +4402,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "5ed2558e-d8b7-44e0-8f87-18abc099aa29")
 		)
@@ -4610,7 +4610,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "293b48db-9f77-4a49-bf9a-6a37d11bc897")
 		)
@@ -4654,7 +4654,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -5013,7 +5013,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "2a803f53-376f-4a6f-8cd7-9d3bead46e88")
 		)
@@ -5221,7 +5221,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "ae22e31d-d160-461a-9169-438c8d3bbd88")
 		)
@@ -5265,7 +5265,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -5472,7 +5472,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -5667,7 +5667,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -6026,7 +6026,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "540c22bb-8d8e-408e-b531-39a09d36c187")
 		)
@@ -6070,7 +6070,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -6429,7 +6429,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "16f70274-3fce-4a54-ac94-8c38e2811c5e")
 		)
@@ -6637,7 +6637,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "4063265c-f277-43a7-bd46-4c18fa698026")
 		)
@@ -6681,7 +6681,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -7040,7 +7040,7 @@
 			(size 1.175 1.45)
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(roundrect_rratio 0.212766)
-			(net 6 "+3.3V")
+			(net 6 "+5V")
 			(pintype "passive")
 			(uuid "85d2fbd4-43d7-4837-ac21-eac8924597f2")
 		)
@@ -7084,7 +7084,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -7279,7 +7279,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -7475,7 +7475,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 0 -1.65 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -10885,7 +10885,7 @@
 	)
 	(zone
 		(net 6)
-		(net_name "+3.3V")
+		(net_name "+5V")
 		(layer "In2.Cu")
 		(uuid "7f393276-7ca8-40cf-80a2-109b7345d935")
 		(hatch edge 0.5)

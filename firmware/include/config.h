@@ -27,15 +27,16 @@ constexpr uint16_t  NOTE_DURATION_MS     = 250; // static note length (piano tap
 // -------------------------------------------------------------------------
 // Hall sensors
 // -------------------------------------------------------------------------
-// 49E ratiometric sensor, 5V supply, voltage divider R1=1k/R2=2k -> Teensy 3.3V ADC
-// Divider ratio: 2/3. Rest voltage: 2.5V * 0.667 = 1.667V -> ADC ~2069 counts.
-// Swing: ~0.33V-3.0V after divider -> ADC ~413-3723 counts.
-// Default threshold: 300 counts deviation from baseline (~0.22V).
+constexpr uint8_t   HALL_ADC_BITS           = 12;   // ADC resolution for hall sensors
+// A1301 ratiometric sensor, 5V supply, voltage divider R1=3.3k/R2=6.8k -> Teensy 3.3V ADC
+// Divider ratio: 6.8/10.1 = 0.673. Rest voltage: 2.5V * 0.673 = 1.68V -> ADC ~980 counts.
+// Typical swing with magnet at operating distance: ~760-1200 counts.
+// Default threshold: 200 counts deviation from baseline.
 // Replaced by calibration measurement once calibration has run.
-constexpr uint16_t  HALL_THRESHOLD_DEFAULT  = 300;
-constexpr uint16_t  HALL_HYSTERESIS         = 150;  // must return within this to reset trigger
+constexpr uint16_t  HALL_THRESHOLD_DEFAULT  = 200;
+constexpr uint16_t  HALL_HYSTERESIS         = 100;  // must return within this to reset trigger
 constexpr uint16_t  HALL_DEBOUNCE_MS        = 20;   // minimum ms between triggers on the same sensor
-constexpr uint16_t  HALL_BASELINE_DEFAULT   = 2069; // pre-calibration estimate
+constexpr uint16_t  HALL_BASELINE_DEFAULT   = 980;  // pre-calibration estimate
 
 // -------------------------------------------------------------------------
 // Tempo / BPM

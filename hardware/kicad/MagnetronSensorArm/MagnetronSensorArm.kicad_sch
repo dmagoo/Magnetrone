@@ -889,7 +889,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:+3.3V"
+		(symbol "power:+5V"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -910,7 +910,7 @@
 					(hide yes)
 				)
 			)
-			(property "Value" "+3.3V"
+			(property "Value" "+5V"
 				(at 0 3.556 0)
 				(effects
 					(font
@@ -936,7 +936,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(property "Description" "Power symbol creates a global label with name \"+5V\""
 				(at 0 0 0)
 				(effects
 					(font
@@ -954,7 +954,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "+3.3V_0_1"
+			(symbol "+5V_0_1"
 				(polyline
 					(pts
 						(xy -0.762 1.27) (xy 0 2.54)
@@ -992,7 +992,7 @@
 					)
 				)
 			)
-			(symbol "+3.3V_1_1"
+			(symbol "+5V_1_1"
 				(pin power_in line
 					(at 0 0 90)
 					(length 0)
@@ -1356,7 +1356,7 @@
 		(uuid "7c46a674-09f7-4e57-9185-3ad7a369be15")
 	)
 	(junction
-		(at 19.05 80.518)
+		(at 17.018 80.264)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "7c700d97-2da6-4576-9d6a-09ec6dbaed66")
@@ -1621,7 +1621,7 @@
 	)
 	(wire
 		(pts
-			(xy 19.05 80.518) (xy 24.765 80.518)
+			(xy 17.018 80.264) (xy 17.272 80.264)
 		)
 		(stroke
 			(width 0)
@@ -2381,6 +2381,16 @@
 	)
 	(wire
 		(pts
+			(xy 17.272 80.264) (xy 17.272 80.518)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c17ab437-94fc-44de-a29a-a0c1ac21bc1e")
+	)
+	(wire
+		(pts
 			(xy 134.62 73.533) (xy 134.62 80.518)
 		)
 		(stroke
@@ -2458,6 +2468,16 @@
 			(type default)
 		)
 		(uuid "cef516d2-573e-453e-8681-632db0ec7335")
+	)
+	(wire
+		(pts
+			(xy 17.272 80.518) (xy 24.765 80.518)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d04c7e56-4ed2-4d04-b2b9-6fca29379496")
 	)
 	(wire
 		(pts
@@ -3067,7 +3087,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 130.175 88.1379 0)
 			(effects
 				(font
@@ -3204,7 +3224,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 161.925 88.1379 0)
 			(effects
 				(font
@@ -3274,7 +3294,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 182.245 88.1379 0)
 			(effects
 				(font
@@ -3344,7 +3364,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 120.65 88.1379 0)
 			(effects
 				(font
@@ -3490,7 +3510,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 27.305 88.1379 0)
 			(effects
 				(font
@@ -3543,6 +3563,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+5V")
+		(at 19.05 60.198 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "3d12fa43-d707-48cc-ae3a-6cbef82fef37")
+		(property "Reference" "#PWR04"
+			(at 19.05 64.008 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 19.05 55.118 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 19.05 60.198 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 19.05 60.198 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 19.05 60.198 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "da164495-4c1f-48b4-aacd-183b9e4d910a")
+		)
+		(instances
+			(project ""
+				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a"
+					(reference "#PWR04")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 239.395 86.868 0)
 		(unit 1)
@@ -3560,7 +3646,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 241.935 88.1379 0)
 			(effects
 				(font
@@ -3630,7 +3716,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 90.17 88.1379 0)
 			(effects
 				(font
@@ -3824,7 +3910,7 @@
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
-		(at 19.05 80.518 0)
+		(at 17.018 80.264 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3833,7 +3919,7 @@
 		(fields_autoplaced yes)
 		(uuid "5b295703-a07d-4f49-b36b-0fe246e5ccc6")
 		(property "Reference" "#FLG02"
-			(at 19.05 78.613 0)
+			(at 17.018 78.359 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3842,7 +3928,7 @@
 			)
 		)
 		(property "Value" "PWR_FLAG"
-			(at 19.05 76.2 0)
+			(at 17.018 75.946 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3850,7 +3936,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 19.05 80.518 0)
+			(at 17.018 80.264 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3859,7 +3945,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 19.05 80.518 0)
+			(at 17.018 80.264 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3868,7 +3954,7 @@
 			)
 		)
 		(property "Description" "Special symbol for telling ERC where power comes from"
-			(at 19.05 80.518 0)
+			(at 17.018 80.264 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3906,7 +3992,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 221.615 88.1379 0)
 			(effects
 				(font
@@ -3976,7 +4062,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 99.695 88.1379 0)
 			(effects
 				(font
@@ -4198,7 +4284,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 36.83 88.1379 0)
 			(effects
 				(font
@@ -4252,7 +4338,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 19.05 80.518 0)
+		(at 17.018 80.264 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4261,7 +4347,7 @@
 		(fields_autoplaced yes)
 		(uuid "8c9973d8-93c7-4191-a1d3-7d32ee04bd6b")
 		(property "Reference" "#PWR02"
-			(at 19.05 86.868 0)
+			(at 17.018 86.614 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4270,7 +4356,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 19.05 85.598 0)
+			(at 17.018 85.344 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4278,7 +4364,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 19.05 80.518 0)
+			(at 17.018 80.264 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4287,7 +4373,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 19.05 80.518 0)
+			(at 17.018 80.264 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4296,7 +4382,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 19.05 80.518 0)
+			(at 17.018 80.264 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4696,7 +4782,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 212.09 88.1379 0)
 			(effects
 				(font
@@ -4766,7 +4852,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 191.77 88.1379 0)
 			(effects
 				(font
@@ -4906,7 +4992,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 58.42 88.1379 0)
 			(effects
 				(font
@@ -5035,72 +5121,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3.3V")
-		(at 19.05 60.198 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c6cf7efe-85a9-46d7-a8e9-7df9aeccbaa5")
-		(property "Reference" "#PWR01"
-			(at 19.05 64.008 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 19.05 55.118 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 19.05 60.198 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 19.05 60.198 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 19.05 60.198 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "3e5d85db-db8b-4cd1-90ac-afbe3b20526a")
-		)
-		(instances
-			(project "MagnetronSensorArm"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a"
-					(reference "#PWR01")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
 		(at 149.86 86.868 0)
 		(unit 1)
@@ -5118,7 +5138,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "20000"
+		(property "Value" "15k"
 			(at 152.4 88.1379 0)
 			(effects
 				(font
@@ -5346,7 +5366,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 67.945 88.1379 0)
 			(effects
 				(font
@@ -5416,7 +5436,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10000"
+		(property "Value" "7.5k"
 			(at 251.46 88.1379 0)
 			(effects
 				(font

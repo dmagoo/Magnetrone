@@ -21,7 +21,7 @@ constexpr int PIN_MENU_BTN      = 10;
 // Speed encoder
 constexpr int PIN_SPEED_A       = 24;
 constexpr int PIN_SPEED_B       = 25;
-constexpr int PIN_SPEED_BTN     = 26;  // press = stop/resume
+constexpr int PIN_SPEED_BTN     = 37;  // press = stop/resume
 
 // Volume encoder
 constexpr int PIN_VOL_A         = 27;
@@ -49,7 +49,7 @@ constexpr int PIN_HALL_3        = 39;
 constexpr int PIN_HALL_4        = 38;
 constexpr int PIN_HALL_5        = 17;
 constexpr int PIN_HALL_6        = 16;
-constexpr int PIN_HALL_7        = 15;
+constexpr int PIN_HALL_7        = 26;
 constexpr int PIN_HALL_8        = 14;
 
 // I2C - shared bus (LCD + audio shield SGTL5000)

@@ -664,14 +664,6 @@
       "Root"
     ],
     [
-      "826f9e2d-3f8d-4425-80ab-36554f164b3f",
-      "encoder_aux1"
-    ],
-    [
-      "049b816c-78b4-46e7-959e-55d5048ed891",
-      "encoder_aux2"
-    ],
-    [
       "fe6b21e5-471b-4277-bf41-51eb9fbfa1a8",
       "menu_encoder"
     ],
@@ -682,6 +674,14 @@
     [
       "29fb5d9d-1295-4995-9e43-9dca6b2abf48",
       "volume_encoder"
+    ],
+    [
+      "826f9e2d-3f8d-4425-80ab-36554f164b3f",
+      "encoder_aux1"
+    ],
+    [
+      "049b816c-78b4-46e7-959e-55d5048ed891",
+      "encoder_aux2"
     ]
   ],
   "text_variables": {}

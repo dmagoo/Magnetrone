@@ -1812,6 +1812,10 @@
 		(uuid "677b37bd-e587-4e5a-905b-62be47161a1a")
 	)
 	(no_connect
+		(at 156.21 76.2)
+		(uuid "6a098e50-f28e-42db-96c1-e51e7fd07fb4")
+	)
+	(no_connect
 		(at 156.21 81.28)
 		(uuid "6b3ecbc7-4913-4b1e-a5aa-6b853a87997b")
 	)
@@ -1861,7 +1865,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.71 83.82) (xy 100.33 83.82)
+			(xy 92.583 83.82) (xy 100.33 83.82)
 		)
 		(stroke
 			(width 0)
@@ -1881,7 +1885,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 50.8) (xy 100.33 50.8)
+			(xy 91.948 50.8) (xy 100.33 50.8)
 		)
 		(stroke
 			(width 0)
@@ -1901,7 +1905,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 48.26) (xy 100.33 48.26)
+			(xy 91.948 48.26) (xy 100.33 48.26)
 		)
 		(stroke
 			(width 0)
@@ -1911,7 +1915,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.202 55.88) (xy 100.33 55.88)
+			(xy 92.075 55.88) (xy 100.33 55.88)
 		)
 		(stroke
 			(width 0)
@@ -1931,17 +1935,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 76.2) (xy 167.005 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3365d79b-ab63-464e-a47f-ab756200676b")
-	)
-	(wire
-		(pts
-			(xy 92.075 86.36) (xy 100.33 86.36)
+			(xy 91.948 86.36) (xy 100.33 86.36)
 		)
 		(stroke
 			(width 0)
@@ -1951,7 +1945,17 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 66.04) (xy 100.33 66.04)
+			(xy 91.948 91.44) (xy 100.33 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3d39a109-cb39-4691-b144-fcdccf1d1d03")
+	)
+	(wire
+		(pts
+			(xy 91.948 66.04) (xy 100.33 66.04)
 		)
 		(stroke
 			(width 0)
@@ -1961,7 +1965,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.948 73.66) (xy 100.33 73.66)
+			(xy 91.821 73.66) (xy 100.33 73.66)
 		)
 		(stroke
 			(width 0)
@@ -1981,7 +1985,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.202 63.5) (xy 100.33 63.5)
+			(xy 92.075 63.5) (xy 100.33 63.5)
 		)
 		(stroke
 			(width 0)
@@ -1991,7 +1995,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 99.06) (xy 100.33 99.06)
+			(xy 91.948 99.06) (xy 100.33 99.06)
 		)
 		(stroke
 			(width 0)
@@ -2011,7 +2015,7 @@
 	)
 	(wire
 		(pts
-			(xy 91.948 76.2) (xy 100.33 76.2)
+			(xy 91.821 76.2) (xy 100.33 76.2)
 		)
 		(stroke
 			(width 0)
@@ -2021,7 +2025,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 101.6) (xy 100.33 101.6)
+			(xy 91.948 101.6) (xy 100.33 101.6)
 		)
 		(stroke
 			(width 0)
@@ -2051,7 +2055,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 88.9) (xy 100.33 88.9)
+			(xy 91.948 88.9) (xy 100.33 88.9)
 		)
 		(stroke
 			(width 0)
@@ -2071,7 +2075,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.202 58.42) (xy 100.33 58.42)
+			(xy 92.075 58.42) (xy 100.33 58.42)
 		)
 		(stroke
 			(width 0)
@@ -2108,16 +2112,6 @@
 			(type default)
 		)
 		(uuid "8261275b-4073-4e08-80fc-f5e7afe02d13")
-	)
-	(wire
-		(pts
-			(xy 92.075 91.44) (xy 100.33 91.44)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "827835b0-ed04-494e-8c80-a388d3aedbc9")
 	)
 	(wire
 		(pts
@@ -2171,7 +2165,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.202 60.96) (xy 100.33 60.96)
+			(xy 92.075 60.96) (xy 100.33 60.96)
 		)
 		(stroke
 			(width 0)
@@ -2181,7 +2175,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 53.34) (xy 100.33 53.34)
+			(xy 91.948 53.34) (xy 100.33 53.34)
 		)
 		(stroke
 			(width 0)
@@ -2191,7 +2185,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 96.52) (xy 100.33 96.52)
+			(xy 91.948 96.52) (xy 100.33 96.52)
 		)
 		(stroke
 			(width 0)
@@ -2201,7 +2195,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 104.14) (xy 100.33 104.14)
+			(xy 91.948 104.14) (xy 100.33 104.14)
 		)
 		(stroke
 			(width 0)
@@ -2211,7 +2205,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 106.68) (xy 100.33 106.68)
+			(xy 91.948 106.68) (xy 100.33 106.68)
 		)
 		(stroke
 			(width 0)
@@ -2221,7 +2215,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 93.98) (xy 100.33 93.98)
+			(xy 91.948 93.98) (xy 100.33 93.98)
 		)
 		(stroke
 			(width 0)
@@ -2251,7 +2245,7 @@
 	)
 	(hierarchical_label "encoder_aux1_btn"
 		(shape input)
-		(at 92.075 106.68 180)
+		(at 91.948 106.68 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2262,7 +2256,7 @@
 	)
 	(hierarchical_label "menu_encoder_btn"
 		(shape input)
-		(at 91.948 76.2 180)
+		(at 91.821 76.2 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2306,7 +2300,7 @@
 	)
 	(hierarchical_label "encoder_aux1_a"
 		(shape input)
-		(at 92.075 101.6 180)
+		(at 91.948 101.6 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2339,7 +2333,7 @@
 	)
 	(hierarchical_label "stepper_step"
 		(shape input)
-		(at 92.202 58.42 180)
+		(at 92.075 58.42 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2348,20 +2342,9 @@
 		)
 		(uuid "6567798a-f785-4b74-9cef-9f2b7a54645e")
 	)
-	(hierarchical_label "aux2_btn"
-		(shape input)
-		(at 167.132 96.52 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "65830ad9-4beb-473d-b587-43fbb9c782d0")
-	)
 	(hierarchical_label "speed_encoder_a"
 		(shape input)
-		(at 92.075 86.36 180)
+		(at 91.948 86.36 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2372,7 +2355,7 @@
 	)
 	(hierarchical_label "speed_encoder_b"
 		(shape input)
-		(at 92.075 88.9 180)
+		(at 91.948 88.9 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2394,7 +2377,7 @@
 	)
 	(hierarchical_label "volume_encoder_btn"
 		(shape input)
-		(at 92.075 99.06 180)
+		(at 91.948 99.06 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2405,7 +2388,7 @@
 	)
 	(hierarchical_label "stepper_dir"
 		(shape input)
-		(at 92.202 55.88 180)
+		(at 92.075 55.88 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2416,7 +2399,7 @@
 	)
 	(hierarchical_label "midi_rx"
 		(shape input)
-		(at 92.075 50.8 180)
+		(at 91.948 50.8 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2427,7 +2410,7 @@
 	)
 	(hierarchical_label "encoder_aux1_b"
 		(shape input)
-		(at 92.075 104.14 180)
+		(at 91.948 104.14 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2438,7 +2421,7 @@
 	)
 	(hierarchical_label "volume_encoder_b"
 		(shape input)
-		(at 92.075 96.52 180)
+		(at 91.948 96.52 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2449,7 +2432,7 @@
 	)
 	(hierarchical_label "stepper_sleep"
 		(shape input)
-		(at 92.202 60.96 180)
+		(at 92.075 60.96 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2460,7 +2443,7 @@
 	)
 	(hierarchical_label "volume_encoder_a"
 		(shape input)
-		(at 92.075 93.98 180)
+		(at 91.948 93.98 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2491,6 +2474,17 @@
 		)
 		(uuid "b05e86f8-a73c-4ecf-a5c0-dee9b5e615fc")
 	)
+	(hierarchical_label "hall7"
+		(shape input)
+		(at 91.948 91.44 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "b8630c8f-d813-4ec4-bd46-2af689f07253")
+	)
 	(hierarchical_label "encoder_aux2_btn"
 		(shape input)
 		(at 167.132 101.6 0)
@@ -2515,7 +2509,7 @@
 	)
 	(hierarchical_label "stepper_enable"
 		(shape input)
-		(at 92.202 63.5 180)
+		(at 92.075 63.5 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2524,20 +2518,9 @@
 		)
 		(uuid "c09fe506-3740-4166-bacc-a111a1250f39")
 	)
-	(hierarchical_label "speed_encoder_btn"
-		(shape input)
-		(at 92.075 91.44 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "c9c51417-ea0a-458d-9eec-5f4325f540b9")
-	)
 	(hierarchical_label "midi_tx"
 		(shape input)
-		(at 92.075 53.34 180)
+		(at 91.948 53.34 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2557,20 +2540,9 @@
 		)
 		(uuid "cdbd058d-ffb5-461e-b995-dcd19ba848ba")
 	)
-	(hierarchical_label "hall7"
-		(shape input)
-		(at 167.005 76.2 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "de99246f-b52e-42b7-ba52-ef2476d85cb5")
-	)
 	(hierarchical_label "menu_encoder_b"
 		(shape input)
-		(at 91.948 73.66 180)
+		(at 91.821 73.66 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2578,6 +2550,17 @@
 			(justify right)
 		)
 		(uuid "df0efee3-714d-4dbb-9515-76db7854472d")
+	)
+	(hierarchical_label "speed_encoder_btn"
+		(shape input)
+		(at 167.132 96.52 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "e5c8f09c-79f1-42b9-b2c7-0603e7c4c652")
 	)
 	(hierarchical_label "aux1_btn"
 		(shape input)
@@ -2592,7 +2575,7 @@
 	)
 	(hierarchical_label "menu_encoder_a"
 		(shape input)
-		(at 92.075 66.04 180)
+		(at 91.948 66.04 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2620,7 +2603,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "300b8cfe-19f9-4020-ab08-de9d5fc2501c")
 		(property "Reference" "U10"
 			(at 128.27 37.465 0)
@@ -3145,7 +3127,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 92.71 83.82 90)
+		(at 92.583 83.82 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3154,7 +3136,7 @@
 		(fields_autoplaced yes)
 		(uuid "ce5c56ff-e24e-47a2-a2c9-ef96215e0930")
 		(property "Reference" "#PWR016"
-			(at 96.52 83.82 0)
+			(at 96.393 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3163,7 +3145,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 89.535 83.8199 90)
+			(at 89.408 83.8199 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3172,7 +3154,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 92.71 83.82 0)
+			(at 92.583 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3181,7 +3163,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 83.82 0)
+			(at 92.583 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3190,7 +3172,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 92.71 83.82 0)
+			(at 92.583 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3212,7 +3194,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 92.075 48.26 270)
+		(at 91.948 48.26 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3221,7 +3203,7 @@
 		(fields_autoplaced yes)
 		(uuid "daa0f2f3-effe-4fe1-8cb3-282c56aae668")
 		(property "Reference" "#PWR015"
-			(at 85.725 48.26 0)
+			(at 85.598 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3230,7 +3212,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 88.265 48.2599 90)
+			(at 88.138 48.2599 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3239,7 +3221,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 92.075 48.26 0)
+			(at 91.948 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3248,7 +3230,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.075 48.26 0)
+			(at 91.948 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3257,7 +3239,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 92.075 48.26 0)
+			(at 91.948 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)

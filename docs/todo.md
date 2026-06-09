@@ -34,7 +34,24 @@
 - [ ] sensorShift configurable under Advanced menu (default 0 - shifts which sensor index plays the root note)
 - [ ] Aux encoder (pins 34-36) mappable to any menu parameter for live tweaking (key, octave, phase, etc.)
 
+## Sensors
+
+- [ ] Hall sensor ON/OFF currently uses absolute deviation -- magnet polarity is ignored. Future revision: use signed deviation to differentiate north vs south pole, allowing magnet orientation to carry musical meaning.
+- [ ] Sub-threshold deviation (below trigger point) could map to proximity/velocity -- e.g. attack time or note velocity scales with how close the magnet is before full trigger.
+
+## Motion
+
+- [ ] Stepper speed changes must ramp -- jumping to a new step rate will stall the motor. Implement a rampTo() in stepper.cpp that steps delay 1us at a time.
+- [ ] Allow speed control to reverse direction
+- [ ] If RPM is controlled by MIDI clock input, apply it to the current direction
+
+## Testing
+
+- [ ] Full system test: a single sketch (and menu option) that walks through each subsystem in sequence -- MIDI, encoders, hall sensors, stepper, audio. Runnable as a standalone flash or triggered from the menu.
+
 ## Hardware / PCB
+
+- [ ] Verify pin ordering on LCD backpack and confirm it matches the UI PCB footprint
 
 - [ ] Encoder debounce: add 100nF cap from each A and B pin to GND, and 10k pull-up from each button pin to 3.3V. 2 caps + 1 resistor per encoder, 6 caps + 3 resistors total for the three active encoders (menu, speed, volume).
 

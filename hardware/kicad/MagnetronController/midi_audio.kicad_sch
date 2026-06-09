@@ -2041,10 +2041,6 @@
 		(uuid "f8699355-8df3-43b7-ab6b-50685104fa88")
 	)
 	(no_connect
-		(at 60.325 60.96)
-		(uuid "3b7a230d-b39b-46f2-854c-efcb7e640fcd")
-	)
-	(no_connect
 		(at 80.645 95.25)
 		(uuid "53c27c90-68f6-4b48-9044-2f74a70e411a")
 	)
@@ -2062,7 +2058,7 @@
 	)
 	(wire
 		(pts
-			(xy 71.755 68.58) (xy 74.295 68.58)
+			(xy 71.628 68.58) (xy 74.168 68.58)
 		)
 		(stroke
 			(width 0)
@@ -2102,7 +2098,7 @@
 	)
 	(wire
 		(pts
-			(xy 55.245 53.34) (xy 64.135 53.34)
+			(xy 55.118 53.34) (xy 64.008 53.34)
 		)
 		(stroke
 			(width 0)
@@ -2182,7 +2178,7 @@
 	)
 	(wire
 		(pts
-			(xy 55.245 68.58) (xy 64.135 68.58)
+			(xy 55.118 68.58) (xy 64.008 68.58)
 		)
 		(stroke
 			(width 0)
@@ -2232,13 +2228,23 @@
 	)
 	(wire
 		(pts
-			(xy 71.755 53.34) (xy 78.105 53.34)
+			(xy 71.628 53.34) (xy 77.978 53.34)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "9d280382-d380-4533-b21d-47563f18d177")
+	)
+	(wire
+		(pts
+			(xy 60.198 60.96) (xy 62.484 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f45c207-7bdd-4c03-be07-a57e2b357a54")
 	)
 	(wire
 		(pts
@@ -2313,7 +2319,7 @@
 	)
 	(hierarchical_label "midi_tx"
 		(shape input)
-		(at 74.295 68.58 0)
+		(at 74.168 68.58 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2321,6 +2327,72 @@
 			(justify left)
 		)
 		(uuid "a48b7c0c-1157-46fc-9da4-e0352f647a95")
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 62.484 60.96 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "15cccf89-d724-4c72-8878-cde48b9a803c")
+		(property "Reference" "#PWR02"
+			(at 68.834 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 66.294 60.9599 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 62.484 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 62.484 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 62.484 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "8913f4b7-4e55-435f-bc8c-238f82c44767")
+		)
+		(instances
+			(project ""
+				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/6fe42ffa-c8f4-41ce-934a-c3d504b77d4c"
+					(reference "#PWR02")
+					(unit 1)
+				)
+			)
+		)
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -2562,7 +2634,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "470k"
+		(property "Value" "470"
 			(at 100.33 83.1849 0)
 			(effects
 				(font
@@ -2616,7 +2688,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 78.105 53.34 0)
+		(at 77.978 53.34 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2625,7 +2697,7 @@
 		(fields_autoplaced yes)
 		(uuid "64ed12ba-6e0d-4ab2-8ae6-f88dc5552169")
 		(property "Reference" "#PWR03"
-			(at 78.105 57.15 0)
+			(at 77.978 57.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2634,7 +2706,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 78.105 48.26 0)
+			(at 77.978 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2642,7 +2714,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 78.105 53.34 0)
+			(at 77.978 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2651,7 +2723,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 78.105 53.34 0)
+			(at 77.978 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2660,7 +2732,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 78.105 53.34 0)
+			(at 77.978 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2683,7 +2755,7 @@
 	(symbol
 		(lib_name "DIN-5_180degree_1")
 		(lib_id "Connector:DIN-5_180degree")
-		(at 52.705 60.96 270)
+		(at 52.578 60.96 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2691,7 +2763,7 @@
 		(dnp no)
 		(uuid "6a7033c3-2e57-4113-b5aa-30280968539b")
 		(property "Reference" "J2"
-			(at 53.34 60.96 90)
+			(at 53.213 60.96 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2700,7 +2772,7 @@
 			)
 		)
 		(property "Value" "DIN-5_180degree"
-			(at 60.96 55.245 90)
+			(at 60.833 55.245 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2710,7 +2782,7 @@
 			)
 		)
 		(property "Footprint" "music-table-footprints:MIDI_Wire_245"
-			(at 52.705 60.96 0)
+			(at 52.578 60.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2719,7 +2791,7 @@
 			)
 		)
 		(property "Datasheet" "http://www.mouser.com/ds/2/18/40_c091_abd_e-75918.pdf"
-			(at 52.705 60.96 0)
+			(at 52.578 60.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2728,7 +2800,7 @@
 			)
 		)
 		(property "Description" "5-pin DIN connector (5-pin DIN-5 stereo)"
-			(at 52.705 60.96 0)
+			(at 52.578 60.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2995,7 +3067,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 67.945 53.34 90)
+		(at 67.818 53.34 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3003,7 +3075,7 @@
 		(dnp no)
 		(uuid "b6dcbb67-4e16-47dd-b46d-241fca199196")
 		(property "Reference" "R2"
-			(at 67.945 50.8 90)
+			(at 67.818 50.8 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3011,7 +3083,7 @@
 			)
 		)
 		(property "Value" "220"
-			(at 67.945 49.53 90)
+			(at 67.818 49.53 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3020,7 +3092,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 67.945 55.118 90)
+			(at 67.818 55.118 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3029,7 +3101,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 67.945 53.34 0)
+			(at 67.818 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3038,7 +3110,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 67.945 53.34 0)
+			(at 67.818 53.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3130,7 +3202,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 67.945 68.58 90)
+		(at 67.818 68.58 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3138,7 +3210,7 @@
 		(dnp no)
 		(uuid "bd424d23-8a31-47d8-858e-a779147b789e")
 		(property "Reference" "R1"
-			(at 67.945 66.04 90)
+			(at 67.818 66.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3146,7 +3218,7 @@
 			)
 		)
 		(property "Value" "220"
-			(at 67.945 64.77 90)
+			(at 67.818 64.77 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3155,7 +3227,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 67.945 70.358 90)
+			(at 67.818 70.358 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3164,7 +3236,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 67.945 68.58 0)
+			(at 67.818 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3173,7 +3245,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 67.945 68.58 0)
+			(at 67.818 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
