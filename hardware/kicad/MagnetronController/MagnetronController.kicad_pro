@@ -523,7 +523,7 @@
     "netclass_patterns": [
       {
         "netclass": "+24V",
-        "pattern": "+24V"
+        "pattern": "*24V*"
       },
       {
         "netclass": "+5V",
@@ -536,7 +536,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "",
+      "plot": "fabrication outputs/",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "../../stls/PCBS.step",

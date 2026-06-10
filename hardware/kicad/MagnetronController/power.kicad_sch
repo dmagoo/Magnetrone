@@ -949,16 +949,10 @@
 		)
 	)
 	(junction
-		(at 49.784 61.214)
+		(at 68.58 61.468)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "47b7af5b-406c-4e16-ad7a-9557f2fa7d1e")
-	)
-	(junction
-		(at 58.42 61.214)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "acd9b25c-9caa-4a81-85d0-6407cf575f0b")
+		(uuid "77fb1b98-89fa-44d9-b93b-44fe5f1ca85a")
 	)
 	(junction
 		(at 73.66 71.12)
@@ -984,7 +978,7 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 59.69) (xy 58.42 61.214)
+			(xy 58.42 59.69) (xy 58.42 71.12)
 		)
 		(stroke
 			(width 0)
@@ -1001,6 +995,16 @@
 			(type default)
 		)
 		(uuid "33afb25f-e034-4971-9f02-40986f79b428")
+	)
+	(wire
+		(pts
+			(xy 68.58 61.468) (xy 68.58 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4926323d-a892-4b42-8ac9-2d2cecd78cfc")
 	)
 	(wire
 		(pts
@@ -1064,16 +1068,6 @@
 	)
 	(wire
 		(pts
-			(xy 49.784 61.214) (xy 58.42 61.214)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "98773e42-2269-43e8-b150-630cfb6c949d")
-	)
-	(wire
-		(pts
 			(xy 54.61 71.12) (xy 58.42 71.12)
 		)
 		(stroke
@@ -1084,7 +1078,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 59.69) (xy 68.58 71.12)
+			(xy 68.58 59.69) (xy 68.58 61.468)
 		)
 		(stroke
 			(width 0)
@@ -1092,25 +1086,15 @@
 		)
 		(uuid "d97ffde5-a7b4-4f57-805b-358802302c15")
 	)
-	(wire
-		(pts
-			(xy 46.482 61.214) (xy 49.784 61.214)
+	(label "VIN_SW_24V"
+		(at 58.42 61.214 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
 		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "faf52689-d966-4b2e-8a2e-1997af4a9afd")
-	)
-	(wire
-		(pts
-			(xy 58.42 61.214) (xy 58.42 71.12)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fe1a571b-2290-4ebb-b171-ca26c5f545df")
+		(uuid "a3339bd6-6908-4bee-97fb-43a0f49bbde0")
 	)
 	(symbol
 		(lib_id "CustomSymbols:MP1584EN_Module")
@@ -1319,73 +1303,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+24V")
-		(at 46.482 61.214 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "067dad12-88a4-4e2e-9bc0-875604da43b3")
-		(property "Reference" "#PWR027"
-			(at 50.292 61.214 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+24V"
-			(at 42.926 61.2139 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 46.482 61.214 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 46.482 61.214 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+24V\""
-			(at 46.482 61.214 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "b69470db-d149-44f7-8a4e-973482f7ef5d")
-		)
-		(instances
-			(project "Music Table"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1fa06de9-ef31-4bec-ac8d-485e9cffdee4"
-					(reference "#PWR027")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Connector:Barrel_Jack_MountingPin")
 		(at 46.99 73.66 0)
 		(unit 1)
@@ -1530,22 +1447,22 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "4b3b84a6-1568-467a-a0eb-e4931776e67a")
 		(property "Reference" "SW9"
-			(at 63.5 53.34 0)
+			(at 63.5 56.134 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "SW_SPST"
+		(property "Value" "SW_SPST 24V"
 			(at 63.5 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
@@ -1592,7 +1509,7 @@
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
-		(at 49.784 61.214 0)
+		(at 68.58 61.468 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1601,7 +1518,7 @@
 		(fields_autoplaced yes)
 		(uuid "71a3800c-fc28-41da-89a7-066a45816fce")
 		(property "Reference" "#FLG02"
-			(at 49.784 59.309 0)
+			(at 70.485 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1610,15 +1527,16 @@
 			)
 		)
 		(property "Value" "PWR_FLAG"
-			(at 49.784 56.896 0)
+			(at 72.644 61.4679 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
-			(at 49.784 61.214 0)
+			(at 68.58 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1627,7 +1545,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 49.784 61.214 0)
+			(at 68.58 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1636,7 +1554,7 @@
 			)
 		)
 		(property "Description" "Special symbol for telling ERC where power comes from"
-			(at 49.784 61.214 0)
+			(at 68.58 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
