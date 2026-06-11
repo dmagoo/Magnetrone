@@ -359,6 +359,305 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Device:Polyfuse"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "F"
+				(at -2.54 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Polyfuse"
+				(at 2.54 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 1.27 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resettable fuse, polymeric positive temperature coefficient"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "resettable fuse PTC PPTC polyfuse polyswitch"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "*polyfuse* *PTC*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Polyfuse_0_1"
+				(polyline
+					(pts
+						(xy -1.524 2.54) (xy -1.524 1.524) (xy 1.524 -1.524) (xy 1.524 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start -0.762 2.54)
+					(end 0.762 -2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "Polyfuse_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Diode:SS34"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "SS34"
+				(at 0 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Diode_SMD:D_SMA"
+				(at 0 -4.445 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.vishay.com/docs/88751/ss32.pdf"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "40V 3A Schottky Diode, SMA"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "diode Schottky"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "D*SMA*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "SS34_0_1"
+				(polyline
+					(pts
+						(xy -1.905 0.635) (xy -1.905 1.27) (xy -1.27 1.27) (xy -1.27 -1.27) (xy -0.635 -1.27) (xy -0.635 -0.635)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 1.27) (xy 1.27 -1.27) (xy -1.27 0) (xy 1.27 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 0) (xy -1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "SS34_1_1"
+				(pin passive line
+					(at -3.81 0 0)
+					(length 2.54)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 3.81 0 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Switch:SW_SPST"
 			(pin_names
 				(offset 0)
@@ -949,26 +1248,46 @@
 		)
 	)
 	(junction
-		(at 68.58 61.468)
+		(at 75.184 61.468)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "77fb1b98-89fa-44d9-b93b-44fe5f1ca85a")
 	)
 	(junction
-		(at 73.66 71.12)
+		(at 80.264 71.12)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "dca31013-8ee5-46ae-9f5b-1ddab2da9c6c")
 	)
 	(junction
-		(at 55.88 76.2)
+		(at 34.798 76.2)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f226846c-a32c-42e0-933b-fa0f09135678")
 	)
 	(wire
 		(pts
-			(xy 73.66 70.104) (xy 73.66 71.12)
+			(xy 45.72 71.12) (xy 49.53 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0c5c2ae1-e3ca-4cd7-8959-18e017994853")
+	)
+	(wire
+		(pts
+			(xy 57.15 71.12) (xy 65.024 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "13f756a7-7aa6-4cb8-bf7c-939254d5d4d6")
+	)
+	(wire
+		(pts
+			(xy 80.264 70.104) (xy 80.264 71.12)
 		)
 		(stroke
 			(width 0)
@@ -978,7 +1297,7 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 59.69) (xy 58.42 71.12)
+			(xy 65.024 59.69) (xy 65.024 71.12)
 		)
 		(stroke
 			(width 0)
@@ -988,7 +1307,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 71.12) (xy 73.66 71.12)
+			(xy 75.184 71.12) (xy 80.264 71.12)
 		)
 		(stroke
 			(width 0)
@@ -998,7 +1317,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 61.468) (xy 68.58 71.12)
+			(xy 75.184 61.468) (xy 75.184 71.12)
 		)
 		(stroke
 			(width 0)
@@ -1008,7 +1327,7 @@
 	)
 	(wire
 		(pts
-			(xy 54.61 76.2) (xy 55.88 76.2)
+			(xy 33.528 76.2) (xy 34.798 76.2)
 		)
 		(stroke
 			(width 0)
@@ -1018,7 +1337,7 @@
 	)
 	(wire
 		(pts
-			(xy 100.33 66.675) (xy 100.33 71.12)
+			(xy 106.934 66.675) (xy 106.934 71.12)
 		)
 		(stroke
 			(width 0)
@@ -1028,7 +1347,7 @@
 	)
 	(wire
 		(pts
-			(xy 55.88 76.2) (xy 77.47 76.2)
+			(xy 34.798 76.2) (xy 84.074 76.2)
 		)
 		(stroke
 			(width 0)
@@ -1038,7 +1357,7 @@
 	)
 	(wire
 		(pts
-			(xy 96.52 71.12) (xy 100.33 71.12)
+			(xy 103.124 71.12) (xy 106.934 71.12)
 		)
 		(stroke
 			(width 0)
@@ -1048,7 +1367,7 @@
 	)
 	(wire
 		(pts
-			(xy 96.52 76.2) (xy 99.06 76.2)
+			(xy 103.124 76.2) (xy 105.664 76.2)
 		)
 		(stroke
 			(width 0)
@@ -1058,7 +1377,7 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 71.12) (xy 77.47 71.12)
+			(xy 80.264 71.12) (xy 84.074 71.12)
 		)
 		(stroke
 			(width 0)
@@ -1068,17 +1387,17 @@
 	)
 	(wire
 		(pts
-			(xy 54.61 71.12) (xy 58.42 71.12)
+			(xy 33.528 71.12) (xy 38.1 71.12)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "a7476a9c-bb78-4649-b2f3-c458ff9cdfeb")
+		(uuid "973cd470-2360-407d-b82f-244d2dfc10c7")
 	)
 	(wire
 		(pts
-			(xy 68.58 59.69) (xy 68.58 61.468)
+			(xy 75.184 59.69) (xy 75.184 61.468)
 		)
 		(stroke
 			(width 0)
@@ -1086,19 +1405,39 @@
 		)
 		(uuid "d97ffde5-a7b4-4f57-805b-358802302c15")
 	)
-	(label "VIN_SW_24V"
-		(at 58.42 61.214 180)
+	(label "FUSE_DIODE_24V"
+		(at 48.006 71.12 90)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
+		)
+		(uuid "91b93135-6441-4d02-8d31-58e6695745b4")
+	)
+	(label "VIN_FUSE_24V"
+		(at 36.068 71.12 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
 		)
 		(uuid "a3339bd6-6908-4bee-97fb-43a0f49bbde0")
 	)
+	(label "DIODE_SW_24V"
+		(at 63.246 71.12 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e622170d-56fd-4d64-bb88-41457ec94c1f")
+	)
 	(symbol
 		(lib_id "CustomSymbols:MP1584EN_Module")
-		(at 87.63 66.04 0)
+		(at 94.234 66.04 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1107,7 +1446,7 @@
 		(fields_autoplaced yes)
 		(uuid "005fe885-4160-4f40-b9db-8f9f4255c718")
 		(property "Reference" "U9"
-			(at 86.995 65.405 0)
+			(at 93.599 65.405 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1115,7 +1454,7 @@
 			)
 		)
 		(property "Value" "~"
-			(at 86.995 66.675 0)
+			(at 93.599 66.675 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1123,7 +1462,7 @@
 			)
 		)
 		(property "Footprint" "MP1584EN:SRT_MPT1584EN_Module"
-			(at 87.63 67.564 0)
+			(at 94.234 67.564 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1132,7 +1471,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 87.63 66.04 0)
+			(at 94.234 66.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1141,7 +1480,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 87.63 66.04 0)
+			(at 94.234 66.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1172,7 +1511,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 99.06 76.2 0)
+		(at 105.664 76.2 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1181,7 +1520,7 @@
 		(fields_autoplaced yes)
 		(uuid "0072a3ef-a58a-4ffa-9427-b4d7b08d545c")
 		(property "Reference" "#PWR011"
-			(at 99.06 82.55 0)
+			(at 105.664 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1190,7 +1529,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 99.06 81.28 0)
+			(at 105.664 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1198,7 +1537,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 99.06 76.2 0)
+			(at 105.664 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1207,7 +1546,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 99.06 76.2 0)
+			(at 105.664 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1216,7 +1555,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 99.06 76.2 0)
+			(at 105.664 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1238,7 +1577,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 55.88 76.2 0)
+		(at 34.798 76.2 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1247,7 +1586,7 @@
 		(fields_autoplaced yes)
 		(uuid "03b55ef3-bae7-466a-bec5-f411297ab9e9")
 		(property "Reference" "#PWR010"
-			(at 55.88 82.55 0)
+			(at 34.798 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1256,7 +1595,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 55.88 81.28 0)
+			(at 34.798 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1264,7 +1603,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 55.88 76.2 0)
+			(at 34.798 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1273,7 +1612,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 55.88 76.2 0)
+			(at 34.798 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1282,7 +1621,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 55.88 76.2 0)
+			(at 34.798 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1303,8 +1642,76 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:Polyfuse")
+		(at 41.91 71.12 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0ae89b27-67a1-4d8a-a3bb-8dd24d97ccaa")
+		(property "Reference" "F1"
+			(at 41.91 68.834 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Polyfuse"
+			(at 42.164 73.66 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Fuse:Fuse_Bourns_MF-RHT300"
+			(at 46.99 69.85 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 41.91 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resettable fuse, polymeric positive temperature coefficient"
+			(at 41.91 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "6f4430f1-f3ad-45a8-9ad3-0e48df6f006e")
+		)
+		(pin "1"
+			(uuid "445d03e7-1bb4-4349-b20f-f82ee4416c3f")
+		)
+		(instances
+			(project ""
+				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1fa06de9-ef31-4bec-ac8d-485e9cffdee4"
+					(reference "F1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Barrel_Jack_MountingPin")
-		(at 46.99 73.66 0)
+		(at 25.908 73.66 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1312,7 +1719,7 @@
 		(dnp no)
 		(uuid "271323bf-5c0a-4d9e-83f2-76d080179e8d")
 		(property "Reference" "J4"
-			(at 46.99 68.58 0)
+			(at 25.908 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1320,7 +1727,7 @@
 			)
 		)
 		(property "Value" "Barrel_Jack_MountingPin"
-			(at 46.99 67.056 0)
+			(at 25.908 67.056 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1329,7 +1736,7 @@
 			)
 		)
 		(property "Footprint" "Connector_BarrelJack:BarrelJack_CUI_PJ-102AH_Horizontal"
-			(at 48.26 74.676 0)
+			(at 27.178 74.676 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1338,7 +1745,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 48.26 74.676 0)
+			(at 27.178 74.676 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1347,7 +1754,7 @@
 			)
 		)
 		(property "Description" "DC Barrel Jack with a mounting pin"
-			(at 46.99 73.66 0)
+			(at 25.908 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1375,7 +1782,7 @@
 	)
 	(symbol
 		(lib_id "power:+24V")
-		(at 73.66 70.104 0)
+		(at 80.264 70.104 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1384,7 +1791,7 @@
 		(fields_autoplaced yes)
 		(uuid "295b014c-dadf-42ba-b7a2-fb450a5a0c28")
 		(property "Reference" "#PWR08"
-			(at 73.66 73.914 0)
+			(at 80.264 73.914 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1393,7 +1800,7 @@
 			)
 		)
 		(property "Value" "+24V"
-			(at 73.66 65.659 0)
+			(at 80.264 65.659 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1401,7 +1808,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 73.66 70.104 0)
+			(at 80.264 70.104 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1410,7 +1817,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 73.66 70.104 0)
+			(at 80.264 70.104 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1419,7 +1826,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+24V\""
-			(at 73.66 70.104 0)
+			(at 80.264 70.104 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1441,7 +1848,7 @@
 	)
 	(symbol
 		(lib_id "Switch:SW_SPST")
-		(at 63.5 59.69 0)
+		(at 70.104 59.69 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1449,7 +1856,7 @@
 		(dnp no)
 		(uuid "4b3b84a6-1568-467a-a0eb-e4931776e67a")
 		(property "Reference" "SW9"
-			(at 63.5 56.134 0)
+			(at 70.104 63.246 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1457,7 +1864,7 @@
 			)
 		)
 		(property "Value" "SW_SPST 24V"
-			(at 63.5 55.88 0)
+			(at 70.104 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1465,8 +1872,8 @@
 				(hide yes)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
-			(at 63.5 59.69 0)
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-AM_1x02_P2.50mm_Vertical"
+			(at 70.104 59.69 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1475,7 +1882,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 63.5 59.69 0)
+			(at 70.104 59.69 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1484,7 +1891,7 @@
 			)
 		)
 		(property "Description" "Single Pole Single Throw (SPST) switch"
-			(at 63.5 59.69 0)
+			(at 70.104 59.69 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1509,7 +1916,7 @@
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
-		(at 68.58 61.468 270)
+		(at 75.184 61.468 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1518,7 +1925,7 @@
 		(fields_autoplaced yes)
 		(uuid "71a3800c-fc28-41da-89a7-066a45816fce")
 		(property "Reference" "#FLG02"
-			(at 70.485 61.468 0)
+			(at 77.089 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1527,7 +1934,7 @@
 			)
 		)
 		(property "Value" "PWR_FLAG"
-			(at 72.644 61.4679 90)
+			(at 79.248 61.4679 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1536,7 +1943,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 68.58 61.468 0)
+			(at 75.184 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1545,7 +1952,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 68.58 61.468 0)
+			(at 75.184 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1554,7 +1961,7 @@
 			)
 		)
 		(property "Description" "Special symbol for telling ERC where power comes from"
-			(at 68.58 61.468 0)
+			(at 75.184 61.468 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1576,7 +1983,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 100.33 66.675 0)
+		(at 106.934 66.675 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1585,7 +1992,7 @@
 		(fields_autoplaced yes)
 		(uuid "983ee2d1-8195-455b-a81d-3492de2fe1d7")
 		(property "Reference" "#PWR012"
-			(at 100.33 70.485 0)
+			(at 106.934 70.485 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1594,7 +2001,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 100.33 61.595 0)
+			(at 106.934 61.595 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1602,7 +2009,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 100.33 66.675 0)
+			(at 106.934 66.675 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1611,7 +2018,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 100.33 66.675 0)
+			(at 106.934 66.675 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1620,7 +2027,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 100.33 66.675 0)
+			(at 106.934 66.675 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1635,6 +2042,74 @@
 			(project ""
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1fa06de9-ef31-4bec-ac8d-485e9cffdee4"
 					(reference "#PWR012")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Diode:SS34")
+		(at 53.34 71.12 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "dd9fdf76-3371-4a77-8e74-0337b5bd162d")
+		(property "Reference" "D2"
+			(at 53.6575 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SS34"
+			(at 53.6575 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_SMA"
+			(at 53.34 66.675 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.vishay.com/docs/88751/ss32.pdf"
+			(at 53.34 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "40V 3A Schottky Diode, SMA"
+			(at 53.34 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "433b64b7-dafa-4f61-ae83-9c78dec27f09")
+		)
+		(pin "2"
+			(uuid "4398eade-f9e7-464a-8850-162e716f30a4")
+		)
+		(instances
+			(project ""
+				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1fa06de9-ef31-4bec-ac8d-485e9cffdee4"
+					(reference "D2")
 					(unit 1)
 				)
 			)
