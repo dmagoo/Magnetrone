@@ -1,4 +1,4 @@
-# Music Table
+# Magnetrone
 
 A motorized MIDI sequencer built around a rotating platter driven by a stepper motor.
 Magnets placed on the platter pass over Hall effect sensors to trigger MIDI notes,

@@ -1803,7 +1803,7 @@
 	(footprint "MountingHole:MountingHole_3.2mm_M3_ISO7380_Pad_TopBottom"
 		(layer "F.Cu")
 		(uuid "2e2fb419-b594-4ca8-a713-6cdc0553b79e")
-		(at 126.238 138.938)
+		(at 125.8 138.5)
 		(descr "Mounting Hole 3.2mm, M3, ISO7380")
 		(tags "mounting hole 3.2mm m3 iso7380")
 		(property "Reference" "H4"
@@ -1928,14 +1928,14 @@
 	(footprint "MountingHole:MountingHole_3.2mm_M3_ISO7380_Pad_TopBottom"
 		(layer "F.Cu")
 		(uuid "35a5f1d5-bd76-48df-9876-392c817a58e8")
-		(at 55.372 138.938)
+		(at 55.8 138.5)
 		(descr "Mounting Hole 3.2mm, M3, ISO7380")
 		(tags "mounting hole 3.2mm m3 iso7380")
 		(property "Reference" "H3"
 			(at 0 -3.85 0)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "dfc1cd17-720d-4a29-a879-a87281350e3e")
+			(uuid "13b0640d-30f4-404f-9db1-77a37d3ba88d")
 			(effects
 				(font
 					(size 1 1)
@@ -1947,7 +1947,7 @@
 			(at 0 3.85 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "60ec891e-3578-4d91-ba6a-0eb9a4720a52")
+			(uuid "4db57e95-ce74-428b-b5fc-8e93e3145e0c")
 			(effects
 				(font
 					(size 1 1)
@@ -1960,7 +1960,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "84359662-f4a1-4560-865b-eb7407636bcc")
+			(uuid "127e39a0-a48b-4c93-9cf9-1d5608f89666")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1973,7 +1973,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "f31ebf72-3e92-47b7-a87a-69b4abf1c440")
+			(uuid "c6c08aec-63c7-4c23-b395-0b8d67123977")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2053,7 +2053,7 @@
 	(footprint "MountingHole:MountingHole_3.2mm_M3_ISO7380_Pad_TopBottom"
 		(layer "F.Cu")
 		(uuid "462b7693-8eef-4b5e-9923-b5468e4fb07a")
-		(at 126.238 68.072)
+		(at 125.8 68.5)
 		(descr "Mounting Hole 3.2mm, M3, ISO7380")
 		(tags "mounting hole 3.2mm m3 iso7380")
 		(property "Reference" "H2"
@@ -9771,7 +9771,7 @@
 	(footprint "MountingHole:MountingHole_3.2mm_M3_ISO7380_Pad_TopBottom"
 		(layer "F.Cu")
 		(uuid "bf45f88f-4af5-4164-a32b-c1ba331ba807")
-		(at 55.372 68.072)
+		(at 55.8 68.5)
 		(descr "Mounting Hole 3.2mm, M3, ISO7380")
 		(tags "mounting hole 3.2mm m3 iso7380")
 		(property "Reference" "H1"
@@ -30427,6 +30427,12 @@
 				(xy 53.0715 67.921223) (xy 51.3005 67.921223) (xy 51.3005 64.1245) (xy 51.320185 64.057461) (xy 51.372989 64.011706)
 				(xy 51.4245 64.0005) (xy 130.1755 64.0005)
 			)
+		)
+	)
+	(group ""
+		(uuid "c949ace8-c366-49a4-9bff-511040521c5f")
+		(members "2e2fb419-b594-4ca8-a713-6cdc0553b79e" "35a5f1d5-bd76-48df-9876-392c817a58e8"
+			"462b7693-8eef-4b5e-9923-b5468e4fb07a" "bf45f88f-4af5-4164-a32b-c1ba331ba807"
 		)
 	)
 	(group ""
