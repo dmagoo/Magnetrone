@@ -494,7 +494,7 @@
         "microvia_drill": 0.1,
         "name": "+24V",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 1,
+        "priority": 2,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 2.0,
         "via_diameter": 0.6,
@@ -508,9 +508,21 @@
         "microvia_drill": 0.1,
         "name": "+5V",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 0,
+        "priority": 1,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.6,
+        "via_diameter": 0.6,
+        "via_drill": 0.3
+      },
+      {
+        "clearance": 0.2,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
+        "name": "Coil",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": 0,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 1.0,
         "via_diameter": 0.6,
         "via_drill": 0.3
       }
@@ -528,6 +540,10 @@
       {
         "netclass": "+5V",
         "pattern": "+5V"
+      },
+      {
+        "netclass": "Coil",
+        "pattern": "*coil*"
       }
     ]
   },

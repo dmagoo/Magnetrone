@@ -1853,16 +1853,6 @@
 	)
 	(wire
 		(pts
-			(xy 64.77 89.662) (xy 81.534 89.662)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6f3f34c4-25ce-426b-87f3-31918bcdb451")
-	)
-	(wire
-		(pts
 			(xy 88.519 31.75) (xy 88.519 65.532)
 		)
 		(stroke
@@ -2013,6 +2003,16 @@
 	)
 	(wire
 		(pts
+			(xy 64.77 89.408) (xy 81.534 89.408)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bb889472-c739-4552-a668-c734d43cdd62")
+	)
+	(wire
+		(pts
 			(xy 147.574 82.042) (xy 157.48 82.042)
 		)
 		(stroke
@@ -2160,6 +2160,16 @@
 			(type default)
 		)
 		(uuid "dc61c590-b552-4b7b-8d3d-3bfb692157c4")
+	)
+	(wire
+		(pts
+			(xy 64.77 92.202) (xy 81.534 92.202)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "df57c393-812b-4bcb-a0ac-9478400e9eb9")
 	)
 	(wire
 		(pts
@@ -3372,7 +3382,7 @@
 			)
 		)
 		(instances
-			(project "MagnetronController"
+			(project "MagnetroneController"
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a"
 					(page "7")
 				)
@@ -3433,16 +3443,6 @@
 				(justify right)
 			)
 		)
-		(pin "stepper_sleep" input
-			(at 64.77 89.662 0)
-			(uuid "0b4272f4-7c2b-406f-981a-6d1141c006cf")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(pin "stepper_step" input
 			(at 64.77 86.614 0)
 			(uuid "9cdcaa46-296a-4d38-b107-08161772e03e")
@@ -3453,8 +3453,28 @@
 				(justify right)
 			)
 		)
+		(pin "uart_rx" input
+			(at 64.77 89.408 0)
+			(uuid "88ca2e51-2a81-434d-9377-eb0df5f21341")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "uart_tx" input
+			(at 64.77 92.202 0)
+			(uuid "bcf663e0-24ca-4e75-8a97-09927a0390c6")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
 		(instances
-			(project "MagnetronController"
+			(project "MagnetroneController"
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a"
 					(page "4")
 				)
@@ -3516,7 +3536,7 @@
 			)
 		)
 		(instances
-			(project "MagnetronController"
+			(project "MagnetroneController"
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a"
 					(page "6")
 				)
@@ -3668,16 +3688,6 @@
 				(justify left)
 			)
 		)
-		(pin "stepper_sleep" input
-			(at 81.534 89.662 180)
-			(uuid "8797bfa3-d412-4ec2-b348-c422026fe45d")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
 		(pin "encoder_aux1_a" input
 			(at 147.574 89.662 0)
 			(uuid "73641203-2291-48f4-9685-db6a05d5c293")
@@ -3701,36 +3711,6 @@
 		(pin "encoder_aux1_btn" input
 			(at 147.574 94.742 0)
 			(uuid "64c96f53-85df-44b7-8d72-d30337f57074")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "encoder_aux2_a" input
-			(at 147.574 97.282 0)
-			(uuid "746edd96-00c9-4b0a-9884-918dffef08c9")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "encoder_aux2_b" input
-			(at 147.574 99.822 0)
-			(uuid "ff080ff8-b978-4ae9-8242-30b08baf82e4")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "encoder_aux2_btn" input
-			(at 147.574 102.362 0)
-			(uuid "18d5b7c5-6458-48a1-ad3a-a9f9fbbb8105")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3878,8 +3858,28 @@
 				(justify left)
 			)
 		)
+		(pin "stepper_uart_rx" input
+			(at 81.534 89.408 180)
+			(uuid "94fb1c13-d15e-47f8-8e6e-195df4e602b3")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "stepper_uart_tx" input
+			(at 81.534 92.202 180)
+			(uuid "1caa48df-b219-42b4-a337-4268ea9a8cfa")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 		(instances
-			(project "MagnetronController"
+			(project "MagnetroneController"
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a"
 					(page "3")
 				)

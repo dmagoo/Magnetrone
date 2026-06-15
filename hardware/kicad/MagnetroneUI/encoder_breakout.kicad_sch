@@ -1070,10 +1070,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "R10")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "R4")
 					(unit 1)
@@ -1152,10 +1148,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "#PWR029")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "#PWR017")
 					(unit 1)
@@ -1235,10 +1227,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "#PWR026")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "#PWR014")
 					(unit 1)
@@ -1331,10 +1319,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "SW6")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "SW3")
 					(unit 1)
@@ -1414,10 +1398,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "#PWR028")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "#PWR016")
 					(unit 1)
@@ -1498,10 +1478,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "R9")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "R3")
 					(unit 1)
@@ -1581,10 +1557,6 @@
 		)
 		(instances
 			(project "MagnetronUI"
-				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/049b816c-78b4-46e7-959e-55d5048ed891"
-					(reference "#PWR027")
-					(unit 1)
-				)
 				(path "/a200339a-72b8-45b5-a453-e4d4f113bf3a/1cc19acf-c923-4060-8480-daa71618b319"
 					(reference "#PWR015")
 					(unit 1)

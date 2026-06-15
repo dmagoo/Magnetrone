@@ -162,7 +162,7 @@ static void rampUpHoldDown() {
 }
 
 static void smoothRun() {
-    tlog("smooth run: forward, reverse, then freewheel idle (no mid-motion UART/printing)");
+    tlog("smooth run: forward, then reverse (no mid-motion UART/printing)");
 
     digitalWrite(PIN_DIR_TMP, HIGH);   // forward
     rampUpHoldDown();

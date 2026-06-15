@@ -1848,6 +1848,10 @@
 		(uuid "cad4cee5-f4c8-45c1-b5e1-e3bd7dcbde46")
 	)
 	(no_connect
+		(at 100.33 60.96)
+		(uuid "f2596e52-a821-42c7-a2df-ea9a1df4877e")
+	)
+	(no_connect
 		(at 156.21 113.03)
 		(uuid "f3e147fd-19b6-49fb-98eb-12b460221396")
 	)
@@ -2165,16 +2169,6 @@
 	)
 	(wire
 		(pts
-			(xy 92.075 60.96) (xy 100.33 60.96)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d107b2bd-a75a-4792-a79c-6414ef4eaf39")
-	)
-	(wire
-		(pts
 			(xy 91.948 53.34) (xy 100.33 53.34)
 		)
 		(stroke
@@ -2253,6 +2247,28 @@
 			(justify right)
 		)
 		(uuid "03daf1af-6af2-420a-b888-8307072acfbf")
+	)
+	(hierarchical_label "stepper_uart_rx"
+		(shape input)
+		(at 167.132 104.14 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "07f9f180-7e36-4c3b-a2d5-ea63774e7dfd")
+	)
+	(hierarchical_label "stepper_uart_tx"
+		(shape input)
+		(at 167.132 101.6 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "0e4f1458-a13f-46a3-a6a5-4cae88167498")
 	)
 	(hierarchical_label "menu_encoder_btn"
 		(shape input)
@@ -2364,17 +2380,6 @@
 		)
 		(uuid "7806ccc5-d0cc-42af-a78a-b4398801103f")
 	)
-	(hierarchical_label "encoder_aux2_a"
-		(shape input)
-		(at 167.132 106.68 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "7ebbe867-9a73-427c-8272-bcf2ecc0344e")
-	)
 	(hierarchical_label "volume_encoder_btn"
 		(shape input)
 		(at 91.948 99.06 180)
@@ -2430,17 +2435,6 @@
 		)
 		(uuid "9ec0af83-9d8d-47cc-8cc8-3bcc8f6fe007")
 	)
-	(hierarchical_label "stepper_sleep"
-		(shape input)
-		(at 92.075 60.96 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "a244e4ba-110a-4371-b732-8f84e5a61dfb")
-	)
 	(hierarchical_label "volume_encoder_a"
 		(shape input)
 		(at 91.948 93.98 180)
@@ -2485,17 +2479,6 @@
 		)
 		(uuid "b8630c8f-d813-4ec4-bd46-2af689f07253")
 	)
-	(hierarchical_label "encoder_aux2_btn"
-		(shape input)
-		(at 167.132 101.6 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "ba822936-0f19-4561-9100-3a10aa8f18b9")
-	)
 	(hierarchical_label "scl"
 		(shape input)
 		(at 167.005 66.04 0)
@@ -2528,17 +2511,6 @@
 			(justify right)
 		)
 		(uuid "cbea7d54-fbcf-4061-ab41-4eff8b57790c")
-	)
-	(hierarchical_label "encoder_aux2_b"
-		(shape input)
-		(at 167.132 104.14 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "cdbd058d-ffb5-461e-b995-dcd19ba848ba")
 	)
 	(hierarchical_label "menu_encoder_b"
 		(shape input)
