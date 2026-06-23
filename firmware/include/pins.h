@@ -7,14 +7,13 @@
 constexpr int PIN_MIDI_RX       = 0;
 constexpr int PIN_MIDI_TX       = 1;
 
-// Stepper driver (A4988)
+// Stepper driver (TMC2209)
 constexpr int PIN_DIR           = 2;
 constexpr int PIN_DIR_TMP       = 6;    // used for testing as there was a broken teensy pin
 constexpr int PIN_STEP          = 3;
-constexpr int PIN_SLEEP         = 4;    // stepper sleep - not yet implemented, remove if using tmc2209
-constexpr int PIN_ENABLE        = 5;    // rethink if using tmc2209
+constexpr int PIN_ENABLE        = 5;    // stepper_enable
 
-// tmc2209 version: TODO: remove above encoder 2 from schematic, add this
+// TMC2209 UART (Serial8)
 constexpr int PIN_STEPPER_RX   = 34;
 constexpr int PIN_STEPPER_TX   = 35;
 
@@ -31,35 +30,27 @@ constexpr int PIN_SPEED_B       = 25;
 constexpr int PIN_SPEED_BTN     = 37;  // press = stop/resume
 
 // Volume encoderG
-constexpr int PIN_VOL_A         = 27;
-constexpr int PIN_VOL_B         = 28;
-constexpr int PIN_VOL_BTN       = 29;  // press = mute/unmute
+constexpr int PIN_VOL_A         = 29;
+constexpr int PIN_VOL_B         = 27;
+constexpr int PIN_VOL_BTN       = 28;  // press = mute/unmute
 
 // Aux encoder 1 (reserved)
 constexpr int PIN_AUX_ENC_A     = 30;
 constexpr int PIN_AUX_ENC_B     = 31;
 constexpr int PIN_AUX_ENC_BTN   = 32;
 
-// Aux encoder 2 (reserved) // repurpose for tmc2209
-constexpr int PIN_AUX_ENC2_A    = 33;
-constexpr int PIN_AUX_ENC2_B    = 34;  
-constexpr int PIN_AUX_ENC2_BTN  = 35;
-
-
-
-// Aux buttons (reserved)
+// Aux button (reserved)
 constexpr int PIN_AUX_BTN_1     = 36;
-constexpr int PIN_AUX_BTN_2     = 37;
 
 // Hall effect sensors
-constexpr int PIN_HALL_1        = 41;
-constexpr int PIN_HALL_2        = 40;
+constexpr int PIN_HALL_1        = 17;
+constexpr int PIN_HALL_2        = 14;
 constexpr int PIN_HALL_3        = 39;
 constexpr int PIN_HALL_4        = 38;
-constexpr int PIN_HALL_5        = 17;
-constexpr int PIN_HALL_6        = 16;
-constexpr int PIN_HALL_7        = 26;
-constexpr int PIN_HALL_8        = 14;
+constexpr int PIN_HALL_5        = 40;
+constexpr int PIN_HALL_6        = 41;
+constexpr int PIN_HALL_7        = 16;
+constexpr int PIN_HALL_8        = 26;
 
 // I2C - shared bus (LCD + audio shield SGTL5000)
 constexpr int PIN_SDA           = 18;

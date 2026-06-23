@@ -1848,6 +1848,10 @@
 		(uuid "cad4cee5-f4c8-45c1-b5e1-e3bd7dcbde46")
 	)
 	(no_connect
+		(at 156.21 106.68)
+		(uuid "d6a7de4d-139b-461d-91b5-6bd004e916a7")
+	)
+	(no_connect
 		(at 100.33 60.96)
 		(uuid "f2596e52-a821-42c7-a2df-ea9a1df4877e")
 	)
@@ -1886,6 +1890,16 @@
 			(type default)
 		)
 		(uuid "06daa94c-7a15-4b19-b9c1-1fd897868868")
+	)
+	(wire
+		(pts
+			(xy 156.21 78.74) (xy 167.132 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0a03ef81-dcb8-4816-8e14-559e60ab8a4b")
 	)
 	(wire
 		(pts
@@ -1929,16 +1943,6 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 88.9) (xy 167.005 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "335ae37d-d546-46b4-afe2-4b5fe1e6d01c")
-	)
-	(wire
-		(pts
 			(xy 91.948 86.36) (xy 100.33 86.36)
 		)
 		(stroke
@@ -1946,6 +1950,26 @@
 			(type default)
 		)
 		(uuid "39503595-3de7-455f-a793-ef185da435af")
+	)
+	(wire
+		(pts
+			(xy 156.21 88.9) (xy 167.132 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "39ba48a7-3673-48a4-baad-e2d0f42ffc48")
+	)
+	(wire
+		(pts
+			(xy 156.21 73.66) (xy 167.132 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3bbd7ae4-ec23-4d19-a923-083e238a2e69")
 	)
 	(wire
 		(pts
@@ -1979,16 +2003,6 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 86.36) (xy 167.005 86.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "47d8ff24-751c-463a-a88c-bee09abfa3f9")
-	)
-	(wire
-		(pts
 			(xy 92.075 63.5) (xy 100.33 63.5)
 		)
 		(stroke
@@ -2009,7 +2023,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 91.44) (xy 167.005 91.44)
+			(xy 156.21 91.44) (xy 167.132 91.44)
 		)
 		(stroke
 			(width 0)
@@ -2069,7 +2083,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 96.52) (xy 167.132 96.52)
+			(xy 156.21 96.52) (xy 167.259 96.52)
 		)
 		(stroke
 			(width 0)
@@ -2089,7 +2103,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 104.14) (xy 167.132 104.14)
+			(xy 156.21 104.14) (xy 167.259 104.14)
 		)
 		(stroke
 			(width 0)
@@ -2099,37 +2113,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 71.12) (xy 167.005 71.12)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "809e0666-5bc1-4e6b-b5ab-84b4746bec7d")
-	)
-	(wire
-		(pts
-			(xy 156.21 78.74) (xy 167.005 78.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8261275b-4073-4e08-80fc-f5e7afe02d13")
-	)
-	(wire
-		(pts
-			(xy 156.21 106.68) (xy 167.132 106.68)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8b08d6c0-a65d-454b-93fc-b644c961d1cd")
-	)
-	(wire
-		(pts
-			(xy 156.21 99.06) (xy 167.132 99.06)
+			(xy 156.21 99.06) (xy 167.259 99.06)
 		)
 		(stroke
 			(width 0)
@@ -2139,17 +2123,7 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 73.66) (xy 167.005 73.66)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "adb96ac1-a05a-445b-a538-9def1861067b")
-	)
-	(wire
-		(pts
-			(xy 156.21 101.6) (xy 167.132 101.6)
+			(xy 156.21 101.6) (xy 167.259 101.6)
 		)
 		(stroke
 			(width 0)
@@ -2159,13 +2133,23 @@
 	)
 	(wire
 		(pts
-			(xy 156.21 93.98) (xy 167.005 93.98)
+			(xy 156.21 93.98) (xy 167.132 93.98)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "c9a87ad3-922e-44bb-b7a2-411826427bfa")
+	)
+	(wire
+		(pts
+			(xy 156.21 71.12) (xy 167.132 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1ee9c62-6ee4-49d8-bf35-33f9950e3f86")
 	)
 	(wire
 		(pts
@@ -2219,6 +2203,16 @@
 	)
 	(wire
 		(pts
+			(xy 156.21 86.36) (xy 167.132 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3dca0f7-305b-4f6c-a2c9-629ccfa3a7d2")
+	)
+	(wire
+		(pts
 			(xy 156.21 68.58) (xy 167.005 68.58)
 		)
 		(stroke
@@ -2237,6 +2231,17 @@
 		)
 		(uuid "fd9412a0-5adc-4fbc-8d59-58faf0f37818")
 	)
+	(hierarchical_label "hall8"
+		(shape input)
+		(at 91.948 91.44 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "02b58e14-3cae-441d-b892-1dd5cbee4b4e")
+	)
 	(hierarchical_label "encoder_aux1_btn"
 		(shape input)
 		(at 91.948 106.68 180)
@@ -2250,7 +2255,7 @@
 	)
 	(hierarchical_label "stepper_uart_rx"
 		(shape input)
-		(at 167.132 104.14 0)
+		(at 167.259 104.14 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2261,7 +2266,7 @@
 	)
 	(hierarchical_label "stepper_uart_tx"
 		(shape input)
-		(at 167.132 101.6 0)
+		(at 167.259 101.6 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2269,6 +2274,17 @@
 			(justify left)
 		)
 		(uuid "0e4f1458-a13f-46a3-a6a5-4cae88167498")
+	)
+	(hierarchical_label "volume_encoder_btn"
+		(shape input)
+		(at 91.948 96.52 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "2369d981-c457-4729-9e1d-6a705e7b41e1")
 	)
 	(hierarchical_label "menu_encoder_btn"
 		(shape input)
@@ -2283,7 +2299,7 @@
 	)
 	(hierarchical_label "hall4"
 		(shape input)
-		(at 167.005 93.98 0)
+		(at 167.132 93.98 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2292,27 +2308,16 @@
 		)
 		(uuid "34d7546a-5413-48df-ab7b-28d6035201d7")
 	)
-	(hierarchical_label "hall6"
+	(hierarchical_label "volume_encoder_b"
 		(shape input)
-		(at 167.005 73.66 0)
+		(at 91.948 93.98 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
-		(uuid "515e8e6a-ddd4-4a9a-adbf-f9b5f8acbaac")
-	)
-	(hierarchical_label "hall1"
-		(shape input)
-		(at 167.005 86.36 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "58f61d65-30d8-40e6-9912-9a9338a7300d")
+		(uuid "44a52195-d4e2-4108-a3ad-8829127af492")
 	)
 	(hierarchical_label "encoder_aux1_a"
 		(shape input)
@@ -2327,7 +2332,7 @@
 	)
 	(hierarchical_label "hall3"
 		(shape input)
-		(at 167.005 91.44 0)
+		(at 167.132 91.44 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2335,17 +2340,6 @@
 			(justify left)
 		)
 		(uuid "60dddaac-f9c2-4abc-9ea3-8324347cf2cd")
-	)
-	(hierarchical_label "hall5"
-		(shape input)
-		(at 167.005 71.12 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "614fadd1-e121-4d81-ae73-37bdd9fcaa3b")
 	)
 	(hierarchical_label "stepper_step"
 		(shape input)
@@ -2357,6 +2351,17 @@
 			(justify right)
 		)
 		(uuid "6567798a-f785-4b74-9cef-9f2b7a54645e")
+	)
+	(hierarchical_label "volume_encoder_a"
+		(shape input)
+		(at 91.948 99.06 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "69ce1758-bc14-4007-ab2d-5372da4766b3")
 	)
 	(hierarchical_label "speed_encoder_a"
 		(shape input)
@@ -2380,16 +2385,16 @@
 		)
 		(uuid "7806ccc5-d0cc-42af-a78a-b4398801103f")
 	)
-	(hierarchical_label "volume_encoder_btn"
+	(hierarchical_label "hall1"
 		(shape input)
-		(at 91.948 99.06 180)
+		(at 167.132 71.12 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right)
+			(justify left)
 		)
-		(uuid "815a0854-ccd0-4db0-ad5d-72453190ecc7")
+		(uuid "81f067bd-b895-46f8-b55b-a951fab6a30a")
 	)
 	(hierarchical_label "stepper_dir"
 		(shape input)
@@ -2413,6 +2418,17 @@
 		)
 		(uuid "8c2e7ac9-38b4-4658-bdab-f49fa562a91d")
 	)
+	(hierarchical_label "hall6"
+		(shape input)
+		(at 167.132 86.36 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "91b08667-65b1-4763-b5a3-f3e51295d600")
+	)
 	(hierarchical_label "encoder_aux1_b"
 		(shape input)
 		(at 91.948 104.14 180)
@@ -2424,38 +2440,16 @@
 		)
 		(uuid "98373c81-3c53-41c6-876f-eab0c8b873dc")
 	)
-	(hierarchical_label "volume_encoder_b"
+	(hierarchical_label "hall5"
 		(shape input)
-		(at 91.948 96.52 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "9ec0af83-9d8d-47cc-8cc8-3bcc8f6fe007")
-	)
-	(hierarchical_label "volume_encoder_a"
-		(shape input)
-		(at 91.948 93.98 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "a28bc053-55bc-4cad-ad8d-e025a7bfa3d2")
-	)
-	(hierarchical_label "hall8"
-		(shape input)
-		(at 167.005 78.74 0)
+		(at 167.132 88.9 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "a939a333-c0b7-4e02-9829-455f753d25af")
+		(uuid "9da3ed4e-4a78-499a-9b55-23018e332458")
 	)
 	(hierarchical_label "sda"
 		(shape input)
@@ -2467,17 +2461,6 @@
 			(justify left)
 		)
 		(uuid "b05e86f8-a73c-4ecf-a5c0-dee9b5e615fc")
-	)
-	(hierarchical_label "hall7"
-		(shape input)
-		(at 91.948 91.44 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "b8630c8f-d813-4ec4-bd46-2af689f07253")
 	)
 	(hierarchical_label "scl"
 		(shape input)
@@ -2523,9 +2506,20 @@
 		)
 		(uuid "df0efee3-714d-4dbb-9515-76db7854472d")
 	)
+	(hierarchical_label "hall7"
+		(shape input)
+		(at 167.132 73.66 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "e39d0453-2fa7-4644-b6d6-b14f69a4c2d2")
+	)
 	(hierarchical_label "speed_encoder_btn"
 		(shape input)
-		(at 167.132 96.52 0)
+		(at 167.259 96.52 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2534,9 +2528,20 @@
 		)
 		(uuid "e5c8f09c-79f1-42b9-b2c7-0603e7c4c652")
 	)
+	(hierarchical_label "hall2"
+		(shape input)
+		(at 167.132 78.74 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "edc640bc-a68a-4ca7-8667-1ec7a867ad78")
+	)
 	(hierarchical_label "aux1_btn"
 		(shape input)
-		(at 167.132 99.06 0)
+		(at 167.259 99.06 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2555,17 +2560,6 @@
 			(justify right)
 		)
 		(uuid "f3f4c8cd-cfab-4724-9ad8-95a3fc5e4320")
-	)
-	(hierarchical_label "hall2"
-		(shape input)
-		(at 167.005 88.9 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "fb217263-5c53-4e9e-8384-b541f8a5947c")
 	)
 	(symbol
 		(lib_id "teensy:Teensy4.1")
@@ -2592,7 +2586,7 @@
 				)
 			)
 		)
-		(property "Footprint" "teensy:Teensy41"
+		(property "Footprint" "magnetrone:Teensy41_AudioShield_RevD"
 			(at 118.11 92.71 0)
 			(effects
 				(font

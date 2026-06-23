@@ -1556,6 +1556,14 @@
 		(uuid "0fda98fb-21e3-40c2-9653-df85c5d65174")
 	)
 	(no_connect
+		(at 170.18 94.742)
+		(uuid "148200dc-087c-42bb-8294-8e8a87b92f3c")
+	)
+	(no_connect
+		(at 170.18 89.662)
+		(uuid "1c919c6c-eed3-4518-9d75-e14f298fde8d")
+	)
+	(no_connect
 		(at 170.18 71.882)
 		(uuid "541f56db-2f0c-4d19-9fbd-f49fec05f364")
 	)
@@ -1566,6 +1574,10 @@
 	(no_connect
 		(at 170.18 87.122)
 		(uuid "6f3c860e-c0fc-4b03-99b7-9687e3d70f95")
+	)
+	(no_connect
+		(at 170.18 92.202)
+		(uuid "aea5894d-a775-4b06-bf0e-c3cfba519f9a")
 	)
 	(no_connect
 		(at 170.18 82.042)
@@ -1623,16 +1635,6 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 89.662) (xy 173.99 102.362)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "126fbf32-3126-42ab-8df5-a71911012eee")
-	)
-	(wire
-		(pts
 			(xy 111.379 46.99) (xy 111.379 65.532)
 		)
 		(stroke
@@ -1653,26 +1655,6 @@
 	)
 	(wire
 		(pts
-			(xy 171.9743 99.822) (xy 171.9743 92.202)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "19191fd9-6484-442f-80c4-c949373d677d")
-	)
-	(wire
-		(pts
-			(xy 147.574 97.282) (xy 170.18 97.282)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "22974d5e-7149-4c91-b340-777a467caa80")
-	)
-	(wire
-		(pts
 			(xy 84.709 29.21) (xy 84.709 65.532)
 		)
 		(stroke
@@ -1683,16 +1665,6 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 102.362) (xy 147.574 102.362)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2c039921-5198-45c9-9a88-0aff92fcbfe3")
-	)
-	(wire
-		(pts
 			(xy 64.77 83.566) (xy 81.534 83.566)
 		)
 		(stroke
@@ -1700,16 +1672,6 @@
 			(type default)
 		)
 		(uuid "2e671cba-1752-44a5-b8a9-8058717f6105")
-	)
-	(wire
-		(pts
-			(xy 170.18 89.662) (xy 173.99 89.662)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "32705cb8-59b2-4a3a-ad98-423813badcaf")
 	)
 	(wire
 		(pts
@@ -1973,16 +1935,6 @@
 	)
 	(wire
 		(pts
-			(xy 147.574 99.822) (xy 171.9743 99.822)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ac8d467a-0672-4f6b-a3fe-d62bd8e665c4")
-	)
-	(wire
-		(pts
 			(xy 136.525 29.21) (xy 142.24 29.21)
 		)
 		(stroke
@@ -2043,16 +1995,6 @@
 	)
 	(wire
 		(pts
-			(xy 170.18 97.282) (xy 170.18 94.742)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c9628429-a6ae-42a9-8e12-9bef6c19cb98")
-	)
-	(wire
-		(pts
 			(xy 181.61 69.342) (xy 170.18 69.342)
 		)
 		(stroke
@@ -2060,16 +2002,6 @@
 			(type default)
 		)
 		(uuid "cb4dda35-02fe-4673-8afb-032a5128d27c")
-	)
-	(wire
-		(pts
-			(xy 171.9743 92.202) (xy 170.18 92.202)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cdf3c72b-6755-4ecb-a6e2-fdab508f1d24")
 	)
 	(wire
 		(pts
@@ -2901,7 +2833,7 @@
 				(hide yes)
 			)
 		)
-		(property "Footprint" "Connector_IDC:IDC-Header_2x13_P2.54mm_Horizontal"
+		(property "Footprint" "Connector_IDC:IDC-Header_2x13_P2.54mm_Vertical"
 			(at 162.56 79.502 0)
 			(effects
 				(font
