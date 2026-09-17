@@ -5,12 +5,12 @@
       "Application": "Pcbnew",
       "Version": "9.0.0"
     },
-    "CreationDate": "2026-06-09T22:05:58-04:00"
+    "CreationDate": "2026-06-23T13:20:14-04:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
-      "Name": "MagnetronSensorArm",
-      "GUID": "4d61676e-6574-4726-9f6e-53656e736f72",
+      "Name": "MagnetroneSensorArm",
+      "GUID": "4d61676e-6574-4726-9f6e-6553656e736f",
       "Revision": "rev?"
     },
     "Size": {
@@ -42,57 +42,57 @@
   ],
   "FilesAttributes": [
     {
-      "Path": "MagnetronSensorArm-F_Cu.gbr",
+      "Path": "MagnetroneSensorArm-F_Cu.gbr",
       "FileFunction": "Copper,L1,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-In1_Cu.gbr",
+      "Path": "MagnetroneSensorArm-In1_Cu.gbr",
       "FileFunction": "Copper,L5,Inr",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-In2_Cu.gbr",
+      "Path": "MagnetroneSensorArm-In2_Cu.gbr",
       "FileFunction": "Copper,L7,Inr",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-B_Cu.gbr",
+      "Path": "MagnetroneSensorArm-B_Cu.gbr",
       "FileFunction": "Copper,L4,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-F_Paste.gbr",
+      "Path": "MagnetroneSensorArm-F_Paste.gbr",
       "FileFunction": "SolderPaste,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-B_Paste.gbr",
+      "Path": "MagnetroneSensorArm-B_Paste.gbr",
       "FileFunction": "SolderPaste,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-F_Silkscreen.gbr",
+      "Path": "MagnetroneSensorArm-F_Silkscreen.gbr",
       "FileFunction": "Legend,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-B_Silkscreen.gbr",
+      "Path": "MagnetroneSensorArm-B_Silkscreen.gbr",
       "FileFunction": "Legend,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronSensorArm-F_Mask.gbr",
+      "Path": "MagnetroneSensorArm-F_Mask.gbr",
       "FileFunction": "SolderMask,Top",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "MagnetronSensorArm-B_Mask.gbr",
+      "Path": "MagnetroneSensorArm-B_Mask.gbr",
       "FileFunction": "SolderMask,Bot",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "MagnetronSensorArm-Edge_Cuts.gbr",
+      "Path": "MagnetroneSensorArm-Edge_Cuts.gbr",
       "FileFunction": "Profile",
       "FilePolarity": "Positive"
     }
@@ -169,7 +169,7 @@
     },
     {
       "Type": "Legend",
-      "Color": "White",
+      "Color": "Yellow",
       "Name": "Bottom Silk Screen"
     }
   ]

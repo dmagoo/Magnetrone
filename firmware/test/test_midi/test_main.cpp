@@ -5,7 +5,8 @@
 //   Terminal: pio test -e teensy41_test_midi
 //
 // WHAT IT DOES:
-//   1. Plays C D E F G out TX on boot -- verify by ear with a connected synth.
+//   1. Plays C D E F G out TX on boot, then repeats it every TX_REPEAT_MS --
+//      verify by ear with a connected synth, no reboot needed between tries.
 //   2. Loop: prints any incoming MIDI bytes to USB serial monitor in hex,
 //      so you can verify RX by sending from an external MIDI device.
 //
@@ -16,6 +17,9 @@
 #include <Arduino.h>
 #include <unity.h>
 #include "pins.h"
+
+// How often loop() replays the TX scale, in ms.
+constexpr uint32_t TX_REPEAT_MS = 3000;
 
 static void midiSendNoteOn(uint8_t note, uint8_t velocity) {
     Serial1.write(0x90);
@@ -29,8 +33,11 @@ static void midiSendNoteOff(uint8_t note) {
     Serial1.write(0x00);
 }
 
-void test_midi_tx() {
-    // Play C D E F G -- verify by ear on a connected synth.
+// Play C D E F G -- verify by ear on a connected synth.
+// Plain function so loop() can call it too; the Unity assertion stays in the
+// RUN_TEST wrapper below. (Calling TEST_PASS() from loop() longjmps into a
+// stack frame that no longer exists -- see the reboot loop in bringup_status.)
+static void playScale() {
     uint8_t notes[] = { 60, 62, 64, 65, 67 };
     for (uint8_t note : notes) {
         midiSendNoteOn(note, 100);
@@ -38,6 +45,10 @@ void test_midi_tx() {
         midiSendNoteOff(note);
         delay(100);
     }
+}
+
+void test_midi_tx() {
+    playScale();
     TEST_PASS();
 }
 
@@ -76,5 +87,15 @@ void loop() {
             Serial.print((millis() - lastRxMs) / 1000);
             Serial.println("s ago");
         }
+    }
+
+    // Replay the scale periodically so TX can be checked without rebooting.
+    // TX and RX are separate pins running full duplex, so this does not
+    // interfere with reception; bytes arriving mid-scale sit in the buffer.
+    static uint32_t lastScaleMs = 0;
+    if (millis() - lastScaleMs >= TX_REPEAT_MS) {
+        Serial.println("-- TX: C D E F G");
+        playScale();
+        lastScaleMs = millis();
     }
 }

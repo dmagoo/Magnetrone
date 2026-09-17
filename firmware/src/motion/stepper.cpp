@@ -1,56 +1,54 @@
 #include "stepper.h"
-#include <Arduino.h>
-#include <IntervalTimer.h>
-#include "pins.h"
-#include "config.h"
+#include "platter.h"
 
-static IntervalTimer stepTimer;
-static volatile bool running    = false;
-static volatile bool stepState  = false;
-static float         currentRPM = 0.0f;
+// Adapter layer. The app still talks to the free-function stepper API because
+// menu.cpp and calibration.cpp are built around it; the implementation behind
+// it is now the Platter class driving the TMC2209 over UART. Keeping the old
+// surface meant those callers did not have to change.
+//
+// The previous A4988 implementation lived here directly: a bare IntervalTimer
+// toggling PIN_STEP with no ramping. Platter adds soft start, slew-limited
+// acceleration and the verified UART bring-up.
 
-static void stepISR() {
-    stepState = !stepState;
-    digitalWrite(PIN_STEP, stepState);
-}
+static Platter platter(Platter::defaultConfig());
+
+// Platter::isStopped() is false before anything has been commanded, so asking
+// it alone would report "running" at boot and turn the first knob press into a
+// stop instead of a start. This tracks whether motion has ever been asked for.
+static bool commanded = false;
 
 void stepperInit() {
-    pinMode(PIN_STEP,   OUTPUT);
-    pinMode(PIN_DIR,    OUTPUT);
-    pinMode(PIN_ENABLE, OUTPUT);
-    pinMode(PIN_SLEEP,  OUTPUT);
-    digitalWrite(PIN_ENABLE, HIGH);  // disabled on boot
-    digitalWrite(PIN_SLEEP,  LOW);   // sleeping on boot
+    platter.begin();
+    // begin() energises the coils. Nothing has been commanded yet, so hold off
+    // the holding torque (and its idle heat) until the first start.
+    platter.disable();
+}
+
+void stepperUpdate() {
+    platter.update();
 }
 
 void stepperStart(float rpm) {
-    rpm = constrain(rpm, MIN_RPM, MAX_RPM);
-    currentRPM = rpm;
-    digitalWrite(PIN_SLEEP,  HIGH);  // wake before enabling
-    digitalWrite(PIN_ENABLE, LOW);
-    // period is half the step period because ISR toggles (two toggles = one step)
-    stepTimer.begin(stepISR, rpmToStepPeriodUs(rpm) / 2);
-    running = true;
+    commanded = true;
+    platter.enable();
+    platter.setRPM(rpm);   // spins up from rest via pull-in + ramp
 }
 
 void stepperStop() {
-    stepTimer.end();
-    digitalWrite(PIN_ENABLE, HIGH);
-    digitalWrite(PIN_SLEEP,  LOW);   // sleep after stopping
-    running = false;
+    // Ramps to rest and keeps the coils energised so the platter holds
+    // position rather than freewheeling. That is Platter's documented choice.
+    platter.stop();
 }
 
 void stepperSetRPM(float rpm) {
-    if (!running) return;
-    rpm = constrain(rpm, MIN_RPM, MAX_RPM);
-    currentRPM = rpm;
-    stepTimer.update(rpmToStepPeriodUs(rpm) / 2);
+    if (!commanded) return;   // matches the old API: no effect until started
+    platter.setRPM(rpm);
 }
 
 bool stepperRunning() {
-    return running;
+    return commanded && !platter.isStopped();
 }
 
 float stepperCurrentRPM() {
-    return currentRPM;
+    return platter.currentRPM();
 }

@@ -1,12 +1,12 @@
 %TF.GenerationSoftware,KiCad,Pcbnew,9.0.0*%
-%TF.CreationDate,2026-06-09T22:05:58-04:00*%
-%TF.ProjectId,MagnetronSensorArm,4d61676e-6574-4726-9f6e-53656e736f72,rev?*%
+%TF.CreationDate,2026-06-23T13:20:12-04:00*%
+%TF.ProjectId,MagnetroneSensorArm,4d61676e-6574-4726-9f6e-6553656e736f,rev?*%
 %TF.SameCoordinates,Original*%
 %TF.FileFunction,Copper,L3,Inr*%
 %TF.FilePolarity,Positive*%
 %FSLAX46Y46*%
 G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
-G04 Created by KiCad (PCBNEW 9.0.0) date 2026-06-09 22:05:58*
+G04 Created by KiCad (PCBNEW 9.0.0) date 2026-06-23 13:20:12*
 %MOMM*%
 %LPD*%
 G01*

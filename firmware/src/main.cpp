@@ -21,6 +21,7 @@ void setup() {
 }
 
 void loop() {
+    stepperUpdate();
     encoderUpdate();
     hallUpdate();
     sequencerUpdate(cfg);

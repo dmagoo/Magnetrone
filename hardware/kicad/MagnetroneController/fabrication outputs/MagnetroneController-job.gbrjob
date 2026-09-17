@@ -5,12 +5,12 @@
       "Application": "Pcbnew",
       "Version": "9.0.0"
     },
-    "CreationDate": "2026-06-09T21:50:51-04:00"
+    "CreationDate": "2026-06-23T12:39:47-04:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
-      "Name": "MagnetronController",
-      "GUID": "4d61676e-6574-4726-9f6e-436f6e74726f",
+      "Name": "MagnetroneController",
+      "GUID": "4d61676e-6574-4726-9f6e-65436f6e7472",
       "Revision": "rev?"
     },
     "Size": {
@@ -36,64 +36,64 @@
       "PadToPad": 0.2,
       "PadToTrack": 0.2,
       "TrackToTrack": 0.2,
-      "MinLineWidth": 0.4,
+      "MinLineWidth": 0.6,
       "TrackToRegion": 0.5,
       "RegionToRegion": 0.5
     }
   ],
   "FilesAttributes": [
     {
-      "Path": "MagnetronController-F_Cu.gbr",
+      "Path": "MagnetroneController-F_Cu.gbr",
       "FileFunction": "Copper,L1,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-In1_Cu.gbr",
+      "Path": "MagnetroneController-In1_Cu.gbr",
       "FileFunction": "Copper,L5,Inr",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-In2_Cu.gbr",
+      "Path": "MagnetroneController-In2_Cu.gbr",
       "FileFunction": "Copper,L7,Inr",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-B_Cu.gbr",
+      "Path": "MagnetroneController-B_Cu.gbr",
       "FileFunction": "Copper,L4,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-F_Paste.gbr",
+      "Path": "MagnetroneController-F_Paste.gbr",
       "FileFunction": "SolderPaste,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-B_Paste.gbr",
+      "Path": "MagnetroneController-B_Paste.gbr",
       "FileFunction": "SolderPaste,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-F_Silkscreen.gbr",
+      "Path": "MagnetroneController-F_Silkscreen.gbr",
       "FileFunction": "Legend,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-B_Silkscreen.gbr",
+      "Path": "MagnetroneController-B_Silkscreen.gbr",
       "FileFunction": "Legend,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronController-F_Mask.gbr",
+      "Path": "MagnetroneController-F_Mask.gbr",
       "FileFunction": "SolderMask,Top",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "MagnetronController-B_Mask.gbr",
+      "Path": "MagnetroneController-B_Mask.gbr",
       "FileFunction": "SolderMask,Bot",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "MagnetronController-Edge_Cuts.gbr",
+      "Path": "MagnetroneController-Edge_Cuts.gbr",
       "FileFunction": "Profile",
       "FilePolarity": "Positive"
     }

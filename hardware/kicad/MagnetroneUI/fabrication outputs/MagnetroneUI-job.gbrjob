@@ -5,12 +5,12 @@
       "Application": "Pcbnew",
       "Version": "9.0.0"
     },
-    "CreationDate": "2026-06-09T17:22:35-04:00"
+    "CreationDate": "2026-06-23T13:12:26-04:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
-      "Name": "MagnetronUI",
-      "GUID": "4d61676e-6574-4726-9f6e-55492e6b6963",
+      "Name": "MagnetroneUI",
+      "GUID": "4d61676e-6574-4726-9f6e-6555492e6b69",
       "Revision": "rev?"
     },
     "Size": {
@@ -34,47 +34,47 @@
   ],
   "FilesAttributes": [
     {
-      "Path": "MagnetronUI-F_Cu.gbr",
+      "Path": "MagnetroneUI-F_Cu.gbr",
       "FileFunction": "Copper,L1,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronUI-B_Cu.gbr",
+      "Path": "MagnetroneUI-B_Cu.gbr",
       "FileFunction": "Copper,L2,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronUI-F_Paste.gbr",
+      "Path": "MagnetroneUI-F_Paste.gbr",
       "FileFunction": "SolderPaste,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronUI-B_Paste.gbr",
+      "Path": "MagnetroneUI-B_Paste.gbr",
       "FileFunction": "SolderPaste,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronUI-F_Silkscreen.gbr",
+      "Path": "MagnetroneUI-F_Silkscreen.gbr",
       "FileFunction": "Legend,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronUI-B_Silkscreen.gbr",
+      "Path": "MagnetroneUI-B_Silkscreen.gbr",
       "FileFunction": "Legend,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "MagnetronUI-F_Mask.gbr",
+      "Path": "MagnetroneUI-F_Mask.gbr",
       "FileFunction": "SolderMask,Top",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "MagnetronUI-B_Mask.gbr",
+      "Path": "MagnetroneUI-B_Mask.gbr",
       "FileFunction": "SolderMask,Bot",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "MagnetronUI-Edge_Cuts.gbr",
+      "Path": "MagnetroneUI-Edge_Cuts.gbr",
       "FileFunction": "Profile",
       "FilePolarity": "Positive"
     }
@@ -125,7 +125,7 @@
     },
     {
       "Type": "Legend",
-      "Color": "White",
+      "Color": "Yellow",
       "Name": "Bottom Silk Screen"
     }
   ]

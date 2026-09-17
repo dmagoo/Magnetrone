@@ -70,6 +70,7 @@ static uint16_t sampleBaseline() {
     uint32_t start = millis();
 
     while (millis() - start < BASELINE_SAMPLE_MS) {
+        stepperUpdate();   // this loop blocks main loop(); the ramp still needs servicing
         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
             sum += rawRead(i);
             count++;
@@ -121,6 +122,7 @@ static CalibrationStatus detectMagnet(
     uint32_t deadline = millis() + DETECT_TIMEOUT_MS;
 
     while (millis() < deadline) {
+        stepperUpdate();   // this loop blocks main loop(); the ramp still needs servicing
         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
             uint16_t val = rawRead(i);
             uint16_t dev = deviation(val, baseline);

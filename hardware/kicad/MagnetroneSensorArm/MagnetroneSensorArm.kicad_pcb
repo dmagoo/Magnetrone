@@ -225,7 +225,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/96c4bdc1-720b-4357-b0c7-9fc0f43eee24")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -482,7 +482,7 @@
 		(property ki_fp_filters "MountingHole*Pad*")
 		(path "/10c68eaa-13dd-471e-be51-dfdb544d4232")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
@@ -606,7 +606,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/c001f435-b4af-44af-a2f0-db91c1533352")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -862,7 +862,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/09b07837-6206-4a40-b282-be5b7b763868")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -1118,7 +1118,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/30f9696e-a9f5-4f6a-81df-5b516f984d55")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -1374,7 +1374,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/0286575c-2248-42f9-9b59-2a9fac41c894")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -1630,7 +1630,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/9636f2d7-b00c-4e45-990e-029a3438e36f")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -1886,7 +1886,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/834a9175-ee4f-4748-b9a7-39c3898d4c46")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -2142,7 +2142,7 @@
 		(property ki_fp_filters "SOT?23W*")
 		(path "/840d122a-0f60-440d-8b5a-19268c4a38f8")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 1.075 -1.61)
@@ -2398,7 +2398,7 @@
 		(property ki_fp_filters "Connector*:*_2x??_*")
 		(path "/d368ad64-79b6-431d-a450-661927a942f7")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.29 15.37)
@@ -2917,7 +2917,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/152eeecc-384a-4c19-bb48-91bd5726a411")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -3112,7 +3112,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/fc64e569-3225-4f4b-b221-cdd2f3b398e5")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -3307,7 +3307,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/4abb5a0a-ec45-44df-a044-c7b46b6cee89")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -3502,7 +3502,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/a834d203-aa3f-49d0-af0d-edacd427e284")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -3697,7 +3697,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/ca46209b-23e4-4fe9-9b9f-447163de7656")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -3892,7 +3892,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/20d1891d-9f45-48e5-8116-8034b5f4e9d1")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -4087,7 +4087,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/b3b32913-ffe4-4a01-9086-148104ea594b")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -4283,7 +4283,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/54f6eb09-168f-4791-b671-e9c449112593")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -4491,7 +4491,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/58cfca8e-5f29-4d04-ade9-febe3a6d861c")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -4698,7 +4698,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/0ff4c05e-2835-487f-8ab7-60e3b1883c81")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -4894,7 +4894,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/8de053ba-3027-4bab-a2d7-6d316c0e815f")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -5102,7 +5102,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/aec8bbaf-97c6-4118-9bb3-2b5c7daa9c70")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -5309,7 +5309,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/86efb12f-8fdb-4c86-960e-a124df0cdf68")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -5516,7 +5516,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/467b25ba-d6b9-405f-9da5-b3bdf37f1b19")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -5711,7 +5711,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/642be864-5331-470c-b345-ccb080562262")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -5907,7 +5907,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/05a785b3-df4d-4206-ae2b-94deaafc6efa")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -6114,7 +6114,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/15dba692-9dbd-4ba3-b2f0-11103c9f7519")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -6310,7 +6310,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/01a2ec37-34a0-4a27-b6ef-5d6bb8e9ef47")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -6518,7 +6518,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/969c2bd2-0b85-42ba-a958-2bcf9e1b3e2d")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -6725,7 +6725,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/f3a71b80-bc07-4e7a-b846-1b562db0d78a")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -6921,7 +6921,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/9a9a792d-fffa-4e35-ae1d-2574dde32d35")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 -0.735)
@@ -7128,7 +7128,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/a8f26743-0582-4e5f-92b3-e7e2d25919d1")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -7323,7 +7323,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/5d804448-1869-4fc2-b8ef-f728d47acf19")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
@@ -7519,7 +7519,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/365a7d4f-cd73-43c7-b677-2665b69cb310")
 		(sheetname "/")
-		(sheetfile "MagnetronSensorArm.kicad_sch")
+		(sheetfile "MagnetroneSensorArm.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.227064 -0.735)
