@@ -25,12 +25,17 @@ turning physical arrangement into musical pattern.
   Outer flips it end to end
 - 1 revolution = 1 bar; BPM tracks RPM automatically
 - Root note, scale, and octave selectable from LCD menu
-- Speed and volume adjustable live at any time via dedicated encoders
+- Speed and volume adjustable live at any time via dedicated encoders; touching
+  either one returns to the live display from any menu (prompts excepted)
+- Menu knob opens the main menu from the live display by turning or pressing;
+  the menu button leaves the Aux screens straight back to the live display
 - Welcome tune plays on boot -- previews what Layer A's tracks play, hall 1 to 8
-  and back, including its octave offset, Track Shift, Wrap and Low Note
+  and back, including its octave offset, Track Shift, Wrap and Low Note; a menu
+  button press skips it
 - LCD backlight timeout: configurable from always off to always on
 - Stepper motor sleeps when idle to reduce heat and power draw
-- Calibration routine measures magnet signal and actual platter RPM
+- Calibration routine measures magnet signal and actual platter RPM, and shows
+  the measured belt reduction (e.g. "Belt 10.9:1") against the assumed 11:1
 - Reset Calibration and Reset to Defaults available from the menu
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1

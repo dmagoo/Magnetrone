@@ -78,3 +78,11 @@ EncoderEvent encoderEvents() {
     pending = {};
     return e;
 }
+
+// For blocking code (the welcome tune) that only listens for a menu press.
+// Everything else stays pending for menuUpdate() to handle afterwards.
+bool encoderTakeMenuPress() {
+    bool pressed = pending.menuPressed;
+    pending.menuPressed = false;
+    return pressed;
+}

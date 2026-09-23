@@ -243,9 +243,13 @@ static void stopAndSettle() {
 // ---------------------------------------------------------------------------
 
 CalibrationStatus calibrationRun(SavedConfig& cfg) {
-    // Run motor at our best-guess DEFAULT_RPM.
-    // We do not apply rpmCorrection here because calibration IS what produces
-    // the correction factor. On a first run, 1.0 is the best we have.
+    // Run motor at our best-guess DEFAULT_RPM, with NO correction applied.
+    // stepperStart() divides by whatever correction is in force, so without
+    // this a second calibration would time an already-corrected speed, measure
+    // ~1.0 and store it, undoing the first. Calibration IS what produces the
+    // correction, so it has to measure the raw GEAR_RATIO assumption. The old
+    // value is put back below if calibration fails.
+    stepperSetCorrection(1.0f);
     stepperStart(DEFAULT_RPM);
 
     // Phase 1: establish per-sensor baselines with no magnets.
@@ -262,6 +266,9 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     stopAndSettle();
 
     if (status != CalibrationStatus::Success) {
+        // cfg is untouched on failure, so it still holds the old correction.
+        stepperSetCorrection(cfg.rpmCorrection);
+
         // Show a brief error. The caller (menu) decides what to do next.
         switch (status) {
             case CalibrationStatus::TimeoutNoMagnet:
@@ -294,7 +301,15 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     hallSetCalibration(baselines, threshold);
     hallSetPolarity(polarity);
 
-    menuMessage("Calibrated!", "");
+    // Report the measured belt reduction so it can be compared against the
+    // assumed GEAR_RATIO. The motor turned at DEFAULT_RPM * GEAR_RATIO and the
+    // platter at DEFAULT_RPM * rpmCorrection, so motor revs per platter rev is
+    // GEAR_RATIO / rpmCorrection. Tenths by integer maths, so nothing here
+    // depends on %f in snprintf.
+    int  tenths = constrain((int)lroundf((float)GEAR_RATIO * 10.0f / rpmCorrection), 0, 999);
+    char belt[24];   // sized for any int, which silences -Wformat-truncation
+    snprintf(belt, sizeof(belt), "Belt %d.%d:1", tenths / 10, tenths % 10);
+    menuMessage("Calibrated!", belt);
     delay(2000);
 
     return CalibrationStatus::Success;

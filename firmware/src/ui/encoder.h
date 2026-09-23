@@ -18,3 +18,4 @@ struct EncoderEvent {
 void         encoderInit();
 void         encoderUpdate();
 EncoderEvent encoderEvents();   // returns events since last call, clears them
+bool         encoderTakeMenuPress();  // clears and returns only a pending menu press

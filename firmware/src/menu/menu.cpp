@@ -138,8 +138,8 @@ static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
     "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step",
-    "Magnet Pole","Calibration","Reset Cal","Reset All","Back"
-};
+    "Magnet Pole","Calibration","Reset Cal","Reset All","Exit"
+};  // Exit returns to the live display; submenus keep "Back"
 static const uint8_t MAIN_COUNT = 15;
 
 // Which way a passing magnet pushes the sensor output. Calibration measures
@@ -459,8 +459,26 @@ static void drawAuxParam(const SavedConfig& cfg) {
 
 // -------------------------------------------------------------------------
 
+// Waits out part of the welcome tune, returning true early if the menu button
+// is pressed. The tune blocks loop(), so this keeps the encoders read and the
+// platter's ramp serviced while it waits. Only the menu press is taken; any
+// other input stays pending for menuUpdate().
+static bool tuneWait(uint32_t ms) {
+    uint32_t start = millis();
+    do {
+        stepperUpdate();
+        encoderUpdate();
+        if (encoderTakeMenuPress()) return true;
+        delay(1);
+    } while (millis() - start < ms);
+    return false;
+}
+
 // Plays each sensor's Layer A note, hall 1 to hall 8 and back, at current BPM.
-// Blocking -- returns when the last note's release has finished.
+// Blocking -- returns when the last note's release has finished, or at once if
+// the menu button is pressed. A slow saved tempo makes the full tune long, and
+// the press is the way to skip it. The caller carries on as if it had finished,
+// so a cancel skips only the tune, never a prompt that follows it.
 static void playWelcomeTune(const SavedConfig& cfg) {
     int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
     bpm = constrain(bpm, 40, 200);
@@ -475,33 +493,39 @@ static void playWelcomeTune(const SavedConfig& cfg) {
 
     // Each step is what that sensor plays on Layer A, Track Shift, Wrap, Low
     // Note and octave offset included, so the tune previews the table. A kit
-    // voice plays its drums.
-    auto step = [&](uint8_t i) {
+    // voice plays its drums. Returns true if cancelled; the note is still
+    // turned off, so a cancel never leaves one hanging.
+    auto step = [&](uint8_t i) -> bool {
         uint8_t degree = layerDegree(cfg, LAYER_A, i);
+        bool cancelled;
         if (kit) {
             uint8_t sounded = midiDrumOn(channel, degree, 100);
-            delay(noteMs);
+            cancelled = tuneWait(noteMs);
             midiDrumOff(channel, sounded);
         } else {
             uint8_t note = scaleNote(cfg.root, cfg.scale, degree, (uint8_t)octave);
             uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
-            delay(noteMs);
+            cancelled = tuneWait(noteMs);
             midiNoteOff(LAYER_A, channel, sounded);
         }
-        delay(beatMs - noteMs);
+        return cancelled || tuneWait(beatMs - noteMs);
     };
 
     // Forward pass.
-    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) step(i);
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        if (step(i)) return;
+    }
 
     // Pause for one beat.
-    delay(beatMs);
+    if (tuneWait(beatMs)) return;
 
     // Reverse pass.
-    for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) step((uint8_t)i);
+    for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) {
+        if (step((uint8_t)i)) return;
+    }
 
     // Let the last note's release tail finish.
-    delay(400);
+    tuneWait(400);
 }
 
 // -------------------------------------------------------------------------
@@ -609,17 +633,31 @@ void menuUpdate(SavedConfig& cfg) {
         needsRedraw = true;
     }
 
-    // menu activity tracking + timeout
-    //
-    // Prompts are exempt. They ask you to go and do something physical (place a
-    // magnet, decide about wiping settings), which reliably takes longer than
-    // MENU_TIMEOUT_MS, and having the question vanish mid-task is the bug in
-    // todo.md. They stay put until answered.
+    // Prompts are questions waiting on an answer. Neither the menu timeout nor
+    // a brushed speed or volume knob may dismiss one: they ask you to go and do
+    // something physical (place a magnet, decide about wiping settings), which
+    // reliably takes longer than MENU_TIMEOUT_MS, and having the question
+    // vanish mid-task is the bug in todo.md. They stay put until answered.
     bool isPrompt = (state == MenuState::FirstBootPrompt ||
                      state == MenuState::CalibrationPrompt ||
                      state == MenuState::CalibrationRunning ||
                      state == MenuState::ResetCalPrompt ||
                      state == MenuState::ResetAllPrompt);
+
+    // Speed and volume act from any screen (above), but their feedback lives
+    // on the status line, so touching either one -- turn or press -- brings
+    // the live display back from the menus and the Aux screens. Any menu or
+    // aux input in the same pass is dropped, since it was aimed at the screen
+    // that just closed.
+    bool liveKnob = ev.speedDelta != 0 || ev.speedPressed ||
+                    ev.volumeDelta != 0 || ev.volumePressed;
+    if (liveKnob && state != MenuState::Status && !isPrompt) {
+        enterState(MenuState::Status);
+        ev.menuDelta = 0;  ev.menuPressed = false;
+        ev.auxDelta  = 0;  ev.auxPressed  = false;
+    }
+
+    // menu activity tracking + timeout
 
     // The aux screens are driven by the aux knob, which this timer does not
     // watch, and they are used mid-performance. Timing out would yank the
@@ -638,7 +676,10 @@ void menuUpdate(SavedConfig& cfg) {
     switch (state) {
 
         case MenuState::Status:
-            if (ev.menuPressed) {
+            if (ev.menuPressed || ev.menuDelta != 0) {
+                // Turning the menu knob opens the menu the same as pressing it:
+                // cursor at the top, the detent discarded, like the aux knob's
+                // first step.
                 enterState(MenuState::MainMenu);
             } else if (ev.auxPressed) {
                 // Straight to the Fn list, with the current binding selected --
@@ -655,7 +696,14 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        // On both Aux screens the menu button bails straight to the live
+        // display, whichever way the screen was reached. The menu knob stays
+        // ignored here; the button is the way out.
         case MenuState::AuxFnSelect:
+            if (ev.menuPressed) {
+                enterState(MenuState::Status);
+                break;
+            }
             if (ev.auxDelta) {
                 cursor = (uint8_t)((cursor + ev.auxDelta + AUX_FN_SELECT_COUNT) % AUX_FN_SELECT_COUNT);
                 needsRedraw = true;
@@ -685,6 +733,10 @@ void menuUpdate(SavedConfig& cfg) {
             break;
 
         case MenuState::AuxParam:
+            if (ev.menuPressed) {
+                enterState(MenuState::Status);
+                break;
+            }
             if (ev.auxDelta) {
                 auxApplyDelta(cfg, ev.auxDelta);   // applied instantly, RAM only
                 needsRedraw = true;
