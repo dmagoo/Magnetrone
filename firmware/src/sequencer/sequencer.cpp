@@ -7,6 +7,9 @@
 
 struct NoteState {
     bool     active;
+    // The note number that was actually EMITTED, after the global pitch offset
+    // was applied. Stored rather than recomputed, because the offset can move
+    // between Note On and Note Off and the two must match or the note hangs.
     uint8_t  note;
     uint32_t offTime;   // millis() when Note Off should fire
 };
@@ -37,9 +40,8 @@ void sequencerUpdate(const SavedConfig& cfg) {
             midiNoteOff(notes[i].note);
         }
 
-        midiNoteOn(note, 127);
+        notes[i].note    = midiNoteOn(note, 127);
         notes[i].active  = true;
-        notes[i].note    = note;
         notes[i].offTime = now + NOTE_DURATION_MS;
     }
 }

@@ -1,28 +1,79 @@
 #include "midi.h"
 #include <Arduino.h>
+#include <math.h>
 #include "config.h"
 #include "audio/audio.h"
+#include "sequencer/pitch.h"
+
+// How far a full pitch bend travels on the receiver, in semitones. Announced
+// via RPN 0 at init so both ends agree; the default in the MIDI spec is 2.
+static uint8_t bendRangeSemis = 2;
 
 void midiInit() {
     Serial1.begin(31250);
+    midiSetBendRange(bendRangeSemis);
+    midiSetBend(0.0f);
 }
 
 void midiUpdate() {
     // MIDI input handling goes here (future)
 }
 
-void midiNoteOn(uint8_t note, uint8_t velocity) {
+uint8_t midiNoteOn(uint8_t note, uint8_t velocity) {
+    // Whole semitones of the global offset move the note number; the remainder
+    // rides on the channel bend, which pitch.cpp keeps current.
+    int shifted = (int)note + pitchNoteShift();
+    uint8_t out = (uint8_t)constrain(shifted, 0, 127);
+
     Serial1.write(0x90 | (MIDI_CHANNEL - 1));
-    Serial1.write(note & 0x7F);
+    Serial1.write(out & 0x7F);
     Serial1.write(velocity & 0x7F);
-    audioNoteOn(note, velocity);
+
+    // The internal synth has no such limitation: give it the exact frequency,
+    // microtones and all, keyed to the same note number so Note Off matches.
+    audioNoteOnFreq(out, velocity, pitchHz(note));
+    return out;
 }
 
-void midiNoteOff(uint8_t note) {
+void midiNoteOff(uint8_t emittedNote) {
     Serial1.write(0x80 | (MIDI_CHANNEL - 1));
-    Serial1.write(note & 0x7F);
+    Serial1.write(emittedNote & 0x7F);
     Serial1.write(0x00);
-    audioNoteOff(note);
+    audioNoteOff(emittedNote);
+}
+
+// ---------------------------------------------------------------------------
+// Pitch bend
+// ---------------------------------------------------------------------------
+
+void midiSetBend(float semitones) {
+    if (bendRangeSemis == 0) return;
+
+    // 14-bit, centre 8192, full scale 0..16383.
+    float norm = semitones / (float)bendRangeSemis;      // -1.0 .. +1.0
+    norm = constrain(norm, -1.0f, 1.0f);
+
+    int value = 8192 + (int)lroundf(norm * 8191.0f);
+    value = constrain(value, 0, 16383);
+
+    Serial1.write(0xE0 | (MIDI_CHANNEL - 1));
+    Serial1.write(value & 0x7F);           // LSB first
+    Serial1.write((value >> 7) & 0x7F);    // then MSB
+}
+
+void midiSetBendRange(uint8_t semitones) {
+    if (semitones == 0) return;
+    bendRangeSemis = semitones;
+
+    // RPN 0 = pitch bend sensitivity. Select the parameter, set it, then park
+    // the RPN at "null" (127/127) so a later stray Data Entry cannot land on it.
+    uint8_t cc = 0xB0 | (MIDI_CHANNEL - 1);
+    Serial1.write(cc); Serial1.write(101); Serial1.write(0);          // RPN MSB
+    Serial1.write(cc); Serial1.write(100); Serial1.write(0);          // RPN LSB
+    Serial1.write(cc); Serial1.write(6);   Serial1.write(semitones);  // data MSB: semitones
+    Serial1.write(cc); Serial1.write(38);  Serial1.write(0);          // data LSB: cents
+    Serial1.write(cc); Serial1.write(101); Serial1.write(127);        // RPN null
+    Serial1.write(cc); Serial1.write(100); Serial1.write(127);
 }
 
 // ---------------------------------------------------------------------------

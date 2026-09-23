@@ -12,6 +12,7 @@
 #include "lcd_chars.h"
 #include "calibration/calibration.h"
 #include "sensors/hall.h"
+#include "sequencer/pitch.h"
 
 static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
@@ -25,6 +26,10 @@ enum class MenuState : uint8_t {
     LcdTimeout,
     BeatsPerRev,
     SensorShift,
+    AuxFnDefault,
+    PitchStep,
+    AuxFnSelect,    // aux knob: choose what the knob modulates
+    AuxParam,       // aux knob: modulate the chosen parameter, live
     CalibrationPrompt,
     CalibrationRunning,
     ResetCalPrompt,
@@ -61,10 +66,37 @@ static const uint8_t OCTAVE_COUNT = 9;
 
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Welcome Tune",
-    "LCD Timeout","Beats/Rev","Track Shift",
+    "LCD Timeout","Beats/Rev","Track Shift","Aux Fn","Pitch Step",
     "Calibration","Reset Cal","Reset All","Back"
 };
-static const uint8_t MAIN_COUNT = 11;
+static const uint8_t MAIN_COUNT = 13;
+
+// -------------------------------------------------------------------------
+// Aux function knob
+// -------------------------------------------------------------------------
+// What the aux knob can be bound to. Order must match AUX_FN_LABELS, and the
+// stored cfg.auxFn is an index into it.
+enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, TrackShift, Pitch, COUNT };
+static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
+
+// The select list carries a trailing Exit; the "set the default" menu carries a
+// trailing Back. Same five names either way.
+static const char* AUX_FN_LABELS[]      = { "Octave","Root Note","Scale","Track Shift","Pitch","Exit" };
+static const char* AUX_FN_MENU_LABELS[] = { "Octave","Root Note","Scale","Track Shift","Pitch","Back" };
+static const uint8_t AUX_FN_LIST_COUNT = AUX_FN_COUNT + 1;
+
+// How far one aux step moves Pitch, as a divisor of a semitone.
+static const uint8_t PITCH_STEP_VALUES[] = { 1, 2, 3, 4, 8 };
+static const char*   PITCH_STEP_LABELS[] = {
+    "1 semitone","1/2 semitone","1/3 semitone","1/4 semitone","1/8 semitone","Back"
+};
+static const uint8_t PITCH_STEP_COUNT = 6;   // 5 options + Back
+
+// Remembers how the parameter screen was reached, because the aux button is
+// always "back" and back means different things on the two paths: straight to
+// the live display if the knob was simply turned there, or up to the Fn list if
+// that is where the parameter screen was entered from.
+static bool auxEnteredFromLive = false;
 
 // Beats per platter revolution. 4 = one revolution is one 4/4 bar.
 static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8 };
@@ -150,6 +182,84 @@ static void drawList(const char** items, uint8_t count, uint8_t cur) {
     }
 }
 
+// Apply one aux knob step to whatever the knob is bound to.
+//
+// RAM ONLY -- deliberately never calls storageSave(). These are live
+// performance moves, not configuration: the saved value is the one you dialled
+// in from the main menu, so a session always starts from a known place instead
+// of wherever the knob happened to be left.
+//
+// Wrap vs clamp follows the shape of the value: wrap anything cyclic, clamp
+// anything that is a magnitude. Octave is the only magnitude here, and wrapping
+// 7 back to 0 would be a seven-octave jump mid-performance.
+static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
+    switch ((AuxFn)cfg.auxFn) {
+        case AuxFn::Octave: {
+            int v = (int)cfg.octave + delta;
+            cfg.octave = (uint8_t)constrain(v, 0, 7);          // clamp: a range
+            break;
+        }
+        case AuxFn::RootNote: {
+            int v = ((int)cfg.root + delta) % 12;
+            if (v < 0) v += 12;
+            cfg.root = (RootNote)v;                            // wrap: a circle
+            break;
+        }
+        case AuxFn::ScaleFn: {
+            int n = (int)Scale::COUNT;
+            int v = ((int)cfg.scale + delta) % n;
+            if (v < 0) v += n;
+            cfg.scale = (Scale)v;                              // wrap: a list
+            break;
+        }
+        case AuxFn::TrackShift: {
+            int v = ((int)cfg.sensorShift + delta) % NUM_HALL_SENSORS;
+            if (v < 0) v += NUM_HALL_SENSORS;
+            cfg.sensorShift = (int8_t)v;                       // wrap: a rotation
+            break;
+        }
+        case AuxFn::Pitch: {
+            uint8_t div = cfg.pitchStepDiv ? cfg.pitchStepDiv : 1;
+            pitchAdjust((float)delta / (float)div);
+            break;
+        }
+        default: break;
+    }
+}
+
+// Two lines: what the knob is bound to, and where that parameter sits now.
+// A list would imply a cursor you have to commit, and nothing here is committed
+// -- every step has already been applied by the time it is drawn.
+static void drawAuxParam(const SavedConfig& cfg) {
+    lcdLine(0, "%-16s", AUX_FN_LABELS[cfg.auxFn]);
+
+    switch ((AuxFn)cfg.auxFn) {
+        case AuxFn::Octave:
+            lcdLine(1, "Octave %d", cfg.octave);
+            break;
+        case AuxFn::RootNote:
+            lcdLine(1, "%s", ROOT_ITEMS[(uint8_t)cfg.root]);
+            break;
+        case AuxFn::ScaleFn:
+            lcdLine(1, "%s", SCALE_ITEMS[(uint8_t)cfg.scale]);
+            break;
+        case AuxFn::TrackShift:
+            lcdLine(1, "Shift %d", cfg.sensorShift);
+            break;
+        case AuxFn::Pitch: {
+            // Shown in cents rather than semitones so fractional steps read
+            // sensibly, and so nothing here depends on %f in snprintf.
+            int cents = (int)lroundf(pitchGetOffset() * 100.0f);
+            lcdLine(1, "%+d cents", cents);
+            break;
+        }
+        default:
+            lcdLine(1, "");
+            break;
+    }
+}
+
+
 // -------------------------------------------------------------------------
 
 // Plays each scale degree in order then in reverse at current BPM.
@@ -165,9 +275,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     // Forward pass.
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         uint8_t note = scaleNote(cfg.root, cfg.scale, i, cfg.octave);
-        midiNoteOn(note, 100);
+        uint8_t sounded = midiNoteOn(note, 100);
         delay(NOTE_DURATION_MS);
-        midiNoteOff(note);
+        midiNoteOff(sounded);
         if (beatMs > NOTE_DURATION_MS) delay(beatMs - NOTE_DURATION_MS);
     }
 
@@ -177,9 +287,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     // Reverse pass.
     for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) {
         uint8_t note = scaleNote(cfg.root, cfg.scale, (uint8_t)i, cfg.octave);
-        midiNoteOn(note, 100);
+        uint8_t sounded = midiNoteOn(note, 100);
         delay(NOTE_DURATION_MS);
-        midiNoteOff(note);
+        midiNoteOff(sounded);
         if (beatMs > NOTE_DURATION_MS) delay(beatMs - NOTE_DURATION_MS);
     }
 
@@ -286,8 +396,15 @@ void menuUpdate(SavedConfig& cfg) {
                      state == MenuState::ResetCalPrompt ||
                      state == MenuState::ResetAllPrompt);
 
+    // The aux screens are driven by the aux knob, which this timer does not
+    // watch, and they are used mid-performance. Timing out would yank the
+    // player back to the live display between moves. The aux button is already
+    // the way out.
+    bool isAux = (state == MenuState::AuxFnSelect ||
+                  state == MenuState::AuxParam);
+
     if (ev.menuDelta != 0 || ev.menuPressed) lastActivity = millis();
-    if (state != MenuState::Status && !isPrompt &&
+    if (state != MenuState::Status && !isPrompt && !isAux &&
         millis() - lastActivity > MENU_TIMEOUT_MS) {
         enterState(MenuState::Status);
     }
@@ -296,7 +413,52 @@ void menuUpdate(SavedConfig& cfg) {
     switch (state) {
 
         case MenuState::Status:
-            if (ev.menuPressed) enterState(MenuState::MainMenu);
+            if (ev.menuPressed) {
+                enterState(MenuState::MainMenu);
+            } else if (ev.auxPressed) {
+                // Straight to the Fn list, with the current binding selected --
+                // this is also how you check what the knob is bound to, since
+                // the live display has no room to show it.
+                auxEnteredFromLive = false;
+                enterState(MenuState::AuxFnSelect, cfg.auxFn);
+            } else if (ev.auxDelta != 0) {
+                // The first step only opens the parameter screen; it shows the
+                // current value unchanged and modulating starts from the next
+                // step. The delta is deliberately discarded here.
+                auxEnteredFromLive = true;
+                enterState(MenuState::AuxParam);
+            }
+            break;
+
+        case MenuState::AuxFnSelect:
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + AUX_FN_LIST_COUNT) % AUX_FN_LIST_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor >= AUX_FN_COUNT) {          // "Exit"
+                    enterState(MenuState::Status);
+                } else {
+                    // Rebinding IS saved -- it changes rarely, unlike the values
+                    // the knob modulates.
+                    cfg.auxFn = cursor;
+                    storageSave(cfg);
+                    auxEnteredFromLive = false;
+                    enterState(MenuState::AuxParam);
+                }
+            }
+            break;
+
+        case MenuState::AuxParam:
+            if (ev.auxDelta) {
+                auxApplyDelta(cfg, ev.auxDelta);   // applied instantly, RAM only
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                // The button is always "back", and back depends on how we got here.
+                if (auxEnteredFromLive) enterState(MenuState::Status);
+                else                    enterState(MenuState::AuxFnSelect, cfg.auxFn);
+            }
             break;
 
         case MenuState::MainMenu:
@@ -333,10 +495,20 @@ void menuUpdate(SavedConfig& cfg) {
                     }
                     case 6: enterState(MenuState::SensorShift,
                                 (uint8_t)constrain(cfg.sensorShift, 0, 7)); break;
-                    case 7: enterState(MenuState::CalibrationPrompt); break;
-                    case 8: enterState(MenuState::ResetCalPrompt); break;
-                    case 9: enterState(MenuState::ResetAllPrompt); break;
-                    case 10: enterState(MenuState::Status); break;
+                    case 7: enterState(MenuState::AuxFnDefault,
+                                (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1)); break;
+                    case 8: {
+                        uint8_t idx = 0;
+                        for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
+                            if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
+                        }
+                        enterState(MenuState::PitchStep, idx);
+                        break;
+                    }
+                    case 9:  enterState(MenuState::CalibrationPrompt); break;
+                    case 10: enterState(MenuState::ResetCalPrompt); break;
+                    case 11: enterState(MenuState::ResetAllPrompt); break;
+                    case 12: enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -442,17 +614,45 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::AuxFnDefault:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + AUX_FN_LIST_COUNT) % AUX_FN_LIST_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < AUX_FN_COUNT) {   // last entry is Back
+                    cfg.auxFn = cursor;
+                    storageSave(cfg);
+                }
+                enterState(MenuState::MainMenu, 7);
+            }
+            break;
+
+        case MenuState::PitchStep:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + PITCH_STEP_COUNT) % PITCH_STEP_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < PITCH_STEP_COUNT - 1) {   // last entry is Back
+                    cfg.pitchStepDiv = PITCH_STEP_VALUES[cursor];
+                    storageSave(cfg);
+                }
+                enterState(MenuState::MainMenu, 8);
+            }
+            break;
+
         case MenuState::CalibrationPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 7);
+                else enterState(MenuState::MainMenu, 9);
             }
             break;
 
         case MenuState::CalibrationRunning: {
             calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 7);
+            enterState(MenuState::MainMenu, 9);
             break;
         }
 
@@ -471,7 +671,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 8);
+                enterState(MenuState::MainMenu, 10);
             }
             break;
 
@@ -487,7 +687,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 9);
+                enterState(MenuState::MainMenu, 11);
             }
             break;
     }
@@ -522,6 +722,18 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::SensorShift:
                 drawList(SHIFT_LABELS, SHIFT_COUNT, cursor);
+                break;
+            case MenuState::AuxFnDefault:
+                drawList(AUX_FN_MENU_LABELS, AUX_FN_LIST_COUNT, cursor);
+                break;
+            case MenuState::PitchStep:
+                drawList(PITCH_STEP_LABELS, PITCH_STEP_COUNT, cursor);
+                break;
+            case MenuState::AuxFnSelect:
+                drawList(AUX_FN_LABELS, AUX_FN_LIST_COUNT, cursor);
+                break;
+            case MenuState::AuxParam:
+                drawAuxParam(cfg);
                 break;
             case MenuState::CalibrationPrompt:
                 lcdLine(0, "Place a magnet");

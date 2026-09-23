@@ -25,6 +25,19 @@ constexpr int8_t    DEFAULT_SENSOR_SHIFT = 0;   // which sensor index plays root
 constexpr uint16_t  NOTE_DURATION_MS     = 250; // static note length (piano tap)
 
 // -------------------------------------------------------------------------
+// Aux function knob
+// -------------------------------------------------------------------------
+// Which parameter the aux knob modulates. Index into the Fn list in menu.cpp.
+// This binding is saved; the VALUES it modulates are live performance state and
+// deliberately are not.
+constexpr uint8_t   DEFAULT_AUX_FN       = 0;   // Octave
+
+// Pitch step size, stored as a divisor of one semitone: 1 = a half step,
+// 2 = a quarter tone, and so on. Anything above 1 is microtonal -- exact on the
+// internal synth, and carried over MIDI as a note number plus pitch bend.
+constexpr uint8_t   DEFAULT_PITCH_STEP_DIV = 1;
+
+// -------------------------------------------------------------------------
 // Hall sensors
 // -------------------------------------------------------------------------
 constexpr uint8_t   HALL_ADC_BITS           = 12;   // ADC resolution for hall sensors

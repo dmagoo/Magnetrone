@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 4;
+constexpr uint8_t  EEPROM_VERSION = 5;
 constexpr int      EEPROM_ADDRESS = 0;
 
 struct SavedConfig {
@@ -24,6 +24,8 @@ struct SavedConfig {
     bool     playWelcomeTune;   // play scale preview on boot
     uint8_t  lcdTimeout;        // backlight timeout in seconds; 0=always off, 255=always on
     uint8_t  beatsPerRev;       // beats per platter revolution; BPM = |rpm| * this
+    uint8_t  auxFn;             // which parameter the aux knob is bound to
+    uint8_t  pitchStepDiv;      // one aux step = 1/this of a semitone
 };
 
 void storageLoad(SavedConfig& cfg);

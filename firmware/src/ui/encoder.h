@@ -10,6 +10,9 @@ struct EncoderEvent {
 
     int8_t volumeDelta;     // volume encoder turn
     bool   volumePressed;
+
+    int8_t auxDelta;        // aux encoder turn -- drives the Aux Fn modulation
+    bool   auxPressed;      // aux button: always "back" in the Aux Fn flow
 };
 
 void         encoderInit();

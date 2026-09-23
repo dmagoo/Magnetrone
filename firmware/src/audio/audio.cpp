@@ -117,13 +117,17 @@ void audioUnmute() {
 }
 
 void audioNoteOn(uint8_t note, uint8_t velocity) {
+    audioNoteOnFreq(note, velocity, midiToHz(note));
+}
+
+void audioNoteOnFreq(uint8_t note, uint8_t velocity, float hz) {
     uint8_t v = allocVoice();
 
     // If this voice was already playing, release it cleanly first.
     env[v].noteOff();
 
     float amp = (velocity / 127.0f);
-    osc[v].frequency(midiToHz(note));
+    osc[v].frequency(hz);
     osc[v].amplitude(amp);
     env[v].noteOn();
 

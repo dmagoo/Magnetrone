@@ -18,7 +18,9 @@ SavedConfig storageDefaults() {
         1.0f,
         DEFAULT_PLAY_WELCOME_TUNE,
         DEFAULT_LCD_TIMEOUT,
-        DEFAULT_BEATS_PER_REV
+        DEFAULT_BEATS_PER_REV,
+        DEFAULT_AUX_FN,
+        DEFAULT_PITCH_STEP_DIV
     };
 }
 
