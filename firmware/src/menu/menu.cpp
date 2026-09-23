@@ -397,30 +397,34 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     uint32_t beatMs = 60000UL / (uint32_t)bpm;
     uint32_t noteMs  = min((uint32_t)layerVoice(cfg, LAYER_A).noteMs, beatMs);
     uint8_t  channel = layerChannel(cfg, LAYER_A);
+    bool     kit     = voiceIsKit(layerVoice(cfg, LAYER_A));
 
     lcdLine(0, "  Music  Table  ");
     lcdLine(1, "~~~~~~~~~~~~~~~~");
 
-    // Forward pass.
-    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
-        uint8_t note = scaleNote(cfg.root, cfg.scale, i, cfg.octave);
-        uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
-        delay(noteMs);
-        midiNoteOff(LAYER_A, channel, sounded);
+    // A kit voice plays its drums in sensor order instead of the scale.
+    auto step = [&](uint8_t i) {
+        if (kit) {
+            uint8_t sounded = midiDrumOn(channel, i, 100);
+            delay(noteMs);
+            midiDrumOff(channel, sounded);
+        } else {
+            uint8_t note = scaleNote(cfg.root, cfg.scale, i, cfg.octave);
+            uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
+            delay(noteMs);
+            midiNoteOff(LAYER_A, channel, sounded);
+        }
         delay(beatMs - noteMs);
-    }
+    };
+
+    // Forward pass.
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) step(i);
 
     // Pause for one beat.
     delay(beatMs);
 
     // Reverse pass.
-    for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) {
-        uint8_t note = scaleNote(cfg.root, cfg.scale, (uint8_t)i, cfg.octave);
-        uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
-        delay(noteMs);
-        midiNoteOff(LAYER_A, channel, sounded);
-        delay(beatMs - noteMs);
-    }
+    for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) step((uint8_t)i);
 
     // Let the last note's release tail finish.
     delay(400);

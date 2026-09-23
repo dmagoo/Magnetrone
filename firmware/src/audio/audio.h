@@ -12,7 +12,8 @@ void audioUnmute();
 
 // Applies a voice's wave shape and envelope to every synth voice in a layer's
 // bank. Takes effect from the next note; notes already sounding keep their
-// envelope timing.
+// envelope timing. A kit voice leaves the bank untouched, since it plays the
+// drum bank instead.
 void audioSetVoice(uint8_t layer, const Voice& voice);
 
 // Trigger a note on a layer's bank at an explicit frequency. The oscillator
@@ -25,3 +26,7 @@ void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz);
 // as well as the note keeps the two banks independent: the same note number
 // playing on both is two different notes.
 void audioNoteOff(uint8_t layer, uint8_t note);
+
+// Fires one drum of the shared kit (slot = DrumSlot, see kit.h). Drums are
+// one-shots with no matching off. A closed hat chokes the open hat.
+void audioDrumHit(uint8_t slot, uint8_t velocity);

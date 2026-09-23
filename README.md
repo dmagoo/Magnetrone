@@ -11,7 +11,12 @@ turning physical arrangement into musical pattern.
 - Rotating platter driven by NEMA17 stepper via GT2 belt drive (11:1)
 - 8 analog Hall effect sensors, one per note in the current scale
 - MIDI note output on DIN connector
-- Teensy Audio Shield output (headphone/line out) with 8-voice sine synth
+- Teensy Audio Shield output (headphone/line out) with a built-in synth and drum kit
+- Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note length
+- Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B,
+  each with its own voice, MIDI channel, octave offset and level
+- Drums play a fixed GM kit (one drum per track, busiest on the outer tracks) on
+  MIDI channel 10; Track Shift rotates the kit around the tracks
 - 1 revolution = 1 bar; BPM tracks RPM automatically
 - Root note, scale, and octave selectable from LCD menu
 - Speed and volume adjustable live at any time via dedicated encoders
@@ -31,7 +36,8 @@ The firmware is structured as a set of independent modules: stepper motor contro
 uses an IntervalTimer ISR for non-blocking step generation; Hall sensor polling
 detects rising-edge triggers with hysteresis and debounce; the sequencer maps sensor
 index to scale degree and fires timed MIDI note on/off pairs; the audio module drives
-an 8-voice sine synth through the SGTL5000 codec in parallel with MIDI out; the menu
+an 8-voice synth bank per magnet layer plus a shared drum kit through the SGTL5000
+codec in parallel with MIDI out; the menu
 is a simple state machine driven by three encoders with live speed and volume handling
 at all times. A calibration routine samples the sensor baseline, times one full platter
 revolution, and derives a threshold and RPM correction factor stored in EEPROM.

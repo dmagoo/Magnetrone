@@ -3,6 +3,7 @@
 #include <math.h>
 #include "config.h"
 #include "audio/audio.h"
+#include "audio/kit.h"
 #include "sequencer/pitch.h"
 
 // How far a full pitch bend travels on the receiver, in semitones. Announced
@@ -48,6 +49,29 @@ void midiNoteOff(uint8_t layer, uint8_t channel, uint8_t emittedNote) {
         Serial1.write(0x00);
     }
     audioNoteOff(layer, emittedNote);
+}
+
+uint8_t midiDrumOn(uint8_t channel, uint8_t slot, uint8_t velocity) {
+    if (slot >= NUM_HALL_SENSORS) return 0;
+    // No pitch offset: shifting a GM drum number changes which drum plays.
+    uint8_t note = KIT_GM_NOTE[slot];
+    if (channel >= 1 && channel <= 16) {
+        Serial1.write(0x90 | (channel - 1));
+        Serial1.write(note);
+        Serial1.write(velocity & 0x7F);
+    }
+    audioDrumHit(slot, velocity);
+    return note;
+}
+
+void midiDrumOff(uint8_t channel, uint8_t note) {
+    // MIDI only. Most receivers ignore Note Off on drums, but a well-formed
+    // stream still pairs them. The internal drums are one-shots.
+    if (channel >= 1 && channel <= 16) {
+        Serial1.write(0x80 | (channel - 1));
+        Serial1.write(note & 0x7F);
+        Serial1.write(0x00);
+    }
 }
 
 // ---------------------------------------------------------------------------

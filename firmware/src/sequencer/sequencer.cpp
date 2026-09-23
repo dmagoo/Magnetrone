@@ -14,6 +14,7 @@ struct NoteState {
     // Note Off has to go where the Note On went or the note hangs.
     uint8_t  note;
     uint8_t  channel;
+    bool     kit;       // a drum hit: its off goes to midiDrumOff()
     uint32_t offTime;   // millis() when Note Off should fire
 };
 
@@ -22,8 +23,10 @@ struct NoteState {
 static NoteState notes[NUM_LAYERS][NUM_HALL_SENSORS] = {};
 
 static void noteOff(uint8_t layer, uint8_t i) {
-    midiNoteOff(layer, notes[layer][i].channel, notes[layer][i].note);
-    notes[layer][i].active = false;
+    NoteState& n = notes[layer][i];
+    if (n.kit) midiDrumOff(n.channel, n.note);
+    else       midiNoteOff(layer, n.channel, n.note);
+    n.active = false;
 }
 
 void sequencerUpdate(const SavedConfig& cfg) {
@@ -50,8 +53,6 @@ void sequencerUpdate(const SavedConfig& cfg) {
 
         // apply sensor phase shift
         uint8_t degree = ((int8_t)i - cfg.sensorShift + NUM_HALL_SENSORS) % NUM_HALL_SENSORS;
-        int octave = constrain((int)cfg.octave + layer.octaveOffset, 0, 9);
-        uint8_t note = scaleNote(cfg.root, cfg.scale, degree, (uint8_t)octave);
 
         // retrigger: cancel existing note if active
         if (notes[l][i].active) noteOff(l, i);
@@ -60,8 +61,19 @@ void sequencerUpdate(const SavedConfig& cfg) {
         // both follow it. 1 is the floor because velocity 0 means Note Off.
         uint8_t velocity = (uint8_t)constrain((int)lroundf(127.0f * gain), 1, 127);
         uint8_t channel  = layerChannel(cfg, l);
+        bool    kit      = voiceIsKit(layerVoice(cfg, l));
 
-        notes[l][i].note    = midiNoteOn(l, channel, note, velocity);
+        if (kit) {
+            // Track Shift rotates the kit around the sensors, so a drum can be
+            // moved to a busier track. The kit's rotation must keep wrapping
+            // even if the scale's stops doing so: one drum per sensor.
+            notes[l][i].note = midiDrumOn(channel, degree, velocity);
+        } else {
+            int octave = constrain((int)cfg.octave + layer.octaveOffset, 0, 9);
+            uint8_t note = scaleNote(cfg.root, cfg.scale, degree, (uint8_t)octave);
+            notes[l][i].note = midiNoteOn(l, channel, note, velocity);
+        }
+        notes[l][i].kit     = kit;
         notes[l][i].channel = channel;
         notes[l][i].active  = true;
         notes[l][i].offTime = now + layerVoice(cfg, l).noteMs;

@@ -3,14 +3,16 @@
 
 // Starting values, agreed 2026-09-23 and expected to be tuned by ear. The
 // bandlimited saw and square alias far less than the plain ones, which matters
-// on the high octaves. Auto channels follow the scheme in todo.md; Drums will
-// take 10, per General MIDI.
+// on the high octaves. Auto channels follow the scheme in todo.md; Drums take
+// 10, per General MIDI. Drums ignore waveform and envelope (the drum bank has
+// its own per-drum sounds); its note length only times the MIDI Note Off.
 static const Voice VOICES[VOICE_COUNT] = {
-    //  name       waveform                      A    D    S      R    note  ch
-    { "Piano",   WAVEFORM_TRIANGLE,             5, 400, 0.2f, 400, 250,  1 },
-    { "Strings", WAVEFORM_BANDLIMIT_SAWTOOTH, 150, 100, 0.8f, 600, 800,  3 },
-    { "Leads",   WAVEFORM_BANDLIMIT_SQUARE,     5, 100, 0.7f, 150, 200,  4 },
-    { "Bass",    WAVEFORM_BANDLIMIT_SAWTOOTH,   5, 150, 0.5f, 100, 250,  2 },
+    //  name       waveform                      A    D    S      R    note  ch  source
+    { "Piano",   WAVEFORM_TRIANGLE,             5, 400, 0.2f, 400, 250,  1, NoteSource::Scale },
+    { "Strings", WAVEFORM_BANDLIMIT_SAWTOOTH, 150, 100, 0.8f, 600, 800,  3, NoteSource::Scale },
+    { "Leads",   WAVEFORM_BANDLIMIT_SQUARE,     5, 100, 0.7f, 150, 200,  4, NoteSource::Scale },
+    { "Bass",    WAVEFORM_BANDLIMIT_SAWTOOTH,   5, 150, 0.5f, 100, 250,  2, NoteSource::Scale },
+    { "Drums",   WAVEFORM_SINE,                 0,   0, 0.0f,   0,  50, 10, NoteSource::Kit   },
 };
 
 const Voice& voiceGet(uint8_t id) {

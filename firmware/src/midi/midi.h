@@ -17,8 +17,15 @@ uint8_t midiNoteOn(uint8_t layer, uint8_t channel, uint8_t note, uint8_t velocit
 // layer and channel it was sent with.
 void midiNoteOff(uint8_t layer, uint8_t channel, uint8_t emittedNote);
 
+// Drum hit for a kit voice: sends the slot's fixed GM note on `channel` and
+// fires that drum on the internal kit. Bypasses the pitch offset and bend.
+// RETURNS the note sent, for midiDrumOff().
+uint8_t midiDrumOn(uint8_t channel, uint8_t slot, uint8_t velocity);
+void    midiDrumOff(uint8_t channel, uint8_t note);
+
 // Tells MIDI which channels the two layers currently play on (1-16, or 0 for
-// a layer that is off). Pitch bend and bend range go to each of them, and a
+// a layer that is off or plays a kit, since drums take no bend). Pitch bend
+// and bend range go to each of them, and a
 // channel newly in use is sent the bend range and current bend straight away.
 void midiSetLayerChannels(uint8_t channelA, uint8_t channelB);
 
