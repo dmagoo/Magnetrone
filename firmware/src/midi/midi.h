@@ -6,7 +6,8 @@ void midiUpdate();
 
 // Sends Note On on `channel` (1-16) for `note` shifted by the current global
 // pitch offset, and fires the given layer's internal synth bank at the exact
-// (possibly microtonal) frequency.
+// (possibly microtonal) frequency. A note that lands outside 0-127 is folded
+// by octaves into range, for MIDI and the internal synth alike.
 // RETURNS the MIDI note number actually emitted -- pass that to midiNoteOff().
 // Do not re-derive it later: the pitch offset may have moved in between, and
 // the Note Off has to match the Note On that was actually sent. The same goes

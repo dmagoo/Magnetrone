@@ -51,8 +51,9 @@ void sequencerUpdate(const SavedConfig& cfg) {
         float gain = layerGain(cfg, l);
         if (gain <= 0.0f) continue;
 
-        // apply sensor phase shift
-        uint8_t degree = ((int8_t)i - cfg.sensorShift + NUM_HALL_SENSORS) % NUM_HALL_SENSORS;
+        // The layer's Track Shift (and, without Wrap, octave carry) is
+        // resolved in layers.cpp.
+        uint8_t degree = layerDegree(cfg, l, i);
 
         // retrigger: cancel existing note if active
         if (notes[l][i].active) noteOff(l, i);
@@ -65,8 +66,8 @@ void sequencerUpdate(const SavedConfig& cfg) {
 
         if (kit) {
             // Track Shift rotates the kit around the sensors, so a drum can be
-            // moved to a busier track. The kit's rotation must keep wrapping
-            // even if the scale's stops doing so: one drum per sensor.
+            // moved to a busier track. layerDegree() always wraps for a kit,
+            // whatever the layer's Wrap setting: one drum per sensor.
             notes[l][i].note = midiDrumOn(channel, degree, velocity);
         } else {
             int octave = constrain((int)cfg.octave + layer.octaveOffset, 0, 9);

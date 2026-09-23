@@ -16,7 +16,9 @@ constexpr RootNote  DEFAULT_ROOT         = RootNote::C;
 constexpr Scale     DEFAULT_SCALE        = Scale::Major;
 constexpr uint8_t   DEFAULT_OCTAVE       = 4;       // middle C
 constexpr uint8_t   NUM_HALL_SENSORS     = 8;
-constexpr int8_t    DEFAULT_SENSOR_SHIFT = 0;   // which sensor index plays root note; configurable under Advanced
+constexpr uint8_t   DEFAULT_TRACK_SHIFT  = 0;   // per layer: scale degrees added to each sensor's degree
+constexpr bool      DEFAULT_TRACK_WRAP   = true;   // per layer: the shifted degree wraps around the arm
+constexpr bool      DEFAULT_LOW_NOTE_OUTER = false;  // per layer: Low Note Inner, hall 1 plays the low end
 
 // -------------------------------------------------------------------------
 // Aux function knob

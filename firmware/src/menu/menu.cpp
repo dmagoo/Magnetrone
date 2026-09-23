@@ -29,10 +29,12 @@ enum class MenuState : uint8_t {
     LayerChannel,
     LayerOctave,
     LayerLevel,
+    LayerShift,
+    LayerWrap,
+    LayerLowNote,
     WelcomeTune,
     LcdTimeout,
     BeatsPerRev,
-    SensorShift,
     MagnetPole,
     FirstBootPrompt,   // shown once on a fresh EEPROM: calibrate now or skip
     AuxFnDefault,
@@ -82,11 +84,12 @@ static const uint8_t VOICE_ITEMS_COUNT = VOICE_COUNT + 1;
 static uint8_t editLayer = LAYER_A;
 
 static const char* LAYER_ITEMS[] = {
-    "Mode","Voice","Channel","Octave","Level","Back"
+    "Mode","Voice","Channel","Octave","Level","Shift","Wrap","Low Note","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 6;
+static const uint8_t LAYER_ITEMS_COUNT = 9;
 enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
-                 LAYER_ITEM_OCTAVE, LAYER_ITEM_LEVEL, LAYER_ITEM_BACK };
+                 LAYER_ITEM_OCTAVE, LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT,
+                 LAYER_ITEM_WRAP, LAYER_ITEM_LOW_NOTE, LAYER_ITEM_BACK };
 
 // Order matches LayerMode. Layer A has no Same as A, so its list is shorter.
 static const char* MODE_ITEMS_A[] = { "On","Off","Back" };
@@ -111,12 +114,33 @@ static const char*   LEVEL_ITEMS[] = {
 };
 static const uint8_t LEVEL_COUNT = 12;
 
+// Track Shift, 0-7; index == shift. Layer B's list adds Same as A, which binds
+// its shift (and Wrap) to Layer A's, separately from the layer mode.
+static const char*   SHIFT_ITEMS_A[] = { "0","1","2","3","4","5","6","7","Back" };
+static const char*   SHIFT_ITEMS_B[] = { "0","1","2","3","4","5","6","7","Same as A","Back" };
+static const uint8_t SHIFT_COUNT_A = 9;
+static const uint8_t SHIFT_COUNT_B = 10;
+static const uint8_t SHIFT_ITEM_SAME_AS_A = NUM_HALL_SENSORS;
+
+// Index 0 = Wrap.
+static const char*   WRAP_ITEMS[] = { "Wrap","No Wrap","Back" };
+static const uint8_t WRAP_COUNT = 3;
+
+// Order matches LowNote. Layer B's list adds Same as A, its own binding,
+// separate from both the layer mode and the shift's.
+static const char*   LOW_NOTE_ITEMS_A[] = { "Inner","Outer","Back" };
+static const char*   LOW_NOTE_ITEMS_B[] = { "Inner","Outer","Same as A","Back" };
+static const uint8_t LOW_NOTE_COUNT_A = 3;
+static const uint8_t LOW_NOTE_COUNT_B = 4;
+static const uint8_t LOW_NOTE_VALUES  = 2;
+static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
+
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
-    "LCD Timeout","Beats/Rev","Track Shift","Aux Fn","Pitch Step",
+    "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step",
     "Magnet Pole","Calibration","Reset Cal","Reset All","Back"
 };
-static const uint8_t MAIN_COUNT = 16;
+static const uint8_t MAIN_COUNT = 15;
 
 // Which way a passing magnet pushes the sensor output. Calibration measures
 // this; the override exists so a wrong guess does not leave the table silent.
@@ -129,7 +153,9 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 // -------------------------------------------------------------------------
 // What the aux knob can be bound to. Order must match AUX_FN_LABELS, and the
 // stored cfg.auxFn is an index into it.
-enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, TrackShift, Pitch,
+// Storage migration (migrateAuxFn() in storage.cpp) knows this order too.
+enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, ShiftA, ShiftB,
+                             LowNoteA, LowNoteB, Pitch,
                              Balance, VoiceA, VoiceB, COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
@@ -137,11 +163,13 @@ static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 // default binding" menu carries only a trailing Back -- reset has no meaning
 // there, since that menu sets committed values rather than modulating live ones.
 static const char* AUX_FN_LABELS[] = {
-    "Octave","Root Note","Scale","Track Shift","Pitch",
+    "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
+    "Layer A Low","Layer B Low","Pitch",
     "A/B Balance","Layer A Voice","Layer B Voice","Reset All","Exit"
 };
 static const char* AUX_FN_MENU_LABELS[] = {
-    "Octave","Root Note","Scale","Track Shift","Pitch",
+    "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
+    "Layer A Low","Layer B Low","Pitch",
     "A/B Balance","Layer A Voice","Layer B Voice","Back"
 };
 static const uint8_t AUX_FN_SELECT_COUNT = AUX_FN_COUNT + 2;  // + Reset, Exit
@@ -168,10 +196,6 @@ static bool auxEnteredFromLive = false;
 static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8 };
 static const char*   BEATS_LABELS[] = { "1","2","3","4","6","8","Back" };
 static const uint8_t BEATS_COUNT = 7;   // 6 options + Back
-
-// Which sensor index plays the root note.
-static const char*   SHIFT_LABELS[] = { "0","1","2","3","4","5","6","7","Back" };
-static const uint8_t SHIFT_COUNT = 9;   // 8 options + Back
 
 static const char* WELCOME_ITEMS[] = { "On", "Off", "Back" };
 static const uint8_t WELCOME_COUNT = 3;
@@ -260,8 +284,11 @@ static void drawList(const char** items, uint8_t count, uint8_t cur) {
 // copyLiveModulatedFields() in storage.cpp or it will start persisting.
 //
 // Wrap vs clamp follows the shape of the value: wrap anything cyclic, clamp
-// anything that is a magnitude. Octave is the only magnitude here, and wrapping
-// 7 back to 0 would be a seven-octave jump mid-performance.
+// anything that is a magnitude. Octave is a magnitude, and wrapping 7 back to
+// 0 would be a seven-octave jump mid-performance. Track Shift is either: with
+// Wrap it is a rotation, 7 to 0 moving one sensor; with No Wrap it transposes
+// the whole run, and 7 to 0 would drop every sensor an octave at once. Low
+// Note clamps too, right = Outer as listed, so a stray click cannot flip it.
 static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
     switch ((AuxFn)cfg.auxFn) {
         case AuxFn::Octave: {
@@ -282,10 +309,27 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             cfg.scale = (Scale)v;                              // wrap: a list
             break;
         }
-        case AuxFn::TrackShift: {
-            int v = ((int)cfg.sensorShift + delta) % NUM_HALL_SENSORS;
-            if (v < 0) v += NUM_HALL_SENSORS;
-            cfg.sensorShift = (int8_t)v;                       // wrap: a rotation
+        case AuxFn::ShiftA:
+        case AuxFn::ShiftB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::ShiftA) ? LAYER_A : LAYER_B;
+            // B playing A's shift: turning B's would change a hidden setting.
+            if (layerShiftSource(cfg, l) != l) break;
+            int v = (int)cfg.layer[l].shift + delta;
+            if (layerWraps(cfg, l)) {                          // kits always wrap
+                v %= NUM_HALL_SENSORS;
+                if (v < 0) v += NUM_HALL_SENSORS;              // wrap: a rotation
+            } else {
+                v = constrain(v, 0, NUM_HALL_SENSORS - 1);     // clamp: a transpose
+            }
+            cfg.layer[l].shift = (uint8_t)v;
+            break;
+        }
+        case AuxFn::LowNoteA:
+        case AuxFn::LowNoteB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::LowNoteA) ? LAYER_A : LAYER_B;
+            if (layerLowNoteSource(cfg, l) != l) break;        // playing A's
+            int v = (int)cfg.layer[l].lowNote + delta;
+            cfg.layer[l].lowNote = (uint8_t)constrain(v, 0, LOW_NOTE_VALUES - 1);
             break;
         }
         case AuxFn::Pitch: {
@@ -334,10 +378,36 @@ static void drawAuxParam(const SavedConfig& cfg) {
         case AuxFn::ScaleFn:
             drawList(SCALE_ITEMS, (uint8_t)Scale::COUNT, (uint8_t)cfg.scale);
             break;
-        case AuxFn::TrackShift:
-            drawList(SHIFT_LABELS, NUM_HALL_SENSORS,
-                     (uint8_t)constrain(cfg.sensorShift, 0, NUM_HALL_SENSORS - 1));
+        case AuxFn::ShiftA:
+        case AuxFn::ShiftB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::ShiftA) ? LAYER_A : LAYER_B;
+            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+                lcdLine(0, "Layer B is");
+                lcdLine(1, "Same as A");
+            } else if (l == LAYER_B && cfg.layer[LAYER_B].shiftSameAsA) {
+                lcdLine(0, "B Shift is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(SHIFT_ITEMS_A, NUM_HALL_SENSORS,
+                         (uint8_t)constrain(cfg.layer[l].shift, 0, NUM_HALL_SENSORS - 1));
+            }
             break;
+        }
+        case AuxFn::LowNoteA:
+        case AuxFn::LowNoteB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::LowNoteA) ? LAYER_A : LAYER_B;
+            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+                lcdLine(0, "Layer B is");
+                lcdLine(1, "Same as A");
+            } else if (l == LAYER_B && cfg.layer[LAYER_B].lowNoteSameAsA) {
+                lcdLine(0, "B Low Note is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_VALUES,
+                         (uint8_t)constrain(cfg.layer[l].lowNote, 0, LOW_NOTE_VALUES - 1));
+            }
+            break;
+        }
         case AuxFn::Pitch: {
             // Cents rather than semitones so fractional steps read sensibly,
             // and so nothing here depends on %f in snprintf.
@@ -389,7 +459,7 @@ static void drawAuxParam(const SavedConfig& cfg) {
 
 // -------------------------------------------------------------------------
 
-// Plays each scale degree in order then in reverse at current BPM.
+// Plays each sensor's Layer A note, hall 1 to hall 8 and back, at current BPM.
 // Blocking -- returns when the last note's release has finished.
 static void playWelcomeTune(const SavedConfig& cfg) {
     int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
@@ -398,18 +468,22 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     uint32_t noteMs  = min((uint32_t)layerVoice(cfg, LAYER_A).noteMs, beatMs);
     uint8_t  channel = layerChannel(cfg, LAYER_A);
     bool     kit     = voiceIsKit(layerVoice(cfg, LAYER_A));
+    int      octave  = constrain((int)cfg.octave + layerEffective(cfg, LAYER_A).octaveOffset, 0, 9);
 
     lcdLine(0, "  Music  Table  ");
     lcdLine(1, "~~~~~~~~~~~~~~~~");
 
-    // A kit voice plays its drums in sensor order instead of the scale.
+    // Each step is what that sensor plays on Layer A, Track Shift, Wrap, Low
+    // Note and octave offset included, so the tune previews the table. A kit
+    // voice plays its drums.
     auto step = [&](uint8_t i) {
+        uint8_t degree = layerDegree(cfg, LAYER_A, i);
         if (kit) {
-            uint8_t sounded = midiDrumOn(channel, i, 100);
+            uint8_t sounded = midiDrumOn(channel, degree, 100);
             delay(noteMs);
             midiDrumOff(channel, sounded);
         } else {
-            uint8_t note = scaleNote(cfg.root, cfg.scale, i, cfg.octave);
+            uint8_t note = scaleNote(cfg.root, cfg.scale, degree, (uint8_t)octave);
             uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
             delay(noteMs);
             midiNoteOff(LAYER_A, channel, sounded);
@@ -656,11 +730,9 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::BeatsPerRev, idx);
                         break;
                     }
-                    case 8: enterState(MenuState::SensorShift,
-                                (uint8_t)constrain(cfg.sensorShift, 0, 7)); break;
-                    case 9: enterState(MenuState::AuxFnDefault,
+                    case 8: enterState(MenuState::AuxFnDefault,
                                 (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1)); break;
-                    case 10: {
+                    case 9: {
                         uint8_t idx = 0;
                         for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
                             if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
@@ -668,12 +740,12 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
-                    case 11:  enterState(MenuState::MagnetPole,
+                    case 10: enterState(MenuState::MagnetPole,
                                 cfg.magnetPolarity < 0 ? 1 : 0); break;
-                    case 12: enterState(MenuState::CalibrationPrompt); break;
-                    case 13: enterState(MenuState::ResetCalPrompt); break;
-                    case 14: enterState(MenuState::ResetAllPrompt); break;
-                    case 15: enterState(MenuState::Status); break;
+                    case 11: enterState(MenuState::CalibrationPrompt); break;
+                    case 12: enterState(MenuState::ResetCalPrompt); break;
+                    case 13: enterState(MenuState::ResetAllPrompt); break;
+                    case 14: enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -734,6 +806,20 @@ void menuUpdate(SavedConfig& cfg) {
                     case LAYER_ITEM_LEVEL:
                         enterState(MenuState::LayerLevel,
                                    (uint8_t)(constrain(lc.level, 0, 100) / 10)); break;
+                    case LAYER_ITEM_SHIFT:
+                        enterState(MenuState::LayerShift,
+                                   (editLayer == LAYER_B && lc.shiftSameAsA)
+                                       ? SHIFT_ITEM_SAME_AS_A
+                                       : (uint8_t)constrain(lc.shift, 0, NUM_HALL_SENSORS - 1));
+                        break;
+                    case LAYER_ITEM_WRAP:
+                        enterState(MenuState::LayerWrap, lc.wrap ? 0 : 1); break;
+                    case LAYER_ITEM_LOW_NOTE:
+                        enterState(MenuState::LayerLowNote,
+                                   (editLayer == LAYER_B && lc.lowNoteSameAsA)
+                                       ? LOW_NOTE_ITEM_SAME_AS_A
+                                       : (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
+                        break;
                     default:
                         enterState(MenuState::MainMenu, editLayer == LAYER_A ? 3 : 4); break;
                 }
@@ -815,6 +901,64 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::LayerShift: {
+            uint8_t count = (editLayer == LAYER_A) ? SHIFT_COUNT_A : SHIFT_COUNT_B;
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + count) % count;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < NUM_HALL_SENSORS) {
+                    // Picking a value also unbinds B's shift from A's.
+                    cfg.layer[editLayer].shift = cursor;
+                    cfg.layer[editLayer].shiftSameAsA = false;
+                    storageCommit(cfg);       // shift is also an aux target
+                } else if (editLayer == LAYER_B && cursor == SHIFT_ITEM_SAME_AS_A) {
+                    cfg.layer[LAYER_B].shiftSameAsA = true;
+                    storageSave(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_SHIFT);
+            }
+            break;
+        }
+
+        case MenuState::LayerWrap:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + WRAP_COUNT) % WRAP_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < WRAP_COUNT - 1) {   // last entry is Back
+                    // With B's shift bound this is B's own value, ignored
+                    // until unbound, as B's other settings are under Same as A.
+                    cfg.layer[editLayer].wrap = (cursor == 0);
+                    storageSave(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_WRAP);
+            }
+            break;
+
+        case MenuState::LayerLowNote: {
+            uint8_t count = (editLayer == LAYER_A) ? LOW_NOTE_COUNT_A : LOW_NOTE_COUNT_B;
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + count) % count;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < LOW_NOTE_VALUES) {
+                    // Picking a value also unbinds B's Low Note from A's.
+                    cfg.layer[editLayer].lowNote = cursor;
+                    cfg.layer[editLayer].lowNoteSameAsA = false;
+                    storageCommit(cfg);       // Low Note is also an aux target
+                } else if (editLayer == LAYER_B && cursor == LOW_NOTE_ITEM_SAME_AS_A) {
+                    cfg.layer[LAYER_B].lowNoteSameAsA = true;
+                    storageSave(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_LOW_NOTE);
+            }
+            break;
+        }
+
         case MenuState::WelcomeTune:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + WELCOME_COUNT) % WELCOME_COUNT;
@@ -869,20 +1013,6 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
-        case MenuState::SensorShift:
-            if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + SHIFT_COUNT) % SHIFT_COUNT;
-                needsRedraw = true;
-            }
-            if (ev.menuPressed) {
-                if (cursor < SHIFT_COUNT - 1) {   // last entry is Back
-                    cfg.sensorShift = (int8_t)cursor;
-                    storageCommit(cfg);
-                }
-                enterState(MenuState::MainMenu, 8);
-            }
-            break;
-
         case MenuState::AuxFnDefault:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + AUX_FN_MENU_COUNT) % AUX_FN_MENU_COUNT;
@@ -893,7 +1023,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.auxFn = cursor;
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 9);
+                enterState(MenuState::MainMenu, 8);
             }
             break;
 
@@ -907,7 +1037,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.pitchStepDiv = PITCH_STEP_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 10);
+                enterState(MenuState::MainMenu, 9);
             }
             break;
 
@@ -922,7 +1052,7 @@ void menuUpdate(SavedConfig& cfg) {
                     storageSave(cfg);
                     hallSetPolarity(cfg.magnetPolarity);
                 }
-                enterState(MenuState::MainMenu, 11);
+                enterState(MenuState::MainMenu, 10);
             }
             break;
 
@@ -938,13 +1068,13 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 12);
+                else enterState(MenuState::MainMenu, 11);
             }
             break;
 
         case MenuState::CalibrationRunning: {
             calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 12);
+            enterState(MenuState::MainMenu, 11);
             break;
         }
 
@@ -967,7 +1097,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 13);
+                enterState(MenuState::MainMenu, 12);
             }
             break;
 
@@ -986,7 +1116,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 14);
+                enterState(MenuState::MainMenu, 13);
             }
             break;
     }
@@ -1029,6 +1159,17 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::LayerLevel:
                 drawList(LEVEL_ITEMS, LEVEL_COUNT, cursor);
                 break;
+            case MenuState::LayerShift:
+                if (editLayer == LAYER_A) drawList(SHIFT_ITEMS_A, SHIFT_COUNT_A, cursor);
+                else                      drawList(SHIFT_ITEMS_B, SHIFT_COUNT_B, cursor);
+                break;
+            case MenuState::LayerWrap:
+                drawList(WRAP_ITEMS, WRAP_COUNT, cursor);
+                break;
+            case MenuState::LayerLowNote:
+                if (editLayer == LAYER_A) drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_COUNT_A, cursor);
+                else                      drawList(LOW_NOTE_ITEMS_B, LOW_NOTE_COUNT_B, cursor);
+                break;
             case MenuState::WelcomeTune:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);
                 break;
@@ -1037,9 +1178,6 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::BeatsPerRev:
                 drawList(BEATS_LABELS, BEATS_COUNT, cursor);
-                break;
-            case MenuState::SensorShift:
-                drawList(SHIFT_LABELS, SHIFT_COUNT, cursor);
                 break;
             case MenuState::AuxFnDefault:
                 drawList(AUX_FN_MENU_LABELS, AUX_FN_MENU_COUNT, cursor);

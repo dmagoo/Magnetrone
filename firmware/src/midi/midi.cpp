@@ -27,8 +27,16 @@ void midiUpdate() {
 uint8_t midiNoteOn(uint8_t layer, uint8_t channel, uint8_t note, uint8_t velocity) {
     // Whole semitones of the global offset move the note number; the remainder
     // rides on the channel bend, which pitch.cpp keeps current.
-    int shifted = (int)note + pitchNoteShift();
-    uint8_t out = (uint8_t)constrain(shifted, 0, 127);
+    int base    = note;
+    int shifted = base + pitchNoteShift();
+
+    // Out of MIDI range (a high octave, a big pitch offset, or No Wrap's
+    // octave carry): fold down, or up, by whole octaves. The base note folds
+    // with it so the internal synth plays the same note MIDI sends. Clamping
+    // instead would pile every such note onto 127.
+    while (shifted > 127) { shifted -= 12; base -= 12; }
+    while (shifted < 0)   { shifted += 12; base += 12; }
+    uint8_t out = (uint8_t)shifted;
 
     if (channel >= 1 && channel <= 16) {
         Serial1.write(0x90 | (channel - 1));
@@ -38,7 +46,7 @@ uint8_t midiNoteOn(uint8_t layer, uint8_t channel, uint8_t note, uint8_t velocit
 
     // The internal synth has no such limitation: give it the exact frequency,
     // microtones and all, keyed to the same note number so Note Off matches.
-    audioNoteOnFreq(layer, out, velocity, pitchHz(note));
+    audioNoteOnFreq(layer, out, velocity, pitchHz(base));
     return out;
 }
 

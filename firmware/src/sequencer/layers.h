@@ -18,6 +18,26 @@ const Voice& layerVoice(const SavedConfig& cfg, uint8_t layer);
 // MIDI channel 1-16, with Auto resolved from the voice.
 uint8_t layerChannel(const SavedConfig& cfg, uint8_t layer);
 
+// --- Track Shift --------------------------------------------------------------
+// Which layer's shift and Wrap this layer plays with: A's for Layer B in Same
+// as A, or with B's shift bound to A; otherwise its own.
+uint8_t layerShiftSource(const SavedConfig& cfg, uint8_t layer);
+
+// Which layer's Low Note this layer plays with. Its own binding, separate
+// from the shift's, so B can follow A's shift while flipped.
+uint8_t layerLowNoteSource(const SavedConfig& cfg, uint8_t layer);
+
+// Does this layer's shifted degree wrap around the arm? Kit voices always do:
+// the kit has exactly one drum per sensor.
+bool layerWraps(const SavedConfig& cfg, uint8_t layer);
+
+// The scale degree (or kit slot) a sensor plays on this layer: Low Note flips
+// the sensor order first, then the shift is added, so shifting up raises the
+// pitch whichever end is low. With Wrap it is 0 to NUM_HALL_SENSORS-1;
+// without, it runs on past the end and scaleNote() carries it into the next
+// octave.
+uint8_t layerDegree(const SavedConfig& cfg, uint8_t layer, uint8_t sensor);
+
 // Output gain 0.0-1.0: the layer's level times the A/B balance. Applied as
 // note velocity, which scales the internal synth and external synths alike.
 float layerGain(const SavedConfig& cfg, uint8_t layer);

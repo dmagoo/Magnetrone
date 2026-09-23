@@ -14,13 +14,20 @@ turning physical arrangement into musical pattern.
 - Teensy Audio Shield output (headphone/line out) with a built-in synth and drum kit
 - Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note length
 - Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B,
-  each with its own voice, MIDI channel, octave offset and level
+  each with its own voice, MIDI channel, octave offset, level, Track Shift and
+  Low Note
+- Per-layer Track Shift raises the run by scale degrees, with Wrap (the run
+  rotates around the arm) or No Wrap (the whole run transposes)
+- Per-layer Low Note: Inner or Outer sets which end of the sensor arm plays
+  the low end of the run
 - Drums play a fixed GM kit (one drum per track, busiest on the outer tracks) on
-  MIDI channel 10; Track Shift rotates the kit around the tracks
+  MIDI channel 10; Track Shift rotates the kit around the tracks and Low Note
+  Outer flips it end to end
 - 1 revolution = 1 bar; BPM tracks RPM automatically
 - Root note, scale, and octave selectable from LCD menu
 - Speed and volume adjustable live at any time via dedicated encoders
-- Welcome tune plays on boot -- previews the current scale forward and in reverse
+- Welcome tune plays on boot -- previews what Layer A's tracks play, hall 1 to 8
+  and back, including its octave offset, Track Shift, Wrap and Low Note
 - LCD backlight timeout: configurable from always off to always on
 - Stepper motor sleeps when idle to reduce heat and power draw
 - Calibration routine measures magnet signal and actual platter RPM

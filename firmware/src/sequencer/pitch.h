@@ -38,4 +38,4 @@ float pitchBendSemitones();
 
 // Exact frequency for a base note under the current offset, for the internal
 // synth. Bypasses the integer/bend split entirely.
-float pitchHz(uint8_t baseNote);
+float pitchHz(int baseNote);

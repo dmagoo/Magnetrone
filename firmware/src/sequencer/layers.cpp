@@ -28,6 +28,38 @@ uint8_t layerChannel(const SavedConfig& cfg, uint8_t layer) {
     return ch;
 }
 
+uint8_t layerShiftSource(const SavedConfig& cfg, uint8_t layer) {
+    if (layer == LAYER_B && (cfg.layer[LAYER_B].mode == LayerMode::SameAsA ||
+                             cfg.layer[LAYER_B].shiftSameAsA)) {
+        return LAYER_A;
+    }
+    return layer;
+}
+
+uint8_t layerLowNoteSource(const SavedConfig& cfg, uint8_t layer) {
+    if (layer == LAYER_B && (cfg.layer[LAYER_B].mode == LayerMode::SameAsA ||
+                             cfg.layer[LAYER_B].lowNoteSameAsA)) {
+        return LAYER_A;
+    }
+    return layer;
+}
+
+bool layerWraps(const SavedConfig& cfg, uint8_t layer) {
+    if (voiceIsKit(layerVoice(cfg, layer))) return true;
+    return cfg.layer[layerShiftSource(cfg, layer)].wrap;
+}
+
+uint8_t layerDegree(const SavedConfig& cfg, uint8_t layer, uint8_t sensor) {
+    const LayerCfg& src = cfg.layer[layerShiftSource(cfg, layer)];
+    bool outer = cfg.layer[layerLowNoteSource(cfg, layer)].lowNote == (uint8_t)LowNote::Outer;
+    // Flip first, then shift. Shifting before the flip would make the shift
+    // run backwards on an Outer layer.
+    uint8_t base   = outer ? (uint8_t)(NUM_HALL_SENSORS - 1 - sensor) : sensor;
+    uint8_t degree = base + (src.shift % NUM_HALL_SENSORS);
+    if (layerWraps(cfg, layer)) degree %= NUM_HALL_SENSORS;
+    return degree;
+}
+
 float layerGain(const SavedConfig& cfg, uint8_t layer) {
     float level = constrain(layerEffective(cfg, layer).level, 0, 100) / 100.0f;
 

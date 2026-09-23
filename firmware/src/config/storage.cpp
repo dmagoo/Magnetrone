@@ -1,5 +1,7 @@
 #include "storage.h"
+#include <Arduino.h>
 #include <EEPROM.h>
+#include <stddef.h>
 #include "audio/voice.h"
 
 // ---------------------------------------------------------------------------
@@ -30,8 +32,22 @@ static void copyLiveModulatedFields(SavedConfig& dst, const SavedConfig& src) {
     dst.root        = src.root;
     dst.scale       = src.scale;
     dst.octave      = src.octave;
-    dst.sensorShift = src.sensorShift;
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) dst.layer[l].voice = src.layer[l].voice;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        dst.layer[l].voice = src.layer[l].voice;
+        dst.layer[l].shift   = src.layer[l].shift;
+        dst.layer[l].lowNote = src.layer[l].lowNote;
+    }
+}
+
+// Defaults for the fields added in version 10 (Track Shift, Wrap, Low Note),
+// on their own so migration can apply them to layers that kept their older
+// settings. Layer B's shift and Low Note are bound to A's by default.
+static void setV10Defaults(LayerCfg& lc, bool sameAsA) {
+    lc.shift          = DEFAULT_TRACK_SHIFT;
+    lc.wrap           = DEFAULT_TRACK_WRAP;
+    lc.shiftSameAsA   = sameAsA;
+    lc.lowNote        = (uint8_t)(DEFAULT_LOW_NOTE_OUTER ? LowNote::Outer : LowNote::Inner);
+    lc.lowNoteSameAsA = sameAsA;
 }
 
 static void setLayerDefaults(SavedConfig& c) {
@@ -41,6 +57,28 @@ static void setLayerDefaults(SavedConfig& c) {
     // magnet sits. The rest applies once B is switched On.
     c.layer[LAYER_B] = { LayerMode::SameAsA, (uint8_t)VoiceId::Bass,
                          LAYER_CHANNEL_AUTO, -1, 100 };
+    // B's shift and Low Note follow A's by default even once B is On, so the
+    // two layers move together (Piano over Bass) until B is given its own.
+    setV10Defaults(c.layer[LAYER_A], false);
+    setV10Defaults(c.layer[LAYER_B], true);
+}
+
+// Before version 10 there was one master shift, and it ran the other way:
+// degree = sensor - shift. Now degree = sensor + shift, so the old value is
+// converted to the one that plays the same notes.
+static uint8_t migrateShift(int8_t old) {
+    int s = constrain((int)old, 0, NUM_HALL_SENSORS - 1);
+    return (uint8_t)((NUM_HALL_SENSORS - s) % NUM_HALL_SENSORS);
+}
+
+// Version 10 split the Track Shift Fn into Layer A Shift and Layer B Shift and
+// added Layer A Low and Layer B Low after them. The old Track Shift index
+// becomes Layer A Shift; everything after it moves down the list. The numbers
+// are the AuxFn order in menu.cpp.
+static uint8_t migrateAuxFn(uint8_t old) {
+    const uint8_t OLD_TRACK_SHIFT = 3, OLD_COUNT = 8, INSERTED = 3;
+    if (old >= OLD_COUNT) return DEFAULT_AUX_FN;
+    return (old > OLD_TRACK_SHIFT) ? (uint8_t)(old + INSERTED) : old;
 }
 
 SavedConfig storageDefaults() {
@@ -56,7 +94,7 @@ SavedConfig storageDefaults() {
     c.volume          = DEFAULT_VOLUME;
     c.rpm             = DEFAULT_RPM;
     c.muted           = false;
-    c.sensorShift     = DEFAULT_SENSOR_SHIFT;
+    c.sensorShiftV9   = 0;
     c.calibrated      = false;
     c.hallThreshold   = HALL_THRESHOLD_DEFAULT;
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
@@ -79,13 +117,30 @@ void storageLoad(SavedConfig& cfg) {
 
     // Older layouts are prefixes of this one: each version only appended
     // fields. Keep everything they saved, calibration included, and default
-    // only what is new.
-    if (cfg.magic == EEPROM_MAGIC && (cfg.version == 7 || cfg.version == 8)) {
-        uint8_t oldVoice = (cfg.version == 8) ? cfg.voiceV8 : (uint8_t)VoiceId::Piano;
-        cfg.version = EEPROM_VERSION;
-        cfg.voiceV8 = 0;
-        setLayerDefaults(cfg);
-        if (oldVoice < VOICE_COUNT) cfg.layer[LAYER_A].voice = oldVoice;
+    // only what is new. Version 9 is the exception: LayerCfg grew, so its
+    // layer[] is read back with the old stride.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 7 && cfg.version <= 9) {
+        uint8_t shift = migrateShift(cfg.sensorShiftV9);
+        if (cfg.version == 9) {
+            LayerCfgV9 old[NUM_LAYERS];
+            EEPROM.get(EEPROM_ADDRESS + (int)offsetof(SavedConfig, layer), old);
+            for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+                cfg.layer[l] = { old[l].mode, old[l].voice, old[l].channel,
+                                 old[l].octaveOffset, old[l].level };
+            }
+            setV10Defaults(cfg.layer[LAYER_A], false);
+            setV10Defaults(cfg.layer[LAYER_B], true);
+        } else {
+            uint8_t oldVoice = (cfg.version == 8) ? cfg.voiceV8 : (uint8_t)VoiceId::Piano;
+            setLayerDefaults(cfg);
+            if (oldVoice < VOICE_COUNT) cfg.layer[LAYER_A].voice = oldVoice;
+        }
+        // The old master shift goes into both layers.
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.layer[l].shift = shift;
+        cfg.auxFn         = migrateAuxFn(cfg.auxFn);
+        cfg.version       = EEPROM_VERSION;
+        cfg.voiceV8       = 0;
+        cfg.sensorShiftV9 = 0;
         committed = cfg;
         storageSave(cfg);
         return;

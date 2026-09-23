@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 9;
+constexpr uint8_t  EEPROM_VERSION = 10;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -21,12 +21,38 @@ constexpr uint8_t LAYER_B     = 1;
 constexpr uint8_t NUM_LAYERS  = 2;
 constexpr uint8_t LAYER_CHANNEL_AUTO = 0;   // follow the voice's channel
 
+// Which end of the sensor arm plays the low end of the run. Inner: hall 1, the
+// inner track, is lowest. Outer: the run is reversed, hall 8 is lowest.
+enum class LowNote : uint8_t {
+    Inner,
+    Outer,
+};
+
 struct LayerCfg {
     LayerMode mode;
     uint8_t   voice;          // VoiceId
     uint8_t   channel;        // LAYER_CHANNEL_AUTO, or a MIDI channel 1-16
     int8_t    octaveOffset;   // added to the master octave
     uint8_t   level;          // percent, 0-100
+    // Added in version 10. Track Shift: scale degrees added to every sensor's
+    // degree, and whether the result wraps around the arm (Wrap) or carries
+    // into the next octave (No Wrap). Kit voices always wrap.
+    uint8_t   shift;          // 0 to NUM_HALL_SENSORS-1
+    bool      wrap;
+    bool      shiftSameAsA;   // Layer B only: play A's shift and Wrap
+    uint8_t   lowNote;        // LowNote
+    bool      lowNoteSameAsA; // Layer B only: play A's Low Note
+};
+
+// The version 9 layout of LayerCfg, for migrating it: layer[] is the last
+// field, so growing LayerCfg moves layer[LAYER_B] and it has to be read back
+// with the old stride.
+struct LayerCfgV9 {
+    LayerMode mode;
+    uint8_t   voice;
+    uint8_t   channel;
+    int8_t    octaveOffset;
+    uint8_t   level;
 };
 
 struct SavedConfig {
@@ -38,7 +64,8 @@ struct SavedConfig {
     float    volume;
     float    rpm;
     bool     muted;
-    int8_t   sensorShift;   // root note offset across sensors, default 0
+    int8_t   sensorShiftV9;   // UNUSED since version 10 (moved into each
+                              // layer as LayerCfg::shift); kept for the layout
     bool     calibrated;      // false until calibration has run
     uint16_t hallThreshold;   // ADC deviation to trigger a note
     uint16_t hallBaseline[NUM_HALL_SENSORS];  // ADC value at rest, per sensor

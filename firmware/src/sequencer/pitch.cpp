@@ -39,7 +39,7 @@ float pitchBendSemitones() {
     return offsetSemis - (float)pitchNoteShift();
 }
 
-float pitchHz(uint8_t baseNote) {
+float pitchHz(int baseNote) {
     // A4 = note 69 = 440 Hz. The offset is applied before the conversion, so
     // the internal synth hears the exact tuning with no rounding at all.
     return 440.0f * powf(2.0f, ((float)baseNote + offsetSemis - 69.0f) / 12.0f);
