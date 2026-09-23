@@ -231,33 +231,47 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
     }
 }
 
-// Two lines: what the knob is bound to, and where that parameter sits now.
-// A list would imply a cursor you have to commit, and nothing here is committed
-// -- every step has already been applied by the time it is drawn.
+// Both lines go to the parameter itself. The Fn name is deliberately NOT shown:
+// you already know what you just bound the knob to, and spending half a 16x2
+// display repeating it costs the line that could show where the value sits
+// relative to its neighbours.
+//
+// List-shaped parameters therefore get the normal two-line list with the cursor
+// on the current value, so the next value is visible before you turn into it.
+// Pitch is continuous rather than a list, so it shows its offset and the step
+// size currently in force.
 static void drawAuxParam(const SavedConfig& cfg) {
-    lcdLine(0, "%-16s", AUX_FN_LABELS[cfg.auxFn]);
-
     switch ((AuxFn)cfg.auxFn) {
         case AuxFn::Octave:
-            lcdLine(1, "Octave %d", cfg.octave);
+            // Explicit counts: these lists carry a trailing "Back" for menu use
+            // that has no meaning here, where the button is already back.
+            drawList(OCTAVE_ITEMS, 8, cfg.octave);
             break;
         case AuxFn::RootNote:
-            lcdLine(1, "%s", ROOT_ITEMS[(uint8_t)cfg.root]);
+            drawList(ROOT_ITEMS, 12, (uint8_t)cfg.root);
             break;
         case AuxFn::ScaleFn:
-            lcdLine(1, "%s", SCALE_ITEMS[(uint8_t)cfg.scale]);
+            drawList(SCALE_ITEMS, (uint8_t)Scale::COUNT, (uint8_t)cfg.scale);
             break;
         case AuxFn::TrackShift:
-            lcdLine(1, "Shift %d", cfg.sensorShift);
+            drawList(SHIFT_LABELS, NUM_HALL_SENSORS,
+                     (uint8_t)constrain(cfg.sensorShift, 0, NUM_HALL_SENSORS - 1));
             break;
         case AuxFn::Pitch: {
-            // Shown in cents rather than semitones so fractional steps read
-            // sensibly, and so nothing here depends on %f in snprintf.
+            // Cents rather than semitones so fractional steps read sensibly,
+            // and so nothing here depends on %f in snprintf.
             int cents = (int)lroundf(pitchGetOffset() * 100.0f);
-            lcdLine(1, "%+d cents", cents);
+            lcdLine(0, "%+d cents", cents);
+
+            uint8_t idx = 0;
+            for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
+                if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
+            }
+            lcdLine(1, "step %s", PITCH_STEP_LABELS[idx]);
             break;
         }
         default:
+            lcdLine(0, "");
             lcdLine(1, "");
             break;
     }
