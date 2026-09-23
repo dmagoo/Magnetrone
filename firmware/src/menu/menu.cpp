@@ -13,6 +13,7 @@
 #include "calibration/calibration.h"
 #include "sensors/hall.h"
 #include "sequencer/pitch.h"
+#include "sequencer/layers.h"
 
 static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
@@ -22,7 +23,12 @@ enum class MenuState : uint8_t {
     RootNote,
     Scale,
     Octave,
-    Voice,
+    LayerMenu,      // one layer's submenu; which one is editLayer
+    LayerMode,
+    LayerVoice,
+    LayerChannel,
+    LayerOctave,
+    LayerLevel,
     WelcomeTune,
     LcdTimeout,
     BeatsPerRev,
@@ -71,12 +77,46 @@ static const uint8_t OCTAVE_COUNT = 9;
 static const char* VOICE_ITEMS[VOICE_COUNT + 1];
 static const uint8_t VOICE_ITEMS_COUNT = VOICE_COUNT + 1;
 
+// --- Layer submenu --------------------------------------------------------
+// Layer A and Layer B share one submenu; editLayer says which is open.
+static uint8_t editLayer = LAYER_A;
+
+static const char* LAYER_ITEMS[] = {
+    "Mode","Voice","Channel","Octave","Level","Back"
+};
+static const uint8_t LAYER_ITEMS_COUNT = 6;
+enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
+                 LAYER_ITEM_OCTAVE, LAYER_ITEM_LEVEL, LAYER_ITEM_BACK };
+
+// Order matches LayerMode. Layer A has no Same as A, so its list is shorter.
+static const char* MODE_ITEMS_A[] = { "On","Off","Back" };
+static const char* MODE_ITEMS_B[] = { "On","Off","Same as A","Back" };
+static const uint8_t MODE_COUNT_A = 3;
+static const uint8_t MODE_COUNT_B = 4;
+
+// Auto, then channels 1-16, then Back. Index == stored value. Filled in by
+// menuInit().
+static char        CHANNEL_LABEL_BUF[16][6];
+static const char* CHANNEL_ITEMS[18];
+static const uint8_t CHANNEL_COUNT = 18;
+
+// Octave offset -3..+3; index = offset + LAYER_OCTAVE_RANGE.
+static const int8_t  LAYER_OCTAVE_RANGE = 3;
+static const char*   LAYER_OCTAVE_ITEMS[] = { "-3","-2","-1","0","+1","+2","+3","Back" };
+static const uint8_t LAYER_OCTAVE_COUNT = 8;
+
+// Level in 10% steps; index = level / 10.
+static const char*   LEVEL_ITEMS[] = {
+    "0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%","Back"
+};
+static const uint8_t LEVEL_COUNT = 12;
+
 static const char* MAIN_ITEMS[] = {
-    "Root Note","Scale","Octave","Voice","Welcome Tune",
+    "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
     "LCD Timeout","Beats/Rev","Track Shift","Aux Fn","Pitch Step",
     "Magnet Pole","Calibration","Reset Cal","Reset All","Back"
 };
-static const uint8_t MAIN_COUNT = 15;
+static const uint8_t MAIN_COUNT = 16;
 
 // Which way a passing magnet pushes the sensor output. Calibration measures
 // this; the override exists so a wrong guess does not leave the table silent.
@@ -89,17 +129,20 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 // -------------------------------------------------------------------------
 // What the aux knob can be bound to. Order must match AUX_FN_LABELS, and the
 // stored cfg.auxFn is an index into it.
-enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, TrackShift, Pitch, COUNT };
+enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, TrackShift, Pitch,
+                             Balance, VoiceA, VoiceB, COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
 // The select list carries two trailing actions, Reset and Exit. The "set the
 // default binding" menu carries only a trailing Back -- reset has no meaning
 // there, since that menu sets committed values rather than modulating live ones.
 static const char* AUX_FN_LABELS[] = {
-    "Octave","Root Note","Scale","Track Shift","Pitch","Reset All","Exit"
+    "Octave","Root Note","Scale","Track Shift","Pitch",
+    "A/B Balance","Layer A Voice","Layer B Voice","Reset All","Exit"
 };
 static const char* AUX_FN_MENU_LABELS[] = {
-    "Octave","Root Note","Scale","Track Shift","Pitch","Back"
+    "Octave","Root Note","Scale","Track Shift","Pitch",
+    "A/B Balance","Layer A Voice","Layer B Voice","Back"
 };
 static const uint8_t AUX_FN_SELECT_COUNT = AUX_FN_COUNT + 2;  // + Reset, Exit
 static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
@@ -250,6 +293,21 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             pitchAdjust((float)delta / (float)div);
             break;
         }
+        case AuxFn::Balance:
+            layerSetBalance(layerBalance() + delta);           // clamp: a range
+            break;
+        case AuxFn::VoiceA:
+        case AuxFn::VoiceB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::VoiceA) ? LAYER_A : LAYER_B;
+            // B in Same as A plays A's voice, so turning B's would do nothing
+            // audible; leave it alone rather than change a hidden setting.
+            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) break;
+            int v = ((int)cfg.layer[l].voice + delta) % VOICE_COUNT;
+            if (v < 0) v += VOICE_COUNT;
+            cfg.layer[l].voice = (uint8_t)v;                   // wrap: a list
+            layersApply(cfg);
+            break;
+        }
         default: break;
     }
 }
@@ -293,6 +351,34 @@ static void drawAuxParam(const SavedConfig& cfg) {
             lcdLine(1, "step %s", PITCH_STEP_LABELS[idx]);
             break;
         }
+        case AuxFn::Balance: {
+            // Each side's share, then a slider: A on the left, B on the right.
+            int b = layerBalance();
+            int pctA = (b <= 0) ? 100 : (BALANCE_STEPS - b) * 100 / BALANCE_STEPS;
+            int pctB = (b >= 0) ? 100 : (BALANCE_STEPS + b) * 100 / BALANCE_STEPS;
+            lcdLine(0, "A %3d%%    B %3d%%", pctA, pctB);
+
+            char bar[17];
+            const int track = 14;   // cells between the A and B end markers
+            int pos = (b + BALANCE_STEPS) * (track - 1) / (2 * BALANCE_STEPS);
+            bar[0] = 'A';
+            for (int i = 0; i < track; i++) bar[1 + i] = (i == pos) ? LCD_BLOCK : '-';
+            bar[15] = 'B';
+            bar[16] = 0;
+            lcdLine(1, "%s", bar);
+            break;
+        }
+        case AuxFn::VoiceA:
+        case AuxFn::VoiceB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::VoiceA) ? LAYER_A : LAYER_B;
+            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+                lcdLine(0, "Layer B is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(VOICE_ITEMS, VOICE_COUNT, cfg.layer[l].voice);
+            }
+            break;
+        }
         default:
             lcdLine(0, "");
             lcdLine(1, "");
@@ -309,7 +395,8 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
     bpm = constrain(bpm, 40, 200);
     uint32_t beatMs = 60000UL / (uint32_t)bpm;
-    uint32_t noteMs = min((uint32_t)voiceGet(cfg.voice).noteMs, beatMs);
+    uint32_t noteMs  = min((uint32_t)layerVoice(cfg, LAYER_A).noteMs, beatMs);
+    uint8_t  channel = layerChannel(cfg, LAYER_A);
 
     lcdLine(0, "  Music  Table  ");
     lcdLine(1, "~~~~~~~~~~~~~~~~");
@@ -317,9 +404,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     // Forward pass.
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         uint8_t note = scaleNote(cfg.root, cfg.scale, i, cfg.octave);
-        uint8_t sounded = midiNoteOn(note, 100);
+        uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
         delay(noteMs);
-        midiNoteOff(sounded);
+        midiNoteOff(LAYER_A, channel, sounded);
         delay(beatMs - noteMs);
     }
 
@@ -329,9 +416,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     // Reverse pass.
     for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) {
         uint8_t note = scaleNote(cfg.root, cfg.scale, (uint8_t)i, cfg.octave);
-        uint8_t sounded = midiNoteOn(note, 100);
+        uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
         delay(noteMs);
-        midiNoteOff(sounded);
+        midiNoteOff(LAYER_A, channel, sounded);
         delay(beatMs - noteMs);
     }
 
@@ -346,6 +433,13 @@ void menuInit(const SavedConfig& cfg) {
 
     for (uint8_t i = 0; i < VOICE_COUNT; i++) VOICE_ITEMS[i] = voiceGet(i).name;
     VOICE_ITEMS[VOICE_COUNT] = "Back";
+
+    CHANNEL_ITEMS[0] = "Auto";
+    for (uint8_t c = 1; c <= 16; c++) {
+        snprintf(CHANNEL_LABEL_BUF[c - 1], sizeof(CHANNEL_LABEL_BUF[0]), "Ch %u", c);
+        CHANNEL_ITEMS[c] = CHANNEL_LABEL_BUF[c - 1];
+    }
+    CHANNEL_ITEMS[17] = "Back";
 
     // Apply initial backlight state based on saved timeout setting.
     if (cfg.lcdTimeout == LCD_TIMEOUT_ALWAYS_OFF) {
@@ -498,6 +592,8 @@ void menuUpdate(SavedConfig& cfg) {
                     // reached EEPROM, so reverting is purely a RAM operation.
                     storageRevertLive(cfg);
                     pitchSetOffset(0.0f);
+                    layerSetBalance(0);
+                    layersApply(cfg);
                     enterState(MenuState::Status);
                 } else {
                     // Rebinding IS saved -- it changes rarely, unlike the values
@@ -534,11 +630,11 @@ void menuUpdate(SavedConfig& cfg) {
                     case 1: enterState(MenuState::Scale,
                                 static_cast<uint8_t>(cfg.scale)); break;
                     case 2: enterState(MenuState::Octave, cfg.octave); break;
-                    case 3: enterState(MenuState::Voice,
-                                (uint8_t)constrain(cfg.voice, 0, VOICE_COUNT - 1)); break;
-                    case 4: enterState(MenuState::WelcomeTune,
+                    case 3: editLayer = LAYER_A; enterState(MenuState::LayerMenu); break;
+                    case 4: editLayer = LAYER_B; enterState(MenuState::LayerMenu); break;
+                    case 5: enterState(MenuState::WelcomeTune,
                                 cfg.playWelcomeTune ? 0 : 1); break;
-                    case 5: {
+                    case 6: {
                         // Find current timeout value in the options list.
                         uint8_t idx = 1; // default to 5s if not found
                         for (uint8_t i = 0; i < 7; i++) {
@@ -547,7 +643,7 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LcdTimeout, idx);
                         break;
                     }
-                    case 6: {
+                    case 7: {
                         // Land the cursor on the stored value, not the top.
                         uint8_t idx = 3;  // default to 4 beats if not found
                         for (uint8_t i = 0; i < 6; i++) {
@@ -556,11 +652,11 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::BeatsPerRev, idx);
                         break;
                     }
-                    case 7: enterState(MenuState::SensorShift,
+                    case 8: enterState(MenuState::SensorShift,
                                 (uint8_t)constrain(cfg.sensorShift, 0, 7)); break;
-                    case 8: enterState(MenuState::AuxFnDefault,
+                    case 9: enterState(MenuState::AuxFnDefault,
                                 (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1)); break;
-                    case 9: {
+                    case 10: {
                         uint8_t idx = 0;
                         for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
                             if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
@@ -568,12 +664,12 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
-                    case 10:  enterState(MenuState::MagnetPole,
+                    case 11:  enterState(MenuState::MagnetPole,
                                 cfg.magnetPolarity < 0 ? 1 : 0); break;
-                    case 11: enterState(MenuState::CalibrationPrompt); break;
-                    case 12: enterState(MenuState::ResetCalPrompt); break;
-                    case 13: enterState(MenuState::ResetAllPrompt); break;
-                    case 14: enterState(MenuState::Status); break;
+                    case 12: enterState(MenuState::CalibrationPrompt); break;
+                    case 13: enterState(MenuState::ResetCalPrompt); break;
+                    case 14: enterState(MenuState::ResetAllPrompt); break;
+                    case 15: enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -611,18 +707,107 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
-        case MenuState::Voice:
+        case MenuState::LayerMenu:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + LAYER_ITEMS_COUNT) % LAYER_ITEMS_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                const LayerCfg& lc = cfg.layer[editLayer];
+                switch (cursor) {
+                    case LAYER_ITEM_MODE:
+                        enterState(MenuState::LayerMode, (uint8_t)lc.mode); break;
+                    case LAYER_ITEM_VOICE:
+                        enterState(MenuState::LayerVoice,
+                                   (uint8_t)constrain(lc.voice, 0, VOICE_COUNT - 1)); break;
+                    case LAYER_ITEM_CHANNEL:
+                        enterState(MenuState::LayerChannel,
+                                   (uint8_t)constrain(lc.channel, 0, 16)); break;
+                    case LAYER_ITEM_OCTAVE:
+                        enterState(MenuState::LayerOctave,
+                                   (uint8_t)(constrain(lc.octaveOffset, -LAYER_OCTAVE_RANGE,
+                                                       LAYER_OCTAVE_RANGE) + LAYER_OCTAVE_RANGE)); break;
+                    case LAYER_ITEM_LEVEL:
+                        enterState(MenuState::LayerLevel,
+                                   (uint8_t)(constrain(lc.level, 0, 100) / 10)); break;
+                    default:
+                        enterState(MenuState::MainMenu, editLayer == LAYER_A ? 3 : 4); break;
+                }
+            }
+            break;
+
+        case MenuState::LayerMode: {
+            uint8_t count = (editLayer == LAYER_A) ? MODE_COUNT_A : MODE_COUNT_B;
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + count) % count;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < count - 1) {   // last entry is Back
+                    cfg.layer[editLayer].mode = (LayerMode)cursor;
+                    storageSave(cfg);
+                    layersApply(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_MODE);
+            }
+            break;
+        }
+
+        case MenuState::LayerVoice:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + VOICE_ITEMS_COUNT) % VOICE_ITEMS_COUNT;
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
                 if (cursor < VOICE_COUNT) {   // last entry is Back
-                    cfg.voice = cursor;
-                    storageSave(cfg);
-                    audioSetVoice(voiceGet(cfg.voice));
+                    cfg.layer[editLayer].voice = cursor;
+                    storageCommit(cfg);       // voice is also an aux target
+                    layersApply(cfg);
                 }
-                enterState(MenuState::MainMenu, 3);
+                enterState(MenuState::LayerMenu, LAYER_ITEM_VOICE);
+            }
+            break;
+
+        case MenuState::LayerChannel:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + CHANNEL_COUNT) % CHANNEL_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < CHANNEL_COUNT - 1) {   // last entry is Back
+                    cfg.layer[editLayer].channel = cursor;   // 0 = Auto
+                    storageSave(cfg);
+                    layersApply(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_CHANNEL);
+            }
+            break;
+
+        case MenuState::LayerOctave:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + LAYER_OCTAVE_COUNT) % LAYER_OCTAVE_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < LAYER_OCTAVE_COUNT - 1) {   // last entry is Back
+                    cfg.layer[editLayer].octaveOffset = (int8_t)cursor - LAYER_OCTAVE_RANGE;
+                    storageSave(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_OCTAVE);
+            }
+            break;
+
+        case MenuState::LayerLevel:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + LEVEL_COUNT) % LEVEL_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < LEVEL_COUNT - 1) {   // last entry is Back
+                    cfg.layer[editLayer].level = cursor * 10;
+                    storageSave(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_LEVEL);
             }
             break;
 
@@ -639,7 +824,7 @@ void menuUpdate(SavedConfig& cfg) {
                     playWelcomeTune(cfg);
                 }
                 if (cursor == 1) { cfg.playWelcomeTune = false; storageSave(cfg); }
-                enterState(MenuState::MainMenu, 4);
+                enterState(MenuState::MainMenu, 5);
             }
             break;
 
@@ -662,7 +847,7 @@ void menuUpdate(SavedConfig& cfg) {
                         lastInteraction = millis();
                     }
                 }
-                enterState(MenuState::MainMenu, 5);
+                enterState(MenuState::MainMenu, 6);
             }
             break;
 
@@ -676,7 +861,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.beatsPerRev = BEATS_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 6);
+                enterState(MenuState::MainMenu, 7);
             }
             break;
 
@@ -690,7 +875,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.sensorShift = (int8_t)cursor;
                     storageCommit(cfg);
                 }
-                enterState(MenuState::MainMenu, 7);
+                enterState(MenuState::MainMenu, 8);
             }
             break;
 
@@ -704,7 +889,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.auxFn = cursor;
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 8);
+                enterState(MenuState::MainMenu, 9);
             }
             break;
 
@@ -718,7 +903,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.pitchStepDiv = PITCH_STEP_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 9);
+                enterState(MenuState::MainMenu, 10);
             }
             break;
 
@@ -733,7 +918,7 @@ void menuUpdate(SavedConfig& cfg) {
                     storageSave(cfg);
                     hallSetPolarity(cfg.magnetPolarity);
                 }
-                enterState(MenuState::MainMenu, 10);
+                enterState(MenuState::MainMenu, 11);
             }
             break;
 
@@ -749,13 +934,13 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 11);
+                else enterState(MenuState::MainMenu, 12);
             }
             break;
 
         case MenuState::CalibrationRunning: {
             calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 11);
+            enterState(MenuState::MainMenu, 12);
             break;
         }
 
@@ -778,7 +963,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 12);
+                enterState(MenuState::MainMenu, 13);
             }
             break;
 
@@ -792,11 +977,12 @@ void menuUpdate(SavedConfig& cfg) {
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
                     audioSetVolume(cfg.volume);
-                    audioSetVoice(voiceGet(cfg.voice));
+                    layerSetBalance(0);
+                    layersApply(cfg);
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 13);
+                enterState(MenuState::MainMenu, 14);
             }
             break;
     }
@@ -820,8 +1006,24 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::Octave:
                 drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);
                 break;
-            case MenuState::Voice:
+            case MenuState::LayerMenu:
+                drawList(LAYER_ITEMS, LAYER_ITEMS_COUNT, cursor);
+                break;
+            case MenuState::LayerMode:
+                if (editLayer == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A, cursor);
+                else                      drawList(MODE_ITEMS_B, MODE_COUNT_B, cursor);
+                break;
+            case MenuState::LayerVoice:
                 drawList(VOICE_ITEMS, VOICE_ITEMS_COUNT, cursor);
+                break;
+            case MenuState::LayerChannel:
+                drawList(CHANNEL_ITEMS, CHANNEL_COUNT, cursor);
+                break;
+            case MenuState::LayerOctave:
+                drawList(LAYER_OCTAVE_ITEMS, LAYER_OCTAVE_COUNT, cursor);
+                break;
+            case MenuState::LayerLevel:
+                drawList(LEVEL_ITEMS, LEVEL_COUNT, cursor);
                 break;
             case MenuState::WelcomeTune:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);

@@ -8,6 +8,7 @@
 #include "sensors/hall.h"
 #include "menu/menu.h"
 #include "sequencer/sequencer.h"
+#include "sequencer/layers.h"
 
 static SavedConfig cfg;
 
@@ -17,8 +18,8 @@ void setup() {
     stepperSetCorrection(cfg.rpmCorrection);   // measured by calibration
     encoderInit();
     audioInit(cfg.volume, cfg.muted);
-    audioSetVoice(voiceGet(cfg.voice));
     midiInit();
+    layersApply(cfg);
     hallInit();
     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
     hallSetPolarity(cfg.magnetPolarity);

@@ -31,6 +31,16 @@ static void copyLiveModulatedFields(SavedConfig& dst, const SavedConfig& src) {
     dst.scale       = src.scale;
     dst.octave      = src.octave;
     dst.sensorShift = src.sensorShift;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) dst.layer[l].voice = src.layer[l].voice;
+}
+
+static void setLayerDefaults(SavedConfig& c) {
+    c.layer[LAYER_A] = { LayerMode::On,      (uint8_t)VoiceId::Piano,
+                         LAYER_CHANNEL_AUTO,  0, 100 };
+    // Same as A by default, so the table plays the same whichever way up a
+    // magnet sits. The rest applies once B is switched On.
+    c.layer[LAYER_B] = { LayerMode::SameAsA, (uint8_t)VoiceId::Bass,
+                         LAYER_CHANNEL_AUTO, -1, 100 };
 }
 
 SavedConfig storageDefaults() {
@@ -59,19 +69,24 @@ SavedConfig storageDefaults() {
     c.auxFn           = DEFAULT_AUX_FN;
     c.pitchStepDiv    = DEFAULT_PITCH_STEP_DIV;
     c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
-    c.voice           = (uint8_t)VoiceId::Piano;
+    c.voiceV8         = 0;
+    setLayerDefaults(c);
     return c;
 }
 
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
 
-    // Version 7 is version 8 minus the trailing voice field. Keep everything it
-    // saved, calibration included, and default only what is new.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version == 7) {
+    // Older layouts are prefixes of this one: each version only appended
+    // fields. Keep everything they saved, calibration included, and default
+    // only what is new.
+    if (cfg.magic == EEPROM_MAGIC && (cfg.version == 7 || cfg.version == 8)) {
+        uint8_t oldVoice = (cfg.version == 8) ? cfg.voiceV8 : (uint8_t)VoiceId::Piano;
         cfg.version = EEPROM_VERSION;
-        cfg.voice   = (uint8_t)VoiceId::Piano;
-        committed   = cfg;
+        cfg.voiceV8 = 0;
+        setLayerDefaults(cfg);
+        if (oldVoice < VOICE_COUNT) cfg.layer[LAYER_A].voice = oldVoice;
+        committed = cfg;
         storageSave(cfg);
         return;
     }

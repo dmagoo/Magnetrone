@@ -4,8 +4,30 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 8;
+constexpr uint8_t  EEPROM_VERSION = 9;
 constexpr int      EEPROM_ADDRESS = 0;
+
+// One side of a magnet: Layer A plays the normal pole, Layer B the reversed
+// one. Both hold the same fields; they are symmetric on purpose, so either
+// side can play any voice.
+enum class LayerMode : uint8_t {
+    On,
+    Off,
+    SameAsA,   // Layer B only: reversed magnets play exactly like normal ones
+};
+
+constexpr uint8_t LAYER_A     = 0;
+constexpr uint8_t LAYER_B     = 1;
+constexpr uint8_t NUM_LAYERS  = 2;
+constexpr uint8_t LAYER_CHANNEL_AUTO = 0;   // follow the voice's channel
+
+struct LayerCfg {
+    LayerMode mode;
+    uint8_t   voice;          // VoiceId
+    uint8_t   channel;        // LAYER_CHANNEL_AUTO, or a MIDI channel 1-16
+    int8_t    octaveOffset;   // added to the master octave
+    uint8_t   level;          // percent, 0-100
+};
 
 struct SavedConfig {
     uint16_t magic;
@@ -30,7 +52,10 @@ struct SavedConfig {
     // Added in version 8. New fields go at the END so an older layout is a
     // prefix of this one and storageLoad() can migrate it instead of wiping
     // calibration.
-    uint8_t  voice;             // VoiceId; becomes Layer A's voice later
+    uint8_t  voiceV8;           // UNUSED since version 9 (moved into
+                                // layer[LAYER_A].voice); kept for the layout
+    // Added in version 9.
+    LayerCfg layer[NUM_LAYERS];
 };
 
 void storageLoad(SavedConfig& cfg);

@@ -16,9 +16,10 @@ struct Voice {
     float       sustain;    // level, 0.0 - 1.0
     uint16_t    releaseMs;
     uint16_t    noteMs;     // Note On to Note Off
+    uint8_t     autoChannel; // MIDI channel when a layer's channel is Auto
 };
 
-// Order matches VOICES[] in voice.cpp, and the stored cfg.voice is an index
+// Order matches VOICES[] in voice.cpp, and the stored cfg.layer[].voice is an index
 // into it, so append new voices at the end or saved settings shift.
 enum class VoiceId : uint8_t { Piano, Strings, Leads, Bass, COUNT };
 constexpr uint8_t VOICE_COUNT = (uint8_t)VoiceId::COUNT;
