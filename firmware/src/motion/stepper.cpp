@@ -17,6 +17,19 @@ static Platter platter(Platter::defaultConfig());
 // stop instead of a start. This tracks whether motion has ever been asked for.
 static bool commanded = false;
 
+// actual_rpm / commanded_rpm, as measured by calibration. Commanding
+// rpm / correction makes the platter actually turn at rpm. 1.0 until
+// calibration has run.
+static float correction = 1.0f;
+
+void stepperSetCorrection(float actualOverCommanded) {
+    // Ignore absurd or uninitialised values rather than letting a bad EEPROM
+    // read divide the commanded speed into nonsense.
+    if (actualOverCommanded > 0.5f && actualOverCommanded < 2.0f) {
+        correction = actualOverCommanded;
+    }
+}
+
 void stepperInit() {
     platter.begin();
     // begin() energises the coils. Nothing has been commanded yet, so hold off
@@ -31,7 +44,7 @@ void stepperUpdate() {
 void stepperStart(float rpm) {
     commanded = true;
     platter.enable();
-    platter.setRPM(rpm);   // spins up from rest via pull-in + ramp
+    platter.setRPM(rpm / correction);   // spins up from rest via pull-in + ramp
 }
 
 void stepperStop() {
@@ -42,7 +55,7 @@ void stepperStop() {
 
 void stepperSetRPM(float rpm) {
     if (!commanded) return;   // matches the old API: no effect until started
-    platter.setRPM(rpm);
+    platter.setRPM(rpm / correction);
 }
 
 bool stepperRunning() {
@@ -50,5 +63,6 @@ bool stepperRunning() {
 }
 
 float stepperCurrentRPM() {
-    return platter.currentRPM();
+    // Report the real platter speed, undoing the correction applied on the way in.
+    return platter.currentRPM() * correction;
 }

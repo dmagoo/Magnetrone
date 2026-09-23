@@ -34,16 +34,34 @@ constexpr uint8_t   HALL_ADC_BITS           = 12;   // ADC resolution for hall s
 // Default threshold: 200 counts deviation from baseline.
 // Replaced by calibration measurement once calibration has run.
 constexpr uint16_t  HALL_THRESHOLD_DEFAULT  = 200;
-constexpr uint16_t  HALL_HYSTERESIS         = 100;  // must return within this to reset trigger
-constexpr uint16_t  HALL_DEBOUNCE_MS        = 20;   // minimum ms between triggers on the same sensor
+
+// Re-arm level: deviation must fall back BELOW this before a sensor that has
+// fired is allowed to fire again. This is not simple hysteresis on the
+// threshold -- it has to be close to baseline, because one magnet pass is not
+// one clean bump. A disc magnet's return flux has the opposite sign to its face
+// field, and hallUpdate() compares ABSOLUTE deviation, so a single pass can
+// cross the threshold two or three times (fringe, face, fringe) and produce the
+// double notes in todo.md. Requiring a return to near-baseline means the dip
+// between those lobes no longer re-arms the sensor.
+//
+// It replaces the old HALL_HYSTERESIS, which was subtracted from the threshold
+// and went negative for any calibrated threshold below 100 -- that latched the
+// sensor on permanently (flagged in the 2026-06-10 audit).
+constexpr uint16_t  HALL_REARM_LEVEL        = 40;
+
+// Minimum ms between triggers on the same sensor. Long enough to cover one
+// magnet pass, far shorter than the gap between legitimate triggers: even at
+// MAX_RPM with four magnets on a track those are ~125 ms apart.
+constexpr uint16_t  HALL_DEBOUNCE_MS        = 80;
 constexpr uint16_t  HALL_BASELINE_DEFAULT   = 980;  // pre-calibration estimate
 
 // -------------------------------------------------------------------------
 // Tempo / BPM
 // -------------------------------------------------------------------------
-// 1 revolution = 1 bar (4/4). Configurable in Advanced menu (future).
-constexpr uint8_t   BEATS_PER_REV        = 4;
-// BPM = RPM * BEATS_PER_REV
+// 1 revolution = 1 bar (4/4) by default. Now configurable from the menu and
+// stored per-config as cfg.beatsPerRev; this is only the factory default.
+constexpr uint8_t   DEFAULT_BEATS_PER_REV = 4;
+// BPM = |RPM| * cfg.beatsPerRev
 
 // -------------------------------------------------------------------------
 // Motion

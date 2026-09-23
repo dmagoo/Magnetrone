@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <math.h>
 #include "config/storage.h"
 #include "motion/stepper.h"
 #include "ui/encoder.h"
@@ -13,10 +14,12 @@ static SavedConfig cfg;
 void setup() {
     storageLoad(cfg);
     stepperInit();
+    stepperSetCorrection(cfg.rpmCorrection);   // measured by calibration
     encoderInit();
     audioInit(cfg.volume, cfg.muted);
     midiInit();
     hallInit();
+    hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
     menuInit(cfg);
 }
 
@@ -27,4 +30,8 @@ void loop() {
     sequencerUpdate(cfg);
     menuUpdate(cfg);
     midiUpdate();
+
+    // Beat clock follows the platter. RPM is signed (negative = reversed), but
+    // tempo is not, so the clock tracks the magnitude.
+    midiClockUpdate(fabsf(cfg.rpm) * cfg.beatsPerRev, stepperRunning());
 }

@@ -13,16 +13,31 @@ static long lastVol   = 0;
 
 static EncoderEvent pending = {};
 
-static bool readButton(int pin, bool& lastState) {
+// Bare EC11 buttons with no RC filtering (the hardware debounce was marked
+// WONTFIX in todo.md in favour of doing it here). A mechanical contact rattles
+// for a few ms on both make and break, and every one of those edges used to
+// read as a fresh press. Ignore any state change that lands inside the settle
+// window; 30 ms is well past the bounce and far below a deliberate double-click.
+constexpr uint16_t BUTTON_DEBOUNCE_MS = 30;
+
+static bool readButton(int pin, bool& lastState, uint32_t& lastChangeMs) {
     bool cur = !digitalRead(pin);  // active low
-    bool pressed = cur && !lastState;
-    lastState = cur;
-    return pressed;
+    if (cur == lastState) return false;
+
+    uint32_t now = millis();
+    if (now - lastChangeMs < BUTTON_DEBOUNCE_MS) return false;  // still bouncing
+
+    lastChangeMs = now;
+    lastState    = cur;
+    return cur;   // report the press edge only, not the release
 }
 
-static bool btnMenuLast  = false;
-static bool btnSpeedLast = false;
-static bool btnVolLast   = false;
+static bool     btnMenuLast  = false;
+static bool     btnSpeedLast = false;
+static bool     btnVolLast   = false;
+static uint32_t btnMenuMs    = 0;
+static uint32_t btnSpeedMs   = 0;
+static uint32_t btnVolMs     = 0;
 
 void encoderInit() {
     pinMode(PIN_MENU_BTN,  INPUT_PULLUP);
@@ -44,9 +59,9 @@ void encoderUpdate() {
     lastSpeed = s;
     lastVol   = v;
 
-    if (readButton(PIN_MENU_BTN,  btnMenuLast))  pending.menuPressed  = true;
-    if (readButton(PIN_SPEED_BTN, btnSpeedLast)) pending.speedPressed = true;
-    if (readButton(PIN_VOL_BTN,   btnVolLast))   pending.volumePressed = true;
+    if (readButton(PIN_MENU_BTN,  btnMenuLast,  btnMenuMs))  pending.menuPressed   = true;
+    if (readButton(PIN_SPEED_BTN, btnSpeedLast, btnSpeedMs)) pending.speedPressed  = true;
+    if (readButton(PIN_VOL_BTN,   btnVolLast,   btnVolMs))   pending.volumePressed = true;
 }
 
 EncoderEvent encoderEvents() {

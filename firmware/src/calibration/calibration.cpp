@@ -20,6 +20,9 @@ static const uint32_t BASELINE_SAMPLE_MS = 3000;
 // How long to wait for a magnet to be detected before giving up.
 static const uint32_t DETECT_TIMEOUT_MS = 15000;
 
+// Backstop for waiting out the deceleration ramp at the end of calibration.
+static const uint32_t STOP_TIMEOUT_MS = 6000;
+
 // Threshold is set to this fraction of the measured peak deviation.
 // 0.5 means the trigger fires at half the peak signal strength,
 // giving a reliable trigger without being too sensitive to noise.
@@ -148,7 +151,10 @@ static CalibrationStatus detectMagnet(
             } else if ((int8_t)i == timingSensor) {
                 // We are tracking this sensor for revolution timing.
                 if (inTrigger) {
-                    if (dev < workingThreshold - HALL_HYSTERESIS) {
+                    // Same re-arm rule as hallUpdate(): the reading has to come
+                    // back near baseline, not merely below the threshold, or a
+                    // single magnet pass counts as more than one revolution.
+                    if (dev < HALL_REARM_LEVEL) {
                         // Trigger just went low. Record dwell time.
                         // Dwell is how long the magnet was over the sensor.
                         // Shorter dwell = outer track = faster linear speed.
@@ -196,6 +202,27 @@ static CalibrationStatus detectMagnet(
 }
 
 // ---------------------------------------------------------------------------
+// Bring the platter to a stop and WAIT for it.
+//
+// stepperStop() only sets the target to zero -- the deceleration itself is
+// serviced by stepperUpdate(), which main loop() calls. calibrationRun() blocks,
+// so without pumping it here the platter would keep turning at full speed
+// through the trailing message delay and only slow down once calibration
+// returned. Same reason the sampling loops call stepperUpdate().
+// ---------------------------------------------------------------------------
+static void stopAndSettle() {
+    stepperStop();
+
+    // Ramping 45 RPM down at the configured accel takes a bit over 2 s. The
+    // timeout is a backstop so a wedged ramp cannot hang calibration forever.
+    uint32_t deadline = millis() + STOP_TIMEOUT_MS;
+    while (stepperRunning() && millis() < deadline) {
+        stepperUpdate();
+        delay(2);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main entry point
 // ---------------------------------------------------------------------------
 
@@ -214,7 +241,7 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
 
     CalibrationStatus status = detectMagnet(baseline, threshold, rpmCorrection);
 
-    stepperStop();
+    stopAndSettle();
 
     if (status != CalibrationStatus::Success) {
         // Show a brief error. The caller (menu) decides what to do next.
@@ -236,6 +263,10 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     cfg.hallBaseline   = baseline;
     cfg.hallThreshold  = threshold;
     cfg.rpmCorrection  = rpmCorrection;
+    // Push the correction into the motion layer so commanded RPM lands on the
+    // real speed from here on. Previously this was measured, stored, and then
+    // never applied to anything.
+    stepperSetCorrection(rpmCorrection);
     cfg.calibrated     = true;
     storageSave(cfg);
 

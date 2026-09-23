@@ -1,5 +1,6 @@
 #include "menu.h"
 #include <Arduino.h>
+#include <math.h>
 #include <LiquidCrystal_I2C.h>
 #include "ui/encoder.h"
 #include "motion/stepper.h"
@@ -22,6 +23,8 @@ enum class MenuState : uint8_t {
     Octave,
     WelcomeTune,
     LcdTimeout,
+    BeatsPerRev,
+    SensorShift,
     CalibrationPrompt,
     CalibrationRunning,
     ResetCalPrompt,
@@ -58,9 +61,19 @@ static const uint8_t OCTAVE_COUNT = 9;
 
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Welcome Tune",
-    "LCD Timeout","Calibration","Reset Cal","Reset All","Back"
+    "LCD Timeout","Beats/Rev","Track Shift",
+    "Calibration","Reset Cal","Reset All","Back"
 };
-static const uint8_t MAIN_COUNT = 9;
+static const uint8_t MAIN_COUNT = 11;
+
+// Beats per platter revolution. 4 = one revolution is one 4/4 bar.
+static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8 };
+static const char*   BEATS_LABELS[] = { "1","2","3","4","6","8","Back" };
+static const uint8_t BEATS_COUNT = 7;   // 6 options + Back
+
+// Which sensor index plays the root note.
+static const char*   SHIFT_LABELS[] = { "0","1","2","3","4","5","6","7","Back" };
+static const uint8_t SHIFT_COUNT = 9;   // 8 options + Back
 
 static const char* WELCOME_ITEMS[] = { "On", "Off", "Back" };
 static const uint8_t WELCOME_COUNT = 3;
@@ -116,8 +129,9 @@ static void buildVolBar(char* out, float vol, bool muted) {
 }
 
 static void drawStatus(const SavedConfig& cfg) {
-    int bpm = (int)(cfg.rpm * BEATS_PER_REV);
-    lcdLine(0, "BPM:%-3d RPM:%-3d", bpm, (int)cfg.rpm);
+    // Tempo is a magnitude; cfg.rpm carries direction in its sign.
+    int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
+    lcdLine(0, "BPM:%-3d RPM:%-4d", bpm, (int)cfg.rpm);
     char vb[7];
     buildVolBar(vb, cfg.volume, cfg.muted);
     lcdLine(1, "%-2s %-7s%s",
@@ -141,7 +155,7 @@ static void drawList(const char** items, uint8_t count, uint8_t cur) {
 // Plays each scale degree in order then in reverse at current BPM.
 // Blocking -- returns when the last note's release has finished.
 static void playWelcomeTune(const SavedConfig& cfg) {
-    int bpm = (int)(cfg.rpm * BEATS_PER_REV);
+    int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
     bpm = constrain(bpm, 40, 200);
     uint32_t beatMs = 60000UL / (uint32_t)bpm;
 
@@ -218,16 +232,32 @@ void menuUpdate(SavedConfig& cfg) {
     }
 
     // live speed control - all states
+    //
+    // cfg.rpm is SIGNED: negative means the platter runs in reverse. Turning
+    // down past the low end passes through a stop and out the other side into
+    // reverse. The platter cannot usefully turn below MIN_RPM, so the band
+    // between -MIN_RPM and +MIN_RPM is a dead zone that reads as zero, and
+    // leaving zero jumps straight to +/-MIN_RPM rather than crawling back up
+    // through a dead zone it could never escape one detent at a time.
     if (ev.speedDelta != 0) {
-        cfg.rpm = constrain(cfg.rpm + ev.speedDelta, MIN_RPM, MAX_RPM);
-        if (stepperRunning()) stepperSetRPM(cfg.rpm);
-        else stepperStart(cfg.rpm);
+        float r;
+        if (cfg.rpm == 0.0f) {
+            r = (ev.speedDelta > 0) ? MIN_RPM : -MIN_RPM;
+        } else {
+            r = cfg.rpm + ev.speedDelta;
+            if (fabsf(r) < MIN_RPM) r = 0.0f;
+        }
+        cfg.rpm = constrain(r, -MAX_RPM, MAX_RPM);
+
+        if (cfg.rpm == 0.0f) stepperStop();
+        else                 stepperStart(cfg.rpm);
+
         storageSave(cfg);
         needsRedraw = true;
     }
     if (ev.speedPressed) {
         if (stepperRunning()) stepperStop();
-        else stepperStart(cfg.rpm);
+        else if (cfg.rpm != 0.0f) stepperStart(cfg.rpm);
         needsRedraw = true;
     }
 
@@ -246,8 +276,18 @@ void menuUpdate(SavedConfig& cfg) {
     }
 
     // menu activity tracking + timeout
+    //
+    // Prompts are exempt. They ask you to go and do something physical (place a
+    // magnet, decide about wiping settings), which reliably takes longer than
+    // MENU_TIMEOUT_MS, and having the question vanish mid-task is the bug in
+    // todo.md. They stay put until answered.
+    bool isPrompt = (state == MenuState::CalibrationPrompt ||
+                     state == MenuState::CalibrationRunning ||
+                     state == MenuState::ResetCalPrompt ||
+                     state == MenuState::ResetAllPrompt);
+
     if (ev.menuDelta != 0 || ev.menuPressed) lastActivity = millis();
-    if (state != MenuState::Status &&
+    if (state != MenuState::Status && !isPrompt &&
         millis() - lastActivity > MENU_TIMEOUT_MS) {
         enterState(MenuState::Status);
     }
@@ -282,10 +322,21 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LcdTimeout, idx);
                         break;
                     }
-                    case 5: enterState(MenuState::CalibrationPrompt); break;
-                    case 6: enterState(MenuState::ResetCalPrompt); break;
-                    case 7: enterState(MenuState::ResetAllPrompt); break;
-                    case 8: enterState(MenuState::Status); break;
+                    case 5: {
+                        // Land the cursor on the stored value, not the top.
+                        uint8_t idx = 3;  // default to 4 beats if not found
+                        for (uint8_t i = 0; i < 6; i++) {
+                            if (BEATS_VALUES[i] == cfg.beatsPerRev) { idx = i; break; }
+                        }
+                        enterState(MenuState::BeatsPerRev, idx);
+                        break;
+                    }
+                    case 6: enterState(MenuState::SensorShift,
+                                (uint8_t)constrain(cfg.sensorShift, 0, 7)); break;
+                    case 7: enterState(MenuState::CalibrationPrompt); break;
+                    case 8: enterState(MenuState::ResetCalPrompt); break;
+                    case 9: enterState(MenuState::ResetAllPrompt); break;
+                    case 10: enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -363,17 +414,45 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::BeatsPerRev:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + BEATS_COUNT) % BEATS_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < BEATS_COUNT - 1) {   // last entry is Back
+                    cfg.beatsPerRev = BEATS_VALUES[cursor];
+                    storageSave(cfg);
+                }
+                enterState(MenuState::MainMenu, 5);
+            }
+            break;
+
+        case MenuState::SensorShift:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + SHIFT_COUNT) % SHIFT_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < SHIFT_COUNT - 1) {   // last entry is Back
+                    cfg.sensorShift = (int8_t)cursor;
+                    storageSave(cfg);
+                }
+                enterState(MenuState::MainMenu, 6);
+            }
+            break;
+
         case MenuState::CalibrationPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 5);
+                else enterState(MenuState::MainMenu, 7);
             }
             break;
 
         case MenuState::CalibrationRunning: {
             calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 5);
+            enterState(MenuState::MainMenu, 7);
             break;
         }
 
@@ -388,10 +467,11 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.calibrated    = false;
                     storageSave(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+                    stepperSetCorrection(cfg.rpmCorrection);
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 6);
+                enterState(MenuState::MainMenu, 8);
             }
             break;
 
@@ -402,11 +482,12 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg = storageDefaults();
                     storageSave(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+                    stepperSetCorrection(cfg.rpmCorrection);
                     audioSetVolume(cfg.volume);
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 7);
+                enterState(MenuState::MainMenu, 9);
             }
             break;
     }
@@ -435,6 +516,12 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::LcdTimeout:
                 drawList(LCD_TIMEOUT_LABELS, LCD_TIMEOUT_COUNT, cursor);
+                break;
+            case MenuState::BeatsPerRev:
+                drawList(BEATS_LABELS, BEATS_COUNT, cursor);
+                break;
+            case MenuState::SensorShift:
+                drawList(SHIFT_LABELS, SHIFT_COUNT, cursor);
                 break;
             case MenuState::CalibrationPrompt:
                 lcdLine(0, "Place a magnet");

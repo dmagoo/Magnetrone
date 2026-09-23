@@ -181,11 +181,11 @@ static void updateVoice(int i, uint32_t now) {
     bool         neg = (s.deviation < 0);
 
     // Match the app's trigger semantics: fire at the threshold, release only
-    // after falling back through the hysteresis band.
+    // once the reading is back near baseline (HALL_REARM_LEVEL).
     Mode want;
     if (mag >= HALL_THRESHOLD_DEFAULT) {
         want = MODE_SOLID;
-    } else if (s.mode == MODE_SOLID && mag >= (HALL_THRESHOLD_DEFAULT - HALL_HYSTERESIS)) {
+    } else if (s.mode == MODE_SOLID && mag >= HALL_REARM_LEVEL) {
         want = MODE_SOLID;
     } else if (mag >= s.deadband) {
         want = MODE_CLICK;

@@ -17,7 +17,8 @@ SavedConfig storageDefaults() {
         HALL_BASELINE_DEFAULT,
         1.0f,
         DEFAULT_PLAY_WELCOME_TUNE,
-        DEFAULT_LCD_TIMEOUT
+        DEFAULT_LCD_TIMEOUT,
+        DEFAULT_BEATS_PER_REV
     };
 }
 

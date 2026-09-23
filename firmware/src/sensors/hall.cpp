@@ -38,12 +38,17 @@ void hallUpdate() {
         int16_t  dev  = (int16_t)val - (int16_t)baseline;
         if (dev < 0) dev = -dev;  // absolute deviation
 
+        // Re-arm only once the reading is back near baseline, not merely below
+        // the threshold. A single magnet pass crosses the threshold more than
+        // once (the magnet's return flux is opposite in sign to its face field,
+        // and this compares absolute deviation), so releasing at threshold
+        // minus a little produced two or three notes per pass.
         if (!triggered[i] && dev >= threshold &&
             (millis() - lastTriggerMs[i]) >= HALL_DEBOUNCE_MS) {
             triggered[i]    = true;
             triggerEdge[i]  = true;
             lastTriggerMs[i] = millis();
-        } else if (triggered[i] && dev < (threshold - HALL_HYSTERESIS)) {
+        } else if (triggered[i] && dev < HALL_REARM_LEVEL) {
             triggered[i]   = false;
             triggerEdge[i] = false;
         } else {
