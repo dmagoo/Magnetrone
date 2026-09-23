@@ -33,27 +33,32 @@ static void copyLiveModulatedFields(SavedConfig& dst, const SavedConfig& src) {
 }
 
 SavedConfig storageDefaults() {
-    return {
-        EEPROM_MAGIC,
-        EEPROM_VERSION,
-        DEFAULT_ROOT,
-        DEFAULT_SCALE,
-        DEFAULT_OCTAVE,
-        DEFAULT_VOLUME,
-        DEFAULT_RPM,
-        false,
-        DEFAULT_SENSOR_SHIFT,
-        false,
-        HALL_THRESHOLD_DEFAULT,
-        HALL_BASELINE_DEFAULT,
-        1.0f,
-        DEFAULT_PLAY_WELCOME_TUNE,
-        DEFAULT_LCD_TIMEOUT,
-        DEFAULT_BEATS_PER_REV,
-        DEFAULT_AUX_FN,
-        DEFAULT_PITCH_STEP_DIV,
-        DEFAULT_MAGNET_POLARITY
-    };
+    // Written field by field rather than as an aggregate initialiser: one
+    // member is now an array, and positional init of a struct this long was
+    // already a silent-breakage risk every time a field was added.
+    SavedConfig c{};
+    c.magic           = EEPROM_MAGIC;
+    c.version         = EEPROM_VERSION;
+    c.root            = DEFAULT_ROOT;
+    c.scale           = DEFAULT_SCALE;
+    c.octave          = DEFAULT_OCTAVE;
+    c.volume          = DEFAULT_VOLUME;
+    c.rpm             = DEFAULT_RPM;
+    c.muted           = false;
+    c.sensorShift     = DEFAULT_SENSOR_SHIFT;
+    c.calibrated      = false;
+    c.hallThreshold   = HALL_THRESHOLD_DEFAULT;
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        c.hallBaseline[i] = HALL_BASELINE_DEFAULT;
+    }
+    c.rpmCorrection   = 1.0f;
+    c.playWelcomeTune = DEFAULT_PLAY_WELCOME_TUNE;
+    c.lcdTimeout      = DEFAULT_LCD_TIMEOUT;
+    c.beatsPerRev     = DEFAULT_BEATS_PER_REV;
+    c.auxFn           = DEFAULT_AUX_FN;
+    c.pitchStepDiv    = DEFAULT_PITCH_STEP_DIV;
+    c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
+    return c;
 }
 
 void storageLoad(SavedConfig& cfg) {

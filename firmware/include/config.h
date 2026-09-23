@@ -66,7 +66,15 @@ constexpr uint16_t  HALL_REARM_LEVEL        = 40;
 // magnet pass, far shorter than the gap between legitimate triggers: even at
 // MAX_RPM with four magnets on a track those are ~125 ms apart.
 constexpr uint16_t  HALL_DEBOUNCE_MS        = 80;
-constexpr uint16_t  HALL_BASELINE_DEFAULT   = 980;  // pre-calibration estimate
+// Pre-calibration resting value, applied to every sensor until calibration
+// measures them individually. The old 980 came from a divider that was never
+// built (3.3k/6.8k); the assembled boards use 7.5k/15k and actually rest
+// between 1947 and 2098, so 980 sat ~1070 counts below every reading and made
+// all eight look permanently triggered on a fresh EEPROM.
+//
+// This is only ever a starting point. The eight rest levels differ by enough
+// that one shared number cannot serve them -- see hallSetCalibration().
+constexpr uint16_t  HALL_BASELINE_DEFAULT   = 2050;
 
 // Which way a passing magnet pushes the sensor output: +1 or -1. Only that
 // direction fires a note, which is what keeps a magnet's opposite-signed fringe

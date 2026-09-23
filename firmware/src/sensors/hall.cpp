@@ -14,12 +14,13 @@ static bool     triggered[NUM_HALL_SENSORS]    = {};
 static bool     triggerEdge[NUM_HALL_SENSORS]  = {};  // true for one cycle on trigger
 static uint32_t lastTriggerMs[NUM_HALL_SENSORS] = {}; // millis() of last trigger edge
 
-static uint16_t baseline  = HALL_BASELINE_DEFAULT;
+static uint16_t baseline[NUM_HALL_SENSORS] = {};   // seeded in hallInit()
 static uint16_t threshold = HALL_THRESHOLD_DEFAULT;
 static int8_t   polarity  = 1;   // sign of a real hit; see hallSetPolarity()
 
 void hallInit() {
     analogReadResolution(HALL_ADC_BITS);
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) baseline[i] = HALL_BASELINE_DEFAULT;
     // TEMPORARY - pull hall pins low to reduce noise from floating inputs during
     // bench testing. Remove before connecting real sensors.
     // for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
@@ -27,8 +28,10 @@ void hallInit() {
     //}
 }
 
-void hallSetCalibration(uint16_t newBaseline, uint16_t newThreshold) {
-    baseline  = newBaseline;
+void hallSetCalibration(const uint16_t* baselines, uint16_t newThreshold) {
+    if (baselines) {
+        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) baseline[i] = baselines[i];
+    }
     threshold = newThreshold;
 }
 
@@ -41,7 +44,7 @@ void hallUpdate() {
         uint16_t val  = analogRead(HALL_PINS[i]);
         lastReading[i] = val;
 
-        int16_t dev = (int16_t)val - (int16_t)baseline;
+        int16_t dev = (int16_t)val - (int16_t)baseline[i];
         lastDeviation[i] = dev;
 
         // Signed, deliberately. A magnet pass reads as fringe / face / fringe,

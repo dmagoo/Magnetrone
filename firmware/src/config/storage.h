@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 6;
+constexpr uint8_t  EEPROM_VERSION = 7;
 constexpr int      EEPROM_ADDRESS = 0;
 
 struct SavedConfig {
@@ -19,7 +19,7 @@ struct SavedConfig {
     int8_t   sensorShift;   // root note offset across sensors, default 0
     bool     calibrated;      // false until calibration has run
     uint16_t hallThreshold;   // ADC deviation to trigger a note
-    uint16_t hallBaseline;    // ADC value at rest (average across sensors)
+    uint16_t hallBaseline[NUM_HALL_SENSORS];  // ADC value at rest, per sensor
     float    rpmCorrection;   // actual_rpm / commanded_rpm measured during calibration
     bool     playWelcomeTune;   // play scale preview on boot
     uint8_t  lcdTimeout;        // backlight timeout in seconds; 0=always off, 255=always on

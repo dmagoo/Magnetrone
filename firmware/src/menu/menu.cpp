@@ -27,6 +27,7 @@ enum class MenuState : uint8_t {
     BeatsPerRev,
     SensorShift,
     MagnetPole,
+    FirstBootPrompt,   // shown once on a fresh EEPROM: calibrate now or skip
     AuxFnDefault,
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
@@ -349,7 +350,13 @@ void menuInit(const SavedConfig& cfg) {
     lastInteraction = millis();
 
     if (cfg.playWelcomeTune) playWelcomeTune(cfg);
-    enterState(MenuState::Status);
+
+    // A fresh EEPROM has never measured the sensors, and the defaults cannot
+    // fit all eight: their rest levels differ by more than the re-arm window,
+    // so some sensors would fire once and then go quiet. Offer to fix that
+    // before the table is played rather than letting it look like a fault.
+    if (!cfg.calibrated) enterState(MenuState::FirstBootPrompt);
+    else                 enterState(MenuState::Status);
 }
 
 void menuMessage(const char* line1, const char* line2) {
@@ -427,7 +434,8 @@ void menuUpdate(SavedConfig& cfg) {
     // magnet, decide about wiping settings), which reliably takes longer than
     // MENU_TIMEOUT_MS, and having the question vanish mid-task is the bug in
     // todo.md. They stay put until answered.
-    bool isPrompt = (state == MenuState::CalibrationPrompt ||
+    bool isPrompt = (state == MenuState::FirstBootPrompt ||
+                     state == MenuState::CalibrationPrompt ||
                      state == MenuState::CalibrationRunning ||
                      state == MenuState::ResetCalPrompt ||
                      state == MenuState::ResetAllPrompt);
@@ -703,6 +711,14 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::FirstBootPrompt:
+            if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
+            if (ev.menuPressed) {
+                if (cursor == 0) enterState(MenuState::CalibrationRunning);
+                else             enterState(MenuState::Status);
+            }
+            break;
+
         case MenuState::CalibrationPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
@@ -722,7 +738,9 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor == 0) {
                     // Reset calibration fields only.
-                    cfg.hallBaseline  = HALL_BASELINE_DEFAULT;
+                    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+                        cfg.hallBaseline[i] = HALL_BASELINE_DEFAULT;
+                    }
                     cfg.hallThreshold = HALL_THRESHOLD_DEFAULT;
                     cfg.rpmCorrection = 1.0f;
                     cfg.calibrated    = false;
@@ -801,6 +819,12 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);
+                break;
+            case MenuState::FirstBootPrompt:
+                lcdLine(0, "Not calibrated");
+                lcdLine(1, "%c Setup %c Skip",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
             case MenuState::CalibrationPrompt:
                 lcdLine(0, "Place a magnet");

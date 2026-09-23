@@ -62,26 +62,31 @@ static inline uint16_t deviation(uint16_t reading, uint16_t baseline) {
 // average for each sensor. The average becomes the resting baseline.
 // The range (max - min) tells us the noise floor.
 //
-// We use a global average across all sensors for simplicity. Per-sensor
-// baselines are a future refinement if sensors show significant variation.
+// Baselines are kept PER SENSOR. The eight rest levels span roughly 150 counts,
+// and averaging them into one number leaves the outliers permanently further
+// from their own rest value than HALL_REARM_LEVEL -- such a sensor can never
+// re-arm, so it fires once and is silent from then on.
 
-static uint16_t sampleBaseline() {
+static void sampleBaselines(uint16_t* out) {
     menuMessage("Sampling...", "Keep magnets off");
 
-    uint32_t sum   = 0;
+    uint32_t sum[NUM_HALL_SENSORS] = {};
     uint32_t count = 0;
     uint32_t start = millis();
 
     while (millis() - start < BASELINE_SAMPLE_MS) {
         stepperUpdate();   // this loop blocks main loop(); the ramp still needs servicing
         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
-            sum += rawRead(i);
-            count++;
+            sum[i] += rawRead(i);
         }
+        count++;
         delay(5);
     }
 
-    return (uint16_t)(sum / count);
+    if (count == 0) count = 1;
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        out[i] = (uint16_t)(sum[i] / count);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +107,7 @@ static uint16_t sampleBaseline() {
 // the commanded RPM. If so, multiple magnets are the likely cause.
 
 static CalibrationStatus detectMagnet(
-    uint16_t baseline,
+    const uint16_t* baselines,
     uint16_t& outThreshold,
     float&    outRpmCorrection,
     int8_t&   outPolarity)
@@ -130,7 +135,7 @@ static CalibrationStatus detectMagnet(
         stepperUpdate();   // this loop blocks main loop(); the ramp still needs servicing
         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
             uint16_t val = rawRead(i);
-            uint16_t dev = deviation(val, baseline);
+            uint16_t dev = deviation(val, baselines[i]);
 
             // Track the global peak regardless of which sensor reports it.
             // This gives us the strongest signal seen, which we use to
@@ -142,7 +147,7 @@ static CalibrationStatus detectMagnet(
             // the largest excursion is reliably the real one.
             if (dev > peakDeviation) {
                 peakDeviation = dev;
-                peakSign = (val >= baseline) ? 1 : -1;
+                peakSign = (val >= baselines[i]) ? 1 : -1;
             }
 
             // We only time revolutions on the first sensor that triggers.
@@ -243,15 +248,16 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     // the correction factor. On a first run, 1.0 is the best we have.
     stepperStart(DEFAULT_RPM);
 
-    // Phase 1: establish baseline with no magnets.
-    uint16_t baseline = sampleBaseline();
+    // Phase 1: establish per-sensor baselines with no magnets.
+    uint16_t baselines[NUM_HALL_SENSORS];
+    sampleBaselines(baselines);
 
     // Phase 2: detect magnet, time one revolution, measure peak.
     uint16_t threshold     = HALL_THRESHOLD_DEFAULT;
     float    rpmCorrection = 1.0f;
     int8_t   polarity      = cfg.magnetPolarity;
 
-    CalibrationStatus status = detectMagnet(baseline, threshold, rpmCorrection, polarity);
+    CalibrationStatus status = detectMagnet(baselines, threshold, rpmCorrection, polarity);
 
     stopAndSettle();
 
@@ -272,7 +278,7 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     }
 
     // Commit results to config and EEPROM.
-    cfg.hallBaseline   = baseline;
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) cfg.hallBaseline[i] = baselines[i];
     cfg.hallThreshold  = threshold;
     cfg.rpmCorrection  = rpmCorrection;
     cfg.magnetPolarity = polarity;
@@ -285,7 +291,7 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
 
     // Push the new threshold and baseline into the hall sensor module
     // so note triggering uses calibrated values immediately.
-    hallSetCalibration(baseline, threshold);
+    hallSetCalibration(baselines, threshold);
     hallSetPolarity(polarity);
 
     menuMessage("Calibrated!", "");
