@@ -11,7 +11,7 @@ static const uint8_t HALL_PINS[NUM_HALL_SENSORS] = {
 static uint16_t lastReading[NUM_HALL_SENSORS]  = {};
 static int16_t  lastDeviation[NUM_HALL_SENSORS] = {};  // signed, from baseline
 static bool     triggered[NUM_HALL_SENSORS]    = {};
-static bool     triggerEdge[NUM_HALL_SENSORS]  = {};  // true for one cycle on trigger
+static HallPole  triggerEdge[NUM_HALL_SENSORS] = {};  // set for one cycle on trigger
 static uint32_t lastTriggerMs[NUM_HALL_SENSORS] = {}; // millis() of last trigger edge
 
 static uint16_t baseline[NUM_HALL_SENSORS] = {};   // seeded in hallInit()
@@ -47,28 +47,21 @@ void hallUpdate() {
         int16_t dev = (int16_t)val - (int16_t)baseline[i];
         lastDeviation[i] = dev;
 
-        // Signed, deliberately. A magnet pass reads as fringe / face / fringe,
-        // and the fringe lobes are opposite in sign to the face field but big
-        // enough to clear the threshold by themselves. Comparing absolute
-        // deviation made them look like real hits, which is what fired two or
-        // three notes per pass. Projecting onto the expected polarity leaves
-        // the fringes negative, so they never reach the threshold at all.
-        int16_t signedDev = (polarity < 0) ? (int16_t)-dev : dev;
-
-        // Re-arm on magnitude rather than the signed value: the magnet has
-        // genuinely left only when the field is gone, whichever way it pointed.
+        // Either sign fires; the sign says which pole. The fringe lobes of a
+        // pass are opposite in sign to the face but far below the threshold
+        // (see hall.h), so only the face ever gets here.
         int16_t magnitude = (dev < 0) ? (int16_t)-dev : dev;
+        bool    normal    = (dev < 0) == (polarity < 0);
 
-        if (!triggered[i] && signedDev >= (int16_t)threshold &&
+        triggerEdge[i] = HallPole::None;
+        if (!triggered[i] && magnitude >= (int16_t)threshold &&
             (millis() - lastTriggerMs[i]) >= HALL_DEBOUNCE_MS) {
-            triggered[i]    = true;
-            triggerEdge[i]  = true;
+            triggered[i]     = true;
+            triggerEdge[i]   = normal ? HallPole::Normal : HallPole::Reversed;
             lastTriggerMs[i] = millis();
         } else if (triggered[i] && magnitude < (int16_t)HALL_REARM_LEVEL) {
-            triggered[i]   = false;
-            triggerEdge[i] = false;
-        } else {
-            triggerEdge[i] = false;
+            // The magnet has genuinely left only when the field is gone.
+            triggered[i] = false;
         }
     }
 }
@@ -81,6 +74,6 @@ int16_t hallDeviation(uint8_t index) {
     return lastDeviation[index];
 }
 
-bool hallTriggered(uint8_t index) {
-    return triggerEdge[index];  // true only on the rising edge, one cycle
+HallPole hallTrigger(uint8_t index) {
+    return triggerEdge[index];  // set only on the rising edge, one cycle
 }

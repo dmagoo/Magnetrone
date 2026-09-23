@@ -31,8 +31,16 @@
 //   USB end of the Teensy. Headphones in the shield's headphone jack.
 //
 // SERIAL:
-//   Live 8-row table: deviation, peak hold, field in Gauss, raw ADC.
-//   Press any key to clear the peak-hold column.
+//   Live 8-row table: deviation, positive and negative peak hold, the smaller
+//   peak as a percentage of the larger, field in Gauss, raw ADC.
+//   Press any key to clear the peak-hold columns.
+//
+//   The two peaks are held separately so a magnet's fringe lobes are visible.
+//   One pass reads fringe / face / fringe with the fringes opposite in sign, so
+//   after a single clean pass the larger peak is the face and the smaller is
+//   the fringe. The percentage is fringe-to-face: compare it against the
+//   calibrated threshold (THRESHOLD_FACTOR, 50% of peak) to see whether
+//   fringes would fire if both polarities were accepted.
 
 #include <Arduino.h>
 #include <Audio.h>
@@ -129,7 +137,8 @@ struct SensorState {
     int      noiseP2P    = 0;   // rest spread seen during capture
     int      deadband    = DEADBAND_FLOOR;
     int      deviation   = 0;   // signed, from captured baseline
-    int      peak        = 0;   // signed, largest magnitude since reset
+    int      peakPos     = 0;   // largest positive deviation since reset
+    int      peakNeg     = 0;   // largest negative deviation since reset (<= 0)
     Mode     mode        = MODE_SILENT;
     bool     negative    = false;  // polarity currently sounding
     uint32_t lastClickMs = 0;
@@ -268,7 +277,7 @@ static void drawTable() {
     Serial.print(line);
     Serial.println("          \r");
 
-    Serial.print("                            dev   peak   gauss   raw  state");
+    Serial.print("                            dev  +peak  -peak  minor%  gauss   raw  state");
     Serial.println("          \r");
 
     for (int i = 0; i < NUM_HALL_SENSORS; i++) {
@@ -283,9 +292,16 @@ static void drawTable() {
                           : (s.mode == MODE_CLICK) ? "click"
                           : "  -  ";
 
-        snprintf(line, sizeof(line), " %+5d  %+5d  %+5ld  %4d  %s",
-                 s.deviation, s.peak, (long)countsToGauss(s.peak),
-                 s.baseline + s.deviation, state);
+        // Smaller peak as a percentage of the larger: the fringe-to-face ratio
+        // after a clean pass. Gauss is for the larger (face) peak.
+        int major = max(s.peakPos, -s.peakNeg);
+        int minor = min(s.peakPos, -s.peakNeg);
+        int pct   = (major > 0) ? (minor * 100) / major : 0;
+        int face  = (s.peakPos >= -s.peakNeg) ? s.peakPos : s.peakNeg;
+
+        snprintf(line, sizeof(line), " %+5d  %+5d  %+5d  %5d%%  %+5ld  %4d  %s",
+                 s.deviation, s.peakPos, s.peakNeg, pct,
+                 (long)countsToGauss(face), s.baseline + s.deviation, state);
         Serial.print(line);
         Serial.println("  \r");
     }
@@ -344,7 +360,10 @@ void loop() {
     // Clear peak hold on any serial input
     if (Serial.available()) {
         while (Serial.available()) Serial.read();
-        for (int i = 0; i < NUM_HALL_SENSORS; i++) sensors[i].peak = 0;
+        for (int i = 0; i < NUM_HALL_SENSORS; i++) {
+            sensors[i].peakPos = 0;
+            sensors[i].peakNeg = 0;
+        }
     }
 
     // Sensors and audio run every pass so the clicks stay on time
@@ -352,7 +371,8 @@ void loop() {
         SensorState& s = sensors[i];
         s.deviation = analogRead(HALL_PINS[i]) - s.baseline;
 
-        if (abs(s.deviation) > abs(s.peak)) s.peak = s.deviation;
+        if (s.deviation > s.peakPos) s.peakPos = s.deviation;
+        if (s.deviation < s.peakNeg) s.peakNeg = s.deviation;
 
         updateVoice(i, now);
     }

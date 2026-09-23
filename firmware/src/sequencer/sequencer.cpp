@@ -29,7 +29,9 @@ void sequencerUpdate(const SavedConfig& cfg) {
 
     // check for new triggers
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
-        if (!hallTriggered(i)) continue;
+        // Reversed magnets are detected but have no sound yet; they get one
+        // when each pole gets its own layer (preset, channel, note source).
+        if (hallTrigger(i) != HallPole::Normal) continue;
 
         // apply sensor phase shift
         uint8_t degree = ((int8_t)i - cfg.sensorShift + NUM_HALL_SENSORS) % NUM_HALL_SENSORS;

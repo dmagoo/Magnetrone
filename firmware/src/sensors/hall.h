@@ -4,7 +4,13 @@
 void     hallInit();
 void     hallUpdate();
 uint16_t hallRead(uint8_t index);           // raw ADC value, index 0-7
-bool     hallTriggered(uint8_t index);      // true on rising edge only, one cycle
+
+// Which pole of a magnet fired a trigger. Normal is the orientation set by
+// hallSetPolarity(); Reversed is a magnet flipped the other way up.
+enum class HallPole : uint8_t { None, Normal, Reversed };
+
+// The pole that fired on this cycle's rising edge, or None. One cycle only.
+HallPole hallTrigger(uint8_t index);
 // Per-sensor baselines, one shared threshold.
 //
 // The baselines have to be per-sensor: the eight rest levels span roughly 150
@@ -17,19 +23,18 @@ bool     hallTriggered(uint8_t index);      // true on rising edge only, one cyc
 // single sensor that magnet passes.
 void     hallSetCalibration(const uint16_t* baselines, uint16_t threshold);
 
-// Which way a passing magnet pushes the sensor output: +1 or -1. Only that
-// direction fires a note.
+// Which way a passing magnet pushes the sensor output: +1 or -1. A trigger in
+// this direction is HallPole::Normal, the opposite one HallPole::Reversed.
 //
-// This matters because a disc magnet's field REVERSES at its edges. A pass
-// reads as fringe, then face, then fringe, with the fringe lobes opposite in
-// sign to the face and strong enough to clear the threshold on their own. The
-// old code compared absolute deviation, so those lobes were indistinguishable
-// from a real hit and one pass fired two or three notes -- worst on the slow
-// inner tracks, where the lobes are far enough apart in time to clear the
-// debounce. Keying on the sign drops them entirely.
+// Both directions fire. A disc magnet's field reverses at its edges, so a pass
+// reads fringe / face / fringe with the fringes opposite in sign to the face,
+// and accepting both signs is only safe if the fringes stay under the
+// threshold. Measured 2026-09-23 with test_hall_range on the hand-turned
+// platter: fringes are 5-9% of the face on all eight sensors (76-129 counts
+// against faces of 1166-1453), under both the calibrated threshold (50% of
+// peak) and HALL_THRESHOLD_DEFAULT (200).
 void     hallSetPolarity(int8_t polarity);
 
 // Signed deviation from baseline for a sensor, as of the last hallUpdate().
-// The sign is the magnet's orientation; a future revision uses it to let a
-// flipped magnet mean something different musically.
+// The sign is the magnet's orientation.
 int16_t  hallDeviation(uint8_t index);
