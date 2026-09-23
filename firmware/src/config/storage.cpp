@@ -73,6 +73,10 @@ void storageSave(const SavedConfig& cfg) {
     committed = out;
 }
 
+void storageRevertLive(SavedConfig& cfg) {
+    copyLiveModulatedFields(cfg, committed);
+}
+
 void storageCommit(const SavedConfig& cfg) {
     copyLiveModulatedFields(committed, cfg);   // the menu set these deliberately
     storageSave(cfg);

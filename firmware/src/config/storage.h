@@ -41,4 +41,10 @@ void storageSave(const SavedConfig& cfg);
 // set one of those values from a menu, not from the aux knob.
 void storageCommit(const SavedConfig& cfg);
 
+// Discards live aux modulation: copies the committed values of the
+// aux-modulated fields back over the live ones. Writes nothing to EEPROM --
+// there is nothing to write, since that drift was never saved in the first
+// place. Does not touch the pitch offset, which lives in pitch.cpp.
+void storageRevertLive(SavedConfig& cfg);
+
 SavedConfig storageDefaults();

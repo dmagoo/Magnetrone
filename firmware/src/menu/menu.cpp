@@ -79,11 +79,21 @@ static const uint8_t MAIN_COUNT = 13;
 enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, TrackShift, Pitch, COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
-// The select list carries a trailing Exit; the "set the default" menu carries a
-// trailing Back. Same five names either way.
-static const char* AUX_FN_LABELS[]      = { "Octave","Root Note","Scale","Track Shift","Pitch","Exit" };
-static const char* AUX_FN_MENU_LABELS[] = { "Octave","Root Note","Scale","Track Shift","Pitch","Back" };
-static const uint8_t AUX_FN_LIST_COUNT = AUX_FN_COUNT + 1;
+// The select list carries two trailing actions, Reset and Exit. The "set the
+// default binding" menu carries only a trailing Back -- reset has no meaning
+// there, since that menu sets committed values rather than modulating live ones.
+static const char* AUX_FN_LABELS[] = {
+    "Octave","Root Note","Scale","Track Shift","Pitch","Reset All","Exit"
+};
+static const char* AUX_FN_MENU_LABELS[] = {
+    "Octave","Root Note","Scale","Track Shift","Pitch","Back"
+};
+static const uint8_t AUX_FN_SELECT_COUNT = AUX_FN_COUNT + 2;  // + Reset, Exit
+static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
+
+// Positions of the two actions at the end of the select list.
+static const uint8_t AUX_ACTION_RESET = AUX_FN_COUNT;
+static const uint8_t AUX_ACTION_EXIT  = AUX_FN_COUNT + 1;
 
 // How far one aux step moves Pitch, as a divisor of a semitone.
 static const uint8_t PITCH_STEP_VALUES[] = { 1, 2, 3, 4, 8 };
@@ -451,11 +461,19 @@ void menuUpdate(SavedConfig& cfg) {
 
         case MenuState::AuxFnSelect:
             if (ev.auxDelta) {
-                cursor = (uint8_t)((cursor + ev.auxDelta + AUX_FN_LIST_COUNT) % AUX_FN_LIST_COUNT);
+                cursor = (uint8_t)((cursor + ev.auxDelta + AUX_FN_SELECT_COUNT) % AUX_FN_SELECT_COUNT);
                 needsRedraw = true;
             }
             if (ev.auxPressed) {
-                if (cursor >= AUX_FN_COUNT) {          // "Exit"
+                if (cursor == AUX_ACTION_EXIT) {
+                    enterState(MenuState::Status);
+                } else if (cursor == AUX_ACTION_RESET) {
+                    // Throw away every live modulation at once and drop back to
+                    // the live display, where the restored values are visible on
+                    // the status line. Nothing is written: this drift never
+                    // reached EEPROM, so reverting is purely a RAM operation.
+                    storageRevertLive(cfg);
+                    pitchSetOffset(0.0f);
                     enterState(MenuState::Status);
                 } else {
                     // Rebinding IS saved -- it changes rarely, unlike the values
@@ -635,7 +653,7 @@ void menuUpdate(SavedConfig& cfg) {
 
         case MenuState::AuxFnDefault:
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + AUX_FN_LIST_COUNT) % AUX_FN_LIST_COUNT;
+                cursor = (cursor + ev.menuDelta + AUX_FN_MENU_COUNT) % AUX_FN_MENU_COUNT;
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
@@ -743,13 +761,13 @@ void menuUpdate(SavedConfig& cfg) {
                 drawList(SHIFT_LABELS, SHIFT_COUNT, cursor);
                 break;
             case MenuState::AuxFnDefault:
-                drawList(AUX_FN_MENU_LABELS, AUX_FN_LIST_COUNT, cursor);
+                drawList(AUX_FN_MENU_LABELS, AUX_FN_MENU_COUNT, cursor);
                 break;
             case MenuState::PitchStep:
                 drawList(PITCH_STEP_LABELS, PITCH_STEP_COUNT, cursor);
                 break;
             case MenuState::AuxFnSelect:
-                drawList(AUX_FN_LABELS, AUX_FN_LIST_COUNT, cursor);
+                drawList(AUX_FN_LABELS, AUX_FN_SELECT_COUNT, cursor);
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);
