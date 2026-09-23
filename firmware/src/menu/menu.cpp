@@ -184,10 +184,14 @@ static void drawList(const char** items, uint8_t count, uint8_t cur) {
 
 // Apply one aux knob step to whatever the knob is bound to.
 //
-// RAM ONLY -- deliberately never calls storageSave(). These are live
-// performance moves, not configuration: the saved value is the one you dialled
-// in from the main menu, so a session always starts from a known place instead
-// of wherever the knob happened to be left.
+// RAM ONLY. These are live performance moves, not configuration: the saved
+// value is the one dialled in from the main menu, so a session always starts
+// from a known place instead of wherever the knob was left.
+//
+// This function writing straight into cfg is safe because storage.cpp keeps a
+// separate committed copy of exactly these fields and never lets the live ones
+// reach EEPROM. If you add a target here, add its field to
+// copyLiveModulatedFields() in storage.cpp or it will start persisting.
 //
 // Wrap vs clamp follows the shape of the value: wrap anything cyclic, clamp
 // anything that is a magnitude. Octave is the only magnitude here, and wrapping
@@ -519,7 +523,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 12) { cfg.root = static_cast<RootNote>(cursor); storageSave(cfg); }
+                if (cursor < 12) { cfg.root = static_cast<RootNote>(cursor); storageCommit(cfg); }
                 enterState(MenuState::MainMenu, 0);
             }
             break;
@@ -530,7 +534,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 8) { cfg.scale = static_cast<Scale>(cursor); storageSave(cfg); }
+                if (cursor < 8) { cfg.scale = static_cast<Scale>(cursor); storageCommit(cfg); }
                 enterState(MenuState::MainMenu, 1);
             }
             break;
@@ -541,7 +545,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 8) { cfg.octave = cursor; storageSave(cfg); }
+                if (cursor < 8) { cfg.octave = cursor; storageCommit(cfg); }
                 enterState(MenuState::MainMenu, 2);
             }
             break;
@@ -608,7 +612,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < SHIFT_COUNT - 1) {   // last entry is Back
                     cfg.sensorShift = (int8_t)cursor;
-                    storageSave(cfg);
+                    storageCommit(cfg);
                 }
                 enterState(MenuState::MainMenu, 6);
             }
@@ -680,7 +684,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor == 0) {
                     cfg = storageDefaults();
-                    storageSave(cfg);
+                    storageCommit(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
                     stepperSetCorrection(cfg.rpmCorrection);
                     audioSetVolume(cfg.volume);

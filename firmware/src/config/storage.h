@@ -29,5 +29,16 @@ struct SavedConfig {
 };
 
 void storageLoad(SavedConfig& cfg);
+
+// Writes everything except the fields the aux knob modulates live, which keep
+// the values the menu last committed. Use this for ordinary saves (speed,
+// volume, calibration results) -- it is safe to call at any time without
+// worrying that in-flight performance modulation will be persisted.
 void storageSave(const SavedConfig& cfg);
+
+// The menu's save: adopts the live values of the aux-modulated fields as the
+// new committed ones, then writes. Use this ONLY where the user deliberately
+// set one of those values from a menu, not from the aux knob.
+void storageCommit(const SavedConfig& cfg);
+
 SavedConfig storageDefaults();
