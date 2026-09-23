@@ -332,7 +332,8 @@ void menuUpdate(SavedConfig& cfg) {
     // Any encoder activity resets the backlight timer.
     bool anyActivity = ev.speedDelta != 0 || ev.speedPressed  ||
                        ev.volumeDelta != 0 || ev.volumePressed ||
-                       ev.menuDelta != 0  || ev.menuPressed;
+                       ev.menuDelta != 0  || ev.menuPressed    ||
+                       ev.auxDelta != 0   || ev.auxPressed;
     if (anyActivity) backlightActivity(cfg.lcdTimeout);
 
     // Backlight timeout check.
