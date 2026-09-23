@@ -104,7 +104,8 @@ static uint16_t sampleBaseline() {
 static CalibrationStatus detectMagnet(
     uint16_t baseline,
     uint16_t& outThreshold,
-    float&    outRpmCorrection)
+    float&    outRpmCorrection,
+    int8_t&   outPolarity)
 {
     menuMessage("Searching...", "");
 
@@ -119,6 +120,7 @@ static CalibrationStatus detectMagnet(
     uint32_t triggerStart  = 0;     // when the current trigger began
     uint32_t revStart      = 0;     // timestamp of first trigger (revolution start)
     uint16_t peakDeviation = 0;     // highest ADC deviation seen so far
+    int8_t   peakSign      = 1;     // which way that peak pointed
     // uint16_t dwellMs = 0;  // dwell = how long magnet was over sensor (ms)
     //                        // future: store per-sensor in EEPROM to scale note duration by magnet speed
 
@@ -133,7 +135,15 @@ static CalibrationStatus detectMagnet(
             // Track the global peak regardless of which sensor reports it.
             // This gives us the strongest signal seen, which we use to
             // derive the final threshold.
-            if (dev > peakDeviation) peakDeviation = dev;
+            //
+            // Its SIGN matters too: it says which pole is facing the sensors,
+            // and hallUpdate() only fires on that direction. The face field is
+            // far stronger than the magnet's opposite-signed fringe lobes, so
+            // the largest excursion is reliably the real one.
+            if (dev > peakDeviation) {
+                peakDeviation = dev;
+                peakSign = (val >= baseline) ? 1 : -1;
+            }
 
             // We only time revolutions on the first sensor that triggers.
             // Once a timing sensor is chosen we ignore the others for RPM math.
@@ -188,6 +198,7 @@ static CalibrationStatus detectMagnet(
                         // This makes the threshold self-scaling to magnet strength.
                         outThreshold      = (uint16_t)(peakDeviation * THRESHOLD_FACTOR);
                         outRpmCorrection  = correctionFactor;
+                        outPolarity       = peakSign;
                         return CalibrationStatus::Success;
                     }
                 }
@@ -238,8 +249,9 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     // Phase 2: detect magnet, time one revolution, measure peak.
     uint16_t threshold     = HALL_THRESHOLD_DEFAULT;
     float    rpmCorrection = 1.0f;
+    int8_t   polarity      = cfg.magnetPolarity;
 
-    CalibrationStatus status = detectMagnet(baseline, threshold, rpmCorrection);
+    CalibrationStatus status = detectMagnet(baseline, threshold, rpmCorrection, polarity);
 
     stopAndSettle();
 
@@ -263,6 +275,7 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     cfg.hallBaseline   = baseline;
     cfg.hallThreshold  = threshold;
     cfg.rpmCorrection  = rpmCorrection;
+    cfg.magnetPolarity = polarity;
     // Push the correction into the motion layer so commanded RPM lands on the
     // real speed from here on. Previously this was measured, stored, and then
     // never applied to anything.
@@ -273,6 +286,7 @@ CalibrationStatus calibrationRun(SavedConfig& cfg) {
     // Push the new threshold and baseline into the hall sensor module
     // so note triggering uses calibrated values immediately.
     hallSetCalibration(baseline, threshold);
+    hallSetPolarity(polarity);
 
     menuMessage("Calibrated!", "");
     delay(2000);

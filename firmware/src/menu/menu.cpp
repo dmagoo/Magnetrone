@@ -26,6 +26,7 @@ enum class MenuState : uint8_t {
     LcdTimeout,
     BeatsPerRev,
     SensorShift,
+    MagnetPole,
     AuxFnDefault,
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
@@ -67,9 +68,15 @@ static const uint8_t OCTAVE_COUNT = 9;
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Welcome Tune",
     "LCD Timeout","Beats/Rev","Track Shift","Aux Fn","Pitch Step",
-    "Calibration","Reset Cal","Reset All","Back"
+    "Magnet Pole","Calibration","Reset Cal","Reset All","Back"
 };
-static const uint8_t MAIN_COUNT = 13;
+static const uint8_t MAIN_COUNT = 14;
+
+// Which way a passing magnet pushes the sensor output. Calibration measures
+// this; the override exists so a wrong guess does not leave the table silent.
+static const int8_t POLE_VALUES[] = { 1, -1 };
+static const char*  POLE_LABELS[] = { "Normal","Flipped","Back" };
+static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 
 // -------------------------------------------------------------------------
 // Aux function knob
@@ -542,10 +549,12 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
-                    case 9:  enterState(MenuState::CalibrationPrompt); break;
-                    case 10: enterState(MenuState::ResetCalPrompt); break;
-                    case 11: enterState(MenuState::ResetAllPrompt); break;
-                    case 12: enterState(MenuState::Status); break;
+                    case 9:  enterState(MenuState::MagnetPole,
+                                cfg.magnetPolarity < 0 ? 1 : 0); break;
+                    case 10: enterState(MenuState::CalibrationPrompt); break;
+                    case 11: enterState(MenuState::ResetCalPrompt); break;
+                    case 12: enterState(MenuState::ResetAllPrompt); break;
+                    case 13: enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -679,17 +688,32 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::MagnetPole:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + POLE_COUNT) % POLE_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < POLE_COUNT - 1) {   // last entry is Back
+                    cfg.magnetPolarity = POLE_VALUES[cursor];
+                    storageSave(cfg);
+                    hallSetPolarity(cfg.magnetPolarity);
+                }
+                enterState(MenuState::MainMenu, 9);
+            }
+            break;
+
         case MenuState::CalibrationPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 9);
+                else enterState(MenuState::MainMenu, 10);
             }
             break;
 
         case MenuState::CalibrationRunning: {
             calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 9);
+            enterState(MenuState::MainMenu, 10);
             break;
         }
 
@@ -702,13 +726,15 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.hallThreshold = HALL_THRESHOLD_DEFAULT;
                     cfg.rpmCorrection = 1.0f;
                     cfg.calibrated    = false;
+                    cfg.magnetPolarity = DEFAULT_MAGNET_POLARITY;
                     storageSave(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+                    hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 10);
+                enterState(MenuState::MainMenu, 11);
             }
             break;
 
@@ -719,12 +745,13 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg = storageDefaults();
                     storageCommit(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+                    hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
                     audioSetVolume(cfg.volume);
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 11);
+                enterState(MenuState::MainMenu, 12);
             }
             break;
     }
@@ -765,6 +792,9 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::PitchStep:
                 drawList(PITCH_STEP_LABELS, PITCH_STEP_COUNT, cursor);
+                break;
+            case MenuState::MagnetPole:
+                drawList(POLE_LABELS, POLE_COUNT, cursor);
                 break;
             case MenuState::AuxFnSelect:
                 drawList(AUX_FN_LABELS, AUX_FN_SELECT_COUNT, cursor);

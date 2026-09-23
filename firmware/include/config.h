@@ -68,6 +68,12 @@ constexpr uint16_t  HALL_REARM_LEVEL        = 40;
 constexpr uint16_t  HALL_DEBOUNCE_MS        = 80;
 constexpr uint16_t  HALL_BASELINE_DEFAULT   = 980;  // pre-calibration estimate
 
+// Which way a passing magnet pushes the sensor output: +1 or -1. Only that
+// direction fires a note, which is what keeps a magnet's opposite-signed fringe
+// lobes from each firing one of their own. Calibration measures this from the
+// sign of the peak it sees; the menu can override it.
+constexpr int8_t    DEFAULT_MAGNET_POLARITY = 1;
+
 // -------------------------------------------------------------------------
 // Tempo / BPM
 // -------------------------------------------------------------------------

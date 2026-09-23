@@ -20,6 +20,7 @@ void setup() {
     midiInit();
     hallInit();
     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+    hallSetPolarity(cfg.magnetPolarity);
     menuInit(cfg);
 }
 

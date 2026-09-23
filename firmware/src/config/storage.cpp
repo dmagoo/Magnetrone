@@ -51,7 +51,8 @@ SavedConfig storageDefaults() {
         DEFAULT_LCD_TIMEOUT,
         DEFAULT_BEATS_PER_REV,
         DEFAULT_AUX_FN,
-        DEFAULT_PITCH_STEP_DIV
+        DEFAULT_PITCH_STEP_DIV,
+        DEFAULT_MAGNET_POLARITY
     };
 }
 

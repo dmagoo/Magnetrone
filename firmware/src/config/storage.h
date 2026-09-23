@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 5;
+constexpr uint8_t  EEPROM_VERSION = 6;
 constexpr int      EEPROM_ADDRESS = 0;
 
 struct SavedConfig {
@@ -26,6 +26,7 @@ struct SavedConfig {
     uint8_t  beatsPerRev;       // beats per platter revolution; BPM = |rpm| * this
     uint8_t  auxFn;             // which parameter the aux knob is bound to
     uint8_t  pitchStepDiv;      // one aux step = 1/this of a semitone
+    int8_t   magnetPolarity;    // +1 or -1: which way a real hit deviates
 };
 
 void storageLoad(SavedConfig& cfg);
