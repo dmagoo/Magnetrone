@@ -3,6 +3,7 @@
 #include "scale.h"
 #include "sensors/hall.h"
 #include "midi/midi.h"
+#include "audio/voice.h"
 #include "config.h"
 
 struct NoteState {
@@ -44,6 +45,6 @@ void sequencerUpdate(const SavedConfig& cfg) {
 
         notes[i].note    = midiNoteOn(note, 127);
         notes[i].active  = true;
-        notes[i].offTime = now + NOTE_DURATION_MS;
+        notes[i].offTime = now + voiceGet(cfg.voice).noteMs;
     }
 }

@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 7;
+constexpr uint8_t  EEPROM_VERSION = 8;
 constexpr int      EEPROM_ADDRESS = 0;
 
 struct SavedConfig {
@@ -27,6 +27,10 @@ struct SavedConfig {
     uint8_t  auxFn;             // which parameter the aux knob is bound to
     uint8_t  pitchStepDiv;      // one aux step = 1/this of a semitone
     int8_t   magnetPolarity;    // +1 or -1: which way a real hit deviates
+    // Added in version 8. New fields go at the END so an older layout is a
+    // prefix of this one and storageLoad() can migrate it instead of wiping
+    // calibration.
+    uint8_t  voice;             // VoiceId; becomes Layer A's voice later
 };
 
 void storageLoad(SavedConfig& cfg);

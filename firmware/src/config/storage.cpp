@@ -1,5 +1,6 @@
 #include "storage.h"
 #include <EEPROM.h>
+#include "audio/voice.h"
 
 // ---------------------------------------------------------------------------
 // Committed vs live configuration
@@ -58,11 +59,23 @@ SavedConfig storageDefaults() {
     c.auxFn           = DEFAULT_AUX_FN;
     c.pitchStepDiv    = DEFAULT_PITCH_STEP_DIV;
     c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
+    c.voice           = (uint8_t)VoiceId::Piano;
     return c;
 }
 
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
+
+    // Version 7 is version 8 minus the trailing voice field. Keep everything it
+    // saved, calibration included, and default only what is new.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 7) {
+        cfg.version = EEPROM_VERSION;
+        cfg.voice   = (uint8_t)VoiceId::Piano;
+        committed   = cfg;
+        storageSave(cfg);
+        return;
+    }
+
     if (cfg.magic != EEPROM_MAGIC || cfg.version != EEPROM_VERSION) {
         cfg = storageDefaults();
         committed = cfg;

@@ -17,6 +17,7 @@ void setup() {
     stepperSetCorrection(cfg.rpmCorrection);   // measured by calibration
     encoderInit();
     audioInit(cfg.volume, cfg.muted);
+    audioSetVoice(voiceGet(cfg.voice));
     midiInit();
     hallInit();
     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);

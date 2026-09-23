@@ -22,7 +22,6 @@ constexpr Scale     DEFAULT_SCALE        = Scale::Major;
 constexpr uint8_t   DEFAULT_OCTAVE       = 4;       // middle C
 constexpr uint8_t   NUM_HALL_SENSORS     = 8;
 constexpr int8_t    DEFAULT_SENSOR_SHIFT = 0;   // which sensor index plays root note; configurable under Advanced
-constexpr uint16_t  NOTE_DURATION_MS     = 250; // static note length (piano tap)
 
 // -------------------------------------------------------------------------
 // Aux function knob

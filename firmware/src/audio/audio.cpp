@@ -88,18 +88,21 @@ void audioInit(float volume, bool muted) {
     mixOut.gain(0, 1.0f);
     mixOut.gain(1, 1.0f);
 
-    // Configure each voice: sine wave, piano-like envelope.
     for (int i = 0; i < NUM_HALL_SENSORS; i++) {
         osc[i].begin(1.0f, 440.0f, WAVEFORM_SINE);
         osc[i].amplitude(0.0f); // silent until a note fires
-
-        // Attack/decay/sustain/release tuned to sound like a soft piano tap.
-        env[i].attack(10);    // ms
-        env[i].decay(200);    // ms
-        env[i].sustain(0.3f); // level (0.0-1.0)
-        env[i].release(300);  // ms
-
         voiceNote[i] = -1;
+    }
+    audioSetVoice(voiceGet((uint8_t)VoiceId::Piano));   // caller sets the saved one
+}
+
+void audioSetVoice(const Voice& voice) {
+    for (int i = 0; i < NUM_HALL_SENSORS; i++) {
+        osc[i].begin(voice.waveform);
+        env[i].attack(voice.attackMs);
+        env[i].decay(voice.decayMs);
+        env[i].sustain(voice.sustain);
+        env[i].release(voice.releaseMs);
     }
 }
 

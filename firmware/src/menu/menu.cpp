@@ -22,6 +22,7 @@ enum class MenuState : uint8_t {
     RootNote,
     Scale,
     Octave,
+    Voice,
     WelcomeTune,
     LcdTimeout,
     BeatsPerRev,
@@ -66,12 +67,16 @@ static const char* OCTAVE_ITEMS[] = {
 };
 static const uint8_t OCTAVE_COUNT = 9;
 
+// Voice names come from voice.cpp, filled in by menuInit(); this adds Back.
+static const char* VOICE_ITEMS[VOICE_COUNT + 1];
+static const uint8_t VOICE_ITEMS_COUNT = VOICE_COUNT + 1;
+
 static const char* MAIN_ITEMS[] = {
-    "Root Note","Scale","Octave","Welcome Tune",
+    "Root Note","Scale","Octave","Voice","Welcome Tune",
     "LCD Timeout","Beats/Rev","Track Shift","Aux Fn","Pitch Step",
     "Magnet Pole","Calibration","Reset Cal","Reset All","Back"
 };
-static const uint8_t MAIN_COUNT = 14;
+static const uint8_t MAIN_COUNT = 15;
 
 // Which way a passing magnet pushes the sensor output. Calibration measures
 // this; the override exists so a wrong guess does not leave the table silent.
@@ -304,6 +309,7 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
     bpm = constrain(bpm, 40, 200);
     uint32_t beatMs = 60000UL / (uint32_t)bpm;
+    uint32_t noteMs = min((uint32_t)voiceGet(cfg.voice).noteMs, beatMs);
 
     lcdLine(0, "  Music  Table  ");
     lcdLine(1, "~~~~~~~~~~~~~~~~");
@@ -312,9 +318,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         uint8_t note = scaleNote(cfg.root, cfg.scale, i, cfg.octave);
         uint8_t sounded = midiNoteOn(note, 100);
-        delay(NOTE_DURATION_MS);
+        delay(noteMs);
         midiNoteOff(sounded);
-        if (beatMs > NOTE_DURATION_MS) delay(beatMs - NOTE_DURATION_MS);
+        delay(beatMs - noteMs);
     }
 
     // Pause for one beat.
@@ -324,9 +330,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) {
         uint8_t note = scaleNote(cfg.root, cfg.scale, (uint8_t)i, cfg.octave);
         uint8_t sounded = midiNoteOn(note, 100);
-        delay(NOTE_DURATION_MS);
+        delay(noteMs);
         midiNoteOff(sounded);
-        if (beatMs > NOTE_DURATION_MS) delay(beatMs - NOTE_DURATION_MS);
+        delay(beatMs - noteMs);
     }
 
     // Let the last note's release tail finish.
@@ -337,6 +343,9 @@ static void playWelcomeTune(const SavedConfig& cfg) {
 
 void menuInit(const SavedConfig& cfg) {
     lcd.init();
+
+    for (uint8_t i = 0; i < VOICE_COUNT; i++) VOICE_ITEMS[i] = voiceGet(i).name;
+    VOICE_ITEMS[VOICE_COUNT] = "Back";
 
     // Apply initial backlight state based on saved timeout setting.
     if (cfg.lcdTimeout == LCD_TIMEOUT_ALWAYS_OFF) {
@@ -525,9 +534,11 @@ void menuUpdate(SavedConfig& cfg) {
                     case 1: enterState(MenuState::Scale,
                                 static_cast<uint8_t>(cfg.scale)); break;
                     case 2: enterState(MenuState::Octave, cfg.octave); break;
-                    case 3: enterState(MenuState::WelcomeTune,
+                    case 3: enterState(MenuState::Voice,
+                                (uint8_t)constrain(cfg.voice, 0, VOICE_COUNT - 1)); break;
+                    case 4: enterState(MenuState::WelcomeTune,
                                 cfg.playWelcomeTune ? 0 : 1); break;
-                    case 4: {
+                    case 5: {
                         // Find current timeout value in the options list.
                         uint8_t idx = 1; // default to 5s if not found
                         for (uint8_t i = 0; i < 7; i++) {
@@ -536,7 +547,7 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LcdTimeout, idx);
                         break;
                     }
-                    case 5: {
+                    case 6: {
                         // Land the cursor on the stored value, not the top.
                         uint8_t idx = 3;  // default to 4 beats if not found
                         for (uint8_t i = 0; i < 6; i++) {
@@ -545,11 +556,11 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::BeatsPerRev, idx);
                         break;
                     }
-                    case 6: enterState(MenuState::SensorShift,
+                    case 7: enterState(MenuState::SensorShift,
                                 (uint8_t)constrain(cfg.sensorShift, 0, 7)); break;
-                    case 7: enterState(MenuState::AuxFnDefault,
+                    case 8: enterState(MenuState::AuxFnDefault,
                                 (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1)); break;
-                    case 8: {
+                    case 9: {
                         uint8_t idx = 0;
                         for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
                             if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
@@ -557,12 +568,12 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
-                    case 9:  enterState(MenuState::MagnetPole,
+                    case 10:  enterState(MenuState::MagnetPole,
                                 cfg.magnetPolarity < 0 ? 1 : 0); break;
-                    case 10: enterState(MenuState::CalibrationPrompt); break;
-                    case 11: enterState(MenuState::ResetCalPrompt); break;
-                    case 12: enterState(MenuState::ResetAllPrompt); break;
-                    case 13: enterState(MenuState::Status); break;
+                    case 11: enterState(MenuState::CalibrationPrompt); break;
+                    case 12: enterState(MenuState::ResetCalPrompt); break;
+                    case 13: enterState(MenuState::ResetAllPrompt); break;
+                    case 14: enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -600,6 +611,21 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::Voice:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + VOICE_ITEMS_COUNT) % VOICE_ITEMS_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < VOICE_COUNT) {   // last entry is Back
+                    cfg.voice = cursor;
+                    storageSave(cfg);
+                    audioSetVoice(voiceGet(cfg.voice));
+                }
+                enterState(MenuState::MainMenu, 3);
+            }
+            break;
+
         case MenuState::WelcomeTune:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + WELCOME_COUNT) % WELCOME_COUNT;
@@ -613,7 +639,7 @@ void menuUpdate(SavedConfig& cfg) {
                     playWelcomeTune(cfg);
                 }
                 if (cursor == 1) { cfg.playWelcomeTune = false; storageSave(cfg); }
-                enterState(MenuState::MainMenu, 3);
+                enterState(MenuState::MainMenu, 4);
             }
             break;
 
@@ -636,7 +662,7 @@ void menuUpdate(SavedConfig& cfg) {
                         lastInteraction = millis();
                     }
                 }
-                enterState(MenuState::MainMenu, 4);
+                enterState(MenuState::MainMenu, 5);
             }
             break;
 
@@ -650,7 +676,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.beatsPerRev = BEATS_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 5);
+                enterState(MenuState::MainMenu, 6);
             }
             break;
 
@@ -664,7 +690,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.sensorShift = (int8_t)cursor;
                     storageCommit(cfg);
                 }
-                enterState(MenuState::MainMenu, 6);
+                enterState(MenuState::MainMenu, 7);
             }
             break;
 
@@ -678,7 +704,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.auxFn = cursor;
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 7);
+                enterState(MenuState::MainMenu, 8);
             }
             break;
 
@@ -692,7 +718,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.pitchStepDiv = PITCH_STEP_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 8);
+                enterState(MenuState::MainMenu, 9);
             }
             break;
 
@@ -707,7 +733,7 @@ void menuUpdate(SavedConfig& cfg) {
                     storageSave(cfg);
                     hallSetPolarity(cfg.magnetPolarity);
                 }
-                enterState(MenuState::MainMenu, 9);
+                enterState(MenuState::MainMenu, 10);
             }
             break;
 
@@ -723,13 +749,13 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 10);
+                else enterState(MenuState::MainMenu, 11);
             }
             break;
 
         case MenuState::CalibrationRunning: {
             calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 10);
+            enterState(MenuState::MainMenu, 11);
             break;
         }
 
@@ -752,7 +778,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 11);
+                enterState(MenuState::MainMenu, 12);
             }
             break;
 
@@ -766,10 +792,11 @@ void menuUpdate(SavedConfig& cfg) {
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
                     audioSetVolume(cfg.volume);
+                    audioSetVoice(voiceGet(cfg.voice));
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 12);
+                enterState(MenuState::MainMenu, 13);
             }
             break;
     }
@@ -792,6 +819,9 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::Octave:
                 drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);
+                break;
+            case MenuState::Voice:
+                drawList(VOICE_ITEMS, VOICE_ITEMS_COUNT, cursor);
                 break;
             case MenuState::WelcomeTune:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);
