@@ -637,7 +637,7 @@ void menuUpdate(SavedConfig& cfg) {
     // a brushed speed or volume knob may dismiss one: they ask you to go and do
     // something physical (place a magnet, decide about wiping settings), which
     // reliably takes longer than MENU_TIMEOUT_MS, and having the question
-    // vanish mid-task is the bug in todo.md. They stay put until answered.
+    // vanish mid-task was a real bug. They stay put until answered.
     bool isPrompt = (state == MenuState::FirstBootPrompt ||
                      state == MenuState::CalibrationPrompt ||
                      state == MenuState::CalibrationRunning ||

@@ -23,8 +23,8 @@ build/
 # Claude Code
 .claude/
 
-# Personal notes
-notes/
-
 # Private working notes
 notes/
+
+# OS
+Thumbs.db

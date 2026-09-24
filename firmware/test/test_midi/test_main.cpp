@@ -36,7 +36,7 @@ static void midiSendNoteOff(uint8_t note) {
 // Play C D E F G -- verify by ear on a connected synth.
 // Plain function so loop() can call it too; the Unity assertion stays in the
 // RUN_TEST wrapper below. (Calling TEST_PASS() from loop() longjmps into a
-// stack frame that no longer exists -- see the reboot loop in bringup_status.)
+// stack frame that no longer exists, which reboots the board.)
 static void playScale() {
     uint8_t notes[] = { 60, 62, 64, 65, 67 };
     for (uint8_t note : notes) {

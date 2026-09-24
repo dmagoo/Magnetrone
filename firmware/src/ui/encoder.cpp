@@ -15,8 +15,8 @@ static long lastAux   = 0;
 
 static EncoderEvent pending = {};
 
-// Bare EC11 buttons with no RC filtering (the hardware debounce was marked
-// WONTFIX in todo.md in favour of doing it here). A mechanical contact rattles
+// Bare EC11 buttons with no RC filtering (debounce is done here in software
+// instead of in hardware). A mechanical contact rattles
 // for a few ms on both make and break, and every one of those edges used to
 // read as a fresh press. Ignore any state change that lands inside the settle
 // window; 30 ms is well past the bounce and far below a deliberate double-click.

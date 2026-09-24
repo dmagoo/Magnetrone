@@ -50,7 +50,7 @@ constexpr uint16_t  HALL_THRESHOLD_DEFAULT  = 200;
 // one clean bump. A disc magnet's return flux has the opposite sign to its face
 // field, and hallUpdate() compares ABSOLUTE deviation, so a single pass can
 // cross the threshold two or three times (fringe, face, fringe) and produce the
-// double notes in todo.md. Requiring a return to near-baseline means the dip
+// double notes. Requiring a return to near-baseline means the dip
 // between those lobes no longer re-arms the sensor.
 //
 // It replaces the old HALL_HYSTERESIS, which was subtracted from the threshold

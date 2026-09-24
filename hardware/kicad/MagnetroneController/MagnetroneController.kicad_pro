@@ -555,7 +555,7 @@
       "plot": "fabrication outputs/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "../../stls/PCBS.step",
+      "step": "../../cad/PCBS.step",
       "svg": "",
       "vrml": ""
     },

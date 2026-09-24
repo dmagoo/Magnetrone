@@ -60,7 +60,7 @@ revolution, and derives a threshold and RPM correction factor stored in EEPROM.
 
 The controller is built on a Teensy 4.1 with a Teensy Audio Shield (SGTL5000) for
 audio output. A NEMA17 stepper motor drives the platter through a GT2 belt at 11:1
-reduction, controlled by an A4988 driver at 1/16 microstepping from 24V DC. Eight
+reduction, controlled by a TMC2209 driver (configured over UART) from 24V DC. Eight
 ratiometric Hall effect sensors (A1301) are powered at 3.3V and read directly by the
 Teensy ADC. A 16x2 I2C LCD with PCF8574T backpack provides the display. MIDI DIN
 in/out is present with optoisolation on the input. Power is supplied via 24V barrel

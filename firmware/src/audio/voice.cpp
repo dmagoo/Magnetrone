@@ -3,8 +3,8 @@
 
 // Starting values, agreed 2026-09-23 and expected to be tuned by ear. The
 // bandlimited saw and square alias far less than the plain ones, which matters
-// on the high octaves. Auto channels follow the scheme in todo.md; Drums take
-// 10, per General MIDI. Drums ignore waveform and envelope (the drum bank has
+// on the high octaves. Auto channels: Piano 1, Bass 2, Strings 3, Leads 4; Drums
+// take 10, per General MIDI. Drums ignore waveform and envelope (the drum bank has
 // its own per-drum sounds); its note length only times the MIDI Note Off.
 static const Voice VOICES[VOICE_COUNT] = {
     //  name       waveform                      A    D    S      R    note  ch  source

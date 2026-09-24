@@ -539,7 +539,7 @@
       "plot": "fabrication outputs/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "../../stls/MagnetroneUI.step",
+      "step": "../../cad/MagnetroneUI.step",
       "svg": "",
       "vrml": ""
     },
