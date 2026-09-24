@@ -1,6 +1,4 @@
 #pragma once
-// Pin assignments are defined and documented in docs/pins.md -- that is the source of truth.
-// Edit pins.md first, then update the constants below to match.
 // All pin numbers are GPIO numbers (Teensy 4.1 Arduino API).
 
 // MIDI

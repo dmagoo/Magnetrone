@@ -8,21 +8,6 @@
 //   VS Code: PlatformIO sidebar -> teensy41_test_stepper -> Advanced -> Test
 //   Terminal: pio test -e teensy41_test_stepper
 //
-// HARD-WON LESSONS baked into this file (see docs/motor_debug.md for the full story):
-//   1. The driver browns out and RESETS to factory defaults when the motor spins
-//      unless there is enough bulk capacitance at the driver (VM/VIO). With the cap
-//      in place the config survives motion. If config mysteriously reverts, suspect
-//      the cap first.
-//   2. The TMCStepper getter functions echo the library's SHADOW, not the chip. Only
-//      RAW reads (driver.GCONF()/CHOPCONF()) tell the truth, and only AT REST (reads
-//      taken during/after motion are corrupted by motor noise).
-//   3. Write GCONF as ONE raw word (setGconfVerified), never via the per-bit setters:
-//      they each do read-modify-write through the shadow and clobber each other.
-//   4. Single-wire UART writes are unacknowledged and can silently drop -> verify
-//      critical writes by reading back (setGconfVerified / setMicrostepsVerified).
-//   5. Configure ONLY at rest; never talk to the driver over UART mid-motion.
-//   6. Accelerate in step-RATE space, not period space, for even (jerk-free) accel.
-//
 // WIRING (per pins.h):
 //   - BigTreeTech TMC2209 V1.3: STEP -> PIN_STEP (3), DIR -> PIN_DIR_TMP (6),
 //     EN -> PIN_ENABLE (5, active low).

@@ -25,8 +25,6 @@
 //   UART: the TMC2209 has ONE UART pin (PDN_UART). Both Teensy lines land on the
 //   driver's "RX" pad -- TX (35) through a 1k resistor, RX (34) direct. Serial8.
 //   MS1 and MS2 tied to GND -> UART address 0. VM = 24 V, VIO = 3.3 V.
-//   Bulk capacitance at the driver is required, or it browns out and resets to
-//   factory defaults the moment the motor spins (see docs/motor_debug.md).
 //
 //   NOTE: this uses PIN_DIR (GPIO 2), the real direction pin on the assembled
 //   PCB. test_stepper uses PIN_DIR_TMP (GPIO 6) instead, which on this board is
