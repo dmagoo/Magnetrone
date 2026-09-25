@@ -36,9 +36,9 @@ turning physical arrangement into musical pattern.
   CC 20 octave
 - Root note, scale, and octave selectable from LCD menu
 - Speed and volume adjustable live at any time via dedicated encoders; touching
-  either one returns to the live display from any menu (prompts excepted)
-- Menu knob opens the main menu from the live display by turning or pressing;
-  the menu button leaves the Aux screens straight back to the live display
+  either one returns to the home screen from any menu (prompts excepted)
+- Menu knob opens the main menu from the home screen by turning or pressing;
+  the menu button leaves the Aux screens straight back to the home screen
 - Welcome tune plays on boot -- previews what Layer A's tracks play, hall 1 to 8
   and back, including its octave offset, Track Shift, Wrap and Low Note; a menu
   button press skips it

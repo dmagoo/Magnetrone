@@ -12,20 +12,23 @@ plays the lowest note of the current scale and the outermost plays the highest.
 Sound comes from the built-in synth (headphone or line out) and from MIDI OUT,
 so it can also drive external synths and send them tempo. See [MIDI](#midi).
 
+The **home screen** is where you play. It is a live display of the tempo, the
+current scene, the key and the volume, and every menu leads back to it.
+
 ## Controls
 
 | Knob   | Turn                                  | Press                    |
 |--------|---------------------------------------|--------------------------|
 | Speed  | Platter speed. Below zero it reverses | Start or stop the platter |
 | Volume | Volume                                | Mute                     |
-| Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects |
+| Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects. Anywhere outside the main menu and its questions, it is the Home button |
 | Aux    | Changes the selected function live    | Choose the function      |
 
 Speed and Volume work from any screen, and touching either one returns to the
-live display. Menus also return to the live display after 5 seconds of
+home screen. Menus also return to the home screen after 5 seconds of
 inactivity.
 
-The live display shows:
+The home screen shows:
 
 ```
 BPM:120 Scene 2*
@@ -106,13 +109,13 @@ Calibration and maintenance live in **Main > Tools**.
 ## Aux Knob
 
 The Aux knob changes one function while the table plays, without leaving the
-live display.
+home screen.
 
-- **Turn** from the live display: the first click shows the current value, and
+- **Turn** from the home screen: the first click shows the current value, and
   each click after that changes it straight away.
-- **Press** from the live display: opens the function list with the current one
+- **Press** from the home screen: opens the function list with the current one
   selected. Turn to pick another, press to start changing it.
-- Press again to go back. The menu button returns straight to the live display.
+- Press again to go back. The menu button returns straight to the home screen.
 
 The function list:
 
@@ -123,7 +126,7 @@ The function list:
 | A/B Balance, Load Scene | See the tables below and [Scenes](#scenes). |
 | Save Scene | Saves the current setup as a [scene](#scenes). |
 | Reset All | Undoes every Aux change. |
-| Exit | Back to the live display. |
+| Exit | Back to the home screen. |
 
 **Aux changes are not saved.** They are for playing. Power off, or choose
 **Reset All** at the bottom of the Aux function list, and everything returns to
@@ -148,7 +151,7 @@ the factory settings.
 
 Each slot shows its root and scale, such as `2: D Minor`, or `3: (empty)`.
 **0: Defaults** comes first in the Load Scene list. It can be loaded but not
-saved over, and shows as `Scene 0` on the live display.
+saved over, and shows as `Scene 0` on the home screen.
 
 Loading or saving a scene also saves its settings, as if you had picked them in
 the main menu. At power-up the table plays the last scene, plus any main menu
