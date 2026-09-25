@@ -15,6 +15,7 @@
 #include "sequencer/pitch.h"
 #include "sequencer/layers.h"
 #include "motion/bar.h"
+#include "sequencer/scenes.h"
 
 static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
@@ -42,6 +43,8 @@ enum class MenuState : uint8_t {
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
     AuxParam,       // aux knob: modulate the chosen parameter, live
+    SceneSaveSelect,  // aux knob: pick the scene slot to save to
+    SceneSaveConfirm, // aux knob: overwrite a used slot?
     CalClearPrompt,     // calibration step 1: clear the platter
     CalSampling,        //   blocking: baselines
     CalMagnetPrompt,    // calibration step 2: one magnet on the start mark
@@ -199,28 +202,37 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 // Storage migration (migrateAuxFn() in storage.cpp) knows this order too.
 enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, ShiftA, ShiftB,
                              LowNoteA, LowNoteB, Pitch,
-                             Balance, VoiceA, VoiceB, COUNT };
+                             Balance, VoiceA, VoiceB, LoadScene, COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
-// The select list carries two trailing actions, Reset and Exit. The "set the
+// The select list carries three trailing actions, Save Scene, Reset and Exit. The "set the
 // default binding" menu carries only a trailing Back -- reset has no meaning
 // there, since that menu sets committed values rather than modulating live ones.
 static const char* AUX_FN_LABELS[] = {
     "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
     "Layer A Low","Layer B Low","Pitch",
-    "A/B Balance","Layer A Voice","Layer B Voice","Reset All","Exit"
+    "A/B Balance","Layer A Voice","Layer B Voice","Load Scene",
+    "Save Scene","Reset All","Exit"
 };
 static const char* AUX_FN_MENU_LABELS[] = {
     "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
     "Layer A Low","Layer B Low","Pitch",
-    "A/B Balance","Layer A Voice","Layer B Voice","Back"
+    "A/B Balance","Layer A Voice","Layer B Voice","Load Scene","Back"
 };
-static const uint8_t AUX_FN_SELECT_COUNT = AUX_FN_COUNT + 2;  // + Reset, Exit
+static const uint8_t AUX_FN_SELECT_COUNT = AUX_FN_COUNT + 3;  // + Save Scene, Reset, Exit
 static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
 
-// Positions of the two actions at the end of the select list.
-static const uint8_t AUX_ACTION_RESET = AUX_FN_COUNT;
-static const uint8_t AUX_ACTION_EXIT  = AUX_FN_COUNT + 1;
+// Positions of the actions at the end of the select list.
+static const uint8_t AUX_ACTION_SAVE_SCENE = AUX_FN_COUNT;
+static const uint8_t AUX_ACTION_RESET      = AUX_FN_COUNT + 1;
+static const uint8_t AUX_ACTION_EXIT       = AUX_FN_COUNT + 2;
+
+// Scene list entries: "2: D Minor", or "3: (empty)". Rebuilt before each
+// draw, since the root and scale names come from the slots. The save list
+// adds Back.
+static char        SCENE_LABEL_BUF[NUM_SCENES][16];
+static const char* SCENE_ITEMS[NUM_SCENES + 1];
+static const uint8_t SCENE_SAVE_COUNT = NUM_SCENES + 1;
 
 // How far one aux step moves Pitch, as a divisor of a semitone.
 static const uint8_t PITCH_STEP_VALUES[] = { 1, 2, 3, 4, 8 };
@@ -272,6 +284,18 @@ static void enterState(MenuState s, uint8_t initialCursor = 0) {
     cursor       = initialCursor;
     needsRedraw  = true;
     lastActivity = millis();
+}
+
+// Save Scene: the slot being confirmed, and the save itself, which lands back
+// on the live display where the scene now shows.
+static uint8_t saveSlot = 0;
+static void saveScene(SavedConfig& cfg, uint8_t slot) {
+    sceneSave(cfg, slot);
+    char msg[17];
+    snprintf(msg, sizeof(msg), "Saved Scene %u", (unsigned)(slot + 1));
+    menuMessage(msg, "");
+    delay(1000);
+    enterState(MenuState::Status);
 }
 
 // Ends a calibration or StartPos flow: back to the live display if it began
@@ -351,15 +375,36 @@ static void buildVolBar(char* out, float vol, bool muted) {
 }
 
 static void drawStatus(const SavedConfig& cfg) {
-    // Tempo is a magnitude; cfg.rpm carries direction in its sign.
-    int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
-    lcdLine(0, "BPM:%-3d RPM:%-4d", bpm, (int)cfg.rpm);
+    // BPM carries the platter's direction in its sign, as cfg.rpm does. The
+    // right half names the current scene, with * once the live settings
+    // differ from it; blank until a scene has been loaded or saved.
+    int bpm = (int)lroundf(cfg.rpm * cfg.beatsPerRev);
+    char scene[16] = "";   // "Scene 2*"; sized for any %u
+    if (sceneUsed(cfg, cfg.currentScene)) {
+        snprintf(scene, sizeof(scene), "Scene %u%c",
+                 (unsigned)(cfg.currentScene + 1), sceneModified(cfg) ? '*' : ' ');
+    }
+    lcdLine(0, "BPM:%-4d%s", bpm, scene);
     char vb[7];
     buildVolBar(vb, cfg.volume, cfg.muted);
     lcdLine(1, "%-2s %-7s%s",
         ROOT_ITEMS[static_cast<uint8_t>(cfg.root)],
         SCALE_ITEMS[static_cast<uint8_t>(cfg.scale)],
         vb);
+}
+
+static void buildSceneLabels(const SavedConfig& cfg) {
+    for (uint8_t i = 0; i < NUM_SCENES; i++) {
+        const SceneSlot& s = cfg.scenes[i];
+        if (s.used) {
+            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: %s %s", i + 1,
+                     ROOT_ITEMS[(uint8_t)s.root], SCALE_ITEMS[(uint8_t)s.scale]);
+        } else {
+            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: (empty)", i + 1);
+        }
+        SCENE_ITEMS[i] = SCENE_LABEL_BUF[i];
+    }
+    SCENE_ITEMS[NUM_SCENES] = "Back";
 }
 
 static void drawList(const char** items, uint8_t count, uint8_t cur) {
@@ -499,6 +544,20 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             layersApply(cfg);
             break;
         }
+        case AuxFn::LoadScene: {
+            // Steps through the saved scenes only, wrapping, and queues the
+            // one landed on to load at the next bar start.
+            if (!sceneAnyUsed(cfg)) break;
+            int cur  = sceneSelected(cfg);
+            int step = (delta > 0) ? 1 : -1;
+            if (cur == SCENE_NONE) cur = (step > 0) ? -1 : NUM_SCENES;
+            for (int n = abs(delta); n > 0; n--) {
+                do { cur = (cur + step + NUM_SCENES) % NUM_SCENES; }
+                while (!sceneUsed(cfg, (uint8_t)cur));
+            }
+            sceneQueue(cfg, (uint8_t)cur);
+            break;
+        }
         default: break;
     }
 }
@@ -594,6 +653,17 @@ static void drawAuxParam(const SavedConfig& cfg) {
             } else {
                 drawList(VOICE_ITEMS, VOICE_COUNT, cfg.layer[l].voice);
             }
+            break;
+        }
+        case AuxFn::LoadScene: {
+            if (!sceneAnyUsed(cfg)) {
+                lcdLine(0, "No scenes saved");
+                lcdLine(1, "");
+                break;
+            }
+            buildSceneLabels(cfg);
+            uint8_t sel = sceneSelected(cfg);
+            drawList(SCENE_ITEMS, NUM_SCENES, sel == SCENE_NONE ? 0 : sel);
             break;
         }
         default:
@@ -822,7 +892,13 @@ void menuUpdate(SavedConfig& cfg) {
     // player back to the live display between moves. The aux button is already
     // the way out.
     bool isAux = (state == MenuState::AuxFnSelect ||
-                  state == MenuState::AuxParam);
+                  state == MenuState::AuxParam ||
+                  state == MenuState::SceneSaveSelect ||
+                  state == MenuState::SceneSaveConfirm);
+
+    // A scene load landed on the bar: the status line (or the scene list)
+    // shows it.
+    if (sceneTakeChanged()) needsRedraw = true;
 
     // Screens you read rather than drive. Timing out would cut the reading
     // short; the menu button is the way out.
@@ -874,15 +950,15 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.auxPressed) {
                 if (cursor == AUX_ACTION_EXIT) {
                     enterState(MenuState::Status);
+                } else if (cursor == AUX_ACTION_SAVE_SCENE) {
+                    uint8_t cur = cfg.currentScene;
+                    enterState(MenuState::SceneSaveSelect, cur < NUM_SCENES ? cur : 0);
                 } else if (cursor == AUX_ACTION_RESET) {
                     // Throw away every live modulation at once and drop back to
                     // the live display, where the restored values are visible on
-                    // the status line. Nothing is written: this drift never
-                    // reached EEPROM, so reverting is purely a RAM operation.
-                    storageRevertLive(cfg);
-                    pitchSetOffset(0.0f);
-                    layerSetBalance(0);
-                    layersApply(cfg);
+                    // the status line: the saved settings, with the current
+                    // scene's pitch and balance. Nothing is written.
+                    sceneRevertLive(cfg);
                     enterState(MenuState::Status);
                 } else {
                     // Rebinding IS saved -- it changes rarely, unlike the values
@@ -892,6 +968,30 @@ void menuUpdate(SavedConfig& cfg) {
                     auxEnteredFromLive = false;
                     enterState(MenuState::AuxParam);
                 }
+            }
+            break;
+
+        // Save Scene: the aux knob picks a slot, the aux button chooses it. A
+        // used slot asks first. The menu button bails, as on the Aux screens.
+        case MenuState::SceneSaveSelect:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + SCENE_SAVE_COUNT) % SCENE_SAVE_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor >= NUM_SCENES)            enterState(MenuState::AuxFnSelect, AUX_ACTION_SAVE_SCENE);
+                else if (sceneUsed(cfg, cursor)) {   saveSlot = cursor; enterState(MenuState::SceneSaveConfirm, 1); }
+                else                                 saveScene(cfg, cursor);
+            }
+            break;
+
+        case MenuState::SceneSaveConfirm:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
+            if (ev.auxPressed) {
+                if (cursor == 0) saveScene(cfg, saveSlot);
+                else             enterState(MenuState::SceneSaveSelect, saveSlot);
             }
             break;
 
@@ -1576,6 +1676,16 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);
+                break;
+            case MenuState::SceneSaveSelect:
+                buildSceneLabels(cfg);
+                drawList(SCENE_ITEMS, SCENE_SAVE_COUNT, cursor);
+                break;
+            case MenuState::SceneSaveConfirm:
+                lcdLine(0, "Overwrite %u?", (unsigned)(saveSlot + 1));
+                lcdLine(1, "%c Yes  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
             case MenuState::FirstBootPrompt:
                 lcdLine(0, "Not calibrated");

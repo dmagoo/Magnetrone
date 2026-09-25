@@ -28,12 +28,14 @@ inactivity.
 The live display shows:
 
 ```
-BPM:120 RPM:30
+BPM:120 Scene 2*
 C  Major  [███ ]
 ```
 
-The top line is tempo and platter speed (negative RPM means reverse). The bottom
-line is the root note, the scale and the volume, or `[MUTE]`.
+The top line is the tempo (negative means the platter runs in reverse) and the
+current [scene](#scenes), with `*` once you have changed something since loading
+it. It is blank until a scene has been loaded or saved. The bottom line is the
+root note, the scale and the volume, or `[MUTE]`.
 
 ## First Run
 
@@ -114,10 +116,29 @@ live display.
 
 **Aux changes are not saved.** They are for playing. Power off, or choose
 **Reset All** at the bottom of the Aux function list, and everything returns to
-the saved settings. To keep a value, set it in the main menu.
+the saved settings. To keep a value, set it in the main menu, or save the whole
+setup as a scene.
 
 The function the knob controls is saved, so it is still selected next time.
 You can also set it from **Main > Aux Fn**.
+
+## Scenes
+
+A scene saves everything the Aux knob can change, so a setup you like can be
+brought back mid-song. There are 8.
+
+- **Save Scene** (in the Aux function list): turn the Aux knob to pick a slot
+  and press. Saving over a used slot asks first.
+- **Load Scene** (an Aux function): turn the Aux knob to step through the saved
+  scenes. The one you land on loads at the start of the next bar, when the
+  start mark passes the arm, so you can pick it any time and it lands on the
+  downbeat. With the platter stopped it loads at once.
+
+Each slot shows its root and scale, such as `2: D Minor`, or `3: (empty)`.
+
+Loading or saving a scene also saves its settings, as if you had picked them in
+the main menu. At power-up the table plays the last scene, plus any main menu
+changes made since. **Reset All** in the Aux list goes back to it.
 
 ## Performance Functions
 
@@ -137,6 +158,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in the
 | Octave (layer) | Layer | No | Offset from the main Octave, -3 to +3. | Per layer. Drums ignore it. |
 | Level       | Layer  | No  | Layer volume, 0 to 100%. Also sets MIDI velocity. | Per layer. |
 | A/B Balance | Aux only | Yes | Crossfades between the layers. Centre is both at full level. | Needs both layers on. |
+| Load Scene  | Aux only | Yes | Loads a saved scene at the next bar. See [Scenes](#scenes). | Covers both layers. |
 | Mode        | Layer  | No  | On or Off. Layer B also has Same as A. | Off silences every magnet that way up. |
 
 When Layer B is on **Same as A**, it plays exactly like Layer A, and the Aux

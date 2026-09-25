@@ -57,6 +57,12 @@ static void setV11Defaults(SavedConfig& c) {
     c.startCheck    = DEFAULT_START_CHECK;
 }
 
+// Defaults for the fields added in version 12 (scenes): all empty.
+static void setV12Defaults(SavedConfig& c) {
+    for (uint8_t i = 0; i < NUM_SCENES; i++) c.scenes[i] = SceneSlot{};
+    c.currentScene = SCENE_NONE;
+}
+
 static void setLayerDefaults(SavedConfig& c) {
     c.layer[LAYER_A] = { LayerMode::On,      (uint8_t)VoiceId::Piano,
                          LAYER_CHANNEL_AUTO,  0, 100 };
@@ -117,6 +123,7 @@ SavedConfig storageDefaults() {
     c.voiceV8         = 0;
     setLayerDefaults(c);
     setV11Defaults(c);
+    setV12Defaults(c);
     return c;
 }
 
@@ -150,14 +157,17 @@ void storageLoad(SavedConfig& cfg) {
         cfg.voiceV8       = 0;
         cfg.sensorShiftV9 = 0;
         setV11Defaults(cfg);
+        setV12Defaults(cfg);
         committed = cfg;
         storageSave(cfg);
         return;
     }
 
-    // Version 10 is a straight prefix: only the bar start fields are new.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version == 10) {
-        setV11Defaults(cfg);
+    // Versions 10 and 11 are straight prefixes: only the bar start (11) and
+    // scene (12) fields are new.
+    if (cfg.magic == EEPROM_MAGIC && (cfg.version == 10 || cfg.version == 11)) {
+        if (cfg.version == 10) setV11Defaults(cfg);
+        setV12Defaults(cfg);
         cfg.version = EEPROM_VERSION;
         committed = cfg;
         storageSave(cfg);

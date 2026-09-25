@@ -10,6 +10,7 @@
 #include "menu/menu.h"
 #include "sequencer/sequencer.h"
 #include "sequencer/layers.h"
+#include "sequencer/scenes.h"
 
 static SavedConfig cfg;
 
@@ -25,6 +26,7 @@ void setup() {
     hallInit();
     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
     hallSetPolarity(cfg.magnetPolarity);
+    scenesInit(cfg);
     menuInit(cfg);
 }
 
@@ -36,6 +38,7 @@ void loop() {
     menuUpdate(cfg);
     midiUpdate();
     barUpdate(cfg);
+    scenesUpdate(cfg);
 
     // Beat clock follows the platter's position, so it tracks the real speed.
     transportUpdate(cfg.beatsPerRev);

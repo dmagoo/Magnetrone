@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 11;
+constexpr uint8_t  EEPROM_VERSION = 12;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -55,6 +55,23 @@ struct LayerCfgV9 {
     uint8_t   level;
 };
 
+// A scene: everything the Aux knob can change, saved together so a setup can
+// be recalled live. Pitch and A/B Balance are otherwise never saved.
+constexpr uint8_t NUM_SCENES  = 8;
+constexpr uint8_t SCENE_NONE  = 0xFF;   // no scene loaded yet
+
+struct SceneSlot {
+    bool     used;
+    RootNote root;
+    Scale    scale;
+    uint8_t  octave;
+    uint8_t  voice[NUM_LAYERS];
+    uint8_t  shift[NUM_LAYERS];
+    uint8_t  lowNote[NUM_LAYERS];
+    int8_t   balance;
+    float    pitch;             // semitones, as pitchGetOffset()
+};
+
 struct SavedConfig {
     uint16_t magic;
     uint8_t  version;
@@ -90,6 +107,9 @@ struct SavedConfig {
     int32_t  barPhase;
     bool     barPhaseValid;
     bool     startCheck;       // at boot, offer Find Start if the start is unknown
+    // Added in version 12.
+    SceneSlot scenes[NUM_SCENES];
+    uint8_t   currentScene;    // last loaded or saved, or SCENE_NONE
 };
 
 void storageLoad(SavedConfig& cfg);
