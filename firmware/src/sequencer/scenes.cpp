@@ -17,24 +17,68 @@ static bool     changed      = false;
 static bool     commitDue    = false;
 static uint32_t commitAtMs   = 0;
 
-bool sceneUsed(const SavedConfig& cfg, uint8_t slot) {
-    return slot < NUM_SCENES && cfg.scenes[slot].used;
+// Everything one scene holds, wherever it is stored: SceneSlot plus the two
+// fields that live beside it in SavedConfig (added in later versions).
+struct SceneView {
+    SceneSlot s;
+    int8_t    octave[NUM_LAYERS];   // per-layer octave offset
+    uint16_t  learned;              // Learned scale mask, 0 if none
+};
+
+// Reads scene `slot` into v. The Defaults scene is the factory values of the
+// same fields, built from storageDefaults(), and is never stored.
+static bool view(const SavedConfig& cfg, uint8_t slot, SceneView& v) {
+    if (slot == SCENE_DEFAULTS) {
+        SavedConfig d = storageDefaults();
+        v.s.used   = true;
+        v.s.root   = d.root;
+        v.s.scale  = d.scale;
+        v.s.octave = d.octave;
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+            v.s.voice[l]   = d.layer[l].voice;
+            v.s.shift[l]   = d.layer[l].shift;
+            v.s.lowNote[l] = d.layer[l].lowNote;
+            v.octave[l]    = d.layer[l].octaveOffset;
+        }
+        v.s.balance = 0;
+        v.s.pitch   = 0.0f;
+        v.learned   = 0;
+        return true;
+    }
+    if (slot >= NUM_SCENES || !cfg.scenes[slot].used) return false;
+    v.s = cfg.scenes[slot];
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) v.octave[l] = cfg.sceneLayerOctave[slot][l];
+    v.learned = cfg.sceneLearned[slot];
+    return true;
 }
 
-bool sceneAnyUsed(const SavedConfig& cfg) {
-    for (uint8_t i = 0; i < NUM_SCENES; i++) if (cfg.scenes[i].used) return true;
-    return false;
+bool sceneUsed(const SavedConfig& cfg, uint8_t slot) {
+    return slot == SCENE_DEFAULTS || (slot < NUM_SCENES && cfg.scenes[slot].used);
 }
 
 uint8_t sceneSelected(const SavedConfig& cfg) {
     return (pending != SCENE_NONE) ? pending : cfg.currentScene;
 }
 
+// Copies a scene's fields into cfg (the settings, not pitch or balance).
+static void putFields(SavedConfig& c, const SceneView& v) {
+    c.root   = v.s.root;
+    c.scale  = v.s.scale;
+    c.octave = v.s.octave;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        c.layer[l].voice        = v.s.voice[l];
+        c.layer[l].shift        = v.s.shift[l];
+        c.layer[l].lowNote      = v.s.lowNote[l];
+        c.layer[l].octaveOffset = v.octave[l];
+    }
+}
+
 // A learned scale lives only in scenes. If the saved scale is Learned, its
 // notes come from the current scene; with none to be had, play Major.
 static void restoreLearned(SavedConfig& cfg) {
     if (cfg.scale != Scale::Learned) return;
-    uint16_t mask = sceneUsed(cfg, cfg.currentScene) ? cfg.sceneLearned[cfg.currentScene] : 0;
+    SceneView v;
+    uint16_t mask = view(cfg, cfg.currentScene, v) ? v.learned : 0;
     if (mask) scaleSetLearned(mask);
     else if (!scaleHasLearned()) cfg.scale = Scale::Major;
 }
@@ -42,27 +86,21 @@ static void restoreLearned(SavedConfig& cfg) {
 void scenesInit(SavedConfig& cfg) {
     // The rest of the scene is already in the saved settings; pitch, balance
     // and a learned scale are what it alone keeps.
-    if (sceneUsed(cfg, cfg.currentScene)) {
-        const SceneSlot& s = cfg.scenes[cfg.currentScene];
-        pitchSetOffset(s.pitch);
-        layerSetBalance(s.balance);
+    SceneView v;
+    if (view(cfg, cfg.currentScene, v)) {
+        pitchSetOffset(v.s.pitch);
+        layerSetBalance(v.s.balance);
     }
     restoreLearned(cfg);
 }
 
 static void apply(SavedConfig& cfg, uint8_t slot) {
-    const SceneSlot& s = cfg.scenes[slot];
-    cfg.root   = s.root;
-    cfg.scale  = s.scale;
-    cfg.octave = s.octave;
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-        cfg.layer[l].voice   = s.voice[l];
-        cfg.layer[l].shift   = s.shift[l];
-        cfg.layer[l].lowNote = s.lowNote[l];
-    }
-    pitchSetOffset(s.pitch);
-    layerSetBalance(s.balance);
-    if (s.scale == Scale::Learned && cfg.sceneLearned[slot]) scaleSetLearned(cfg.sceneLearned[slot]);
+    SceneView v;
+    if (!view(cfg, slot, v)) return;
+    putFields(cfg, v);
+    pitchSetOffset(v.s.pitch);
+    layerSetBalance(v.s.balance);
+    if (v.s.scale == Scale::Learned && v.learned) scaleSetLearned(v.learned);
     layersApply(cfg);
     cfg.currentScene = slot;
     changed    = true;
@@ -81,15 +119,12 @@ void scenesUpdate(SavedConfig& cfg) {
         // The scene's values become the saved setup: commit them, not
         // whatever the knob has done since the load.
         commitDue = false;
-        SavedConfig c = cfg;
-        const SceneSlot& sc = cfg.scenes[cfg.currentScene];
-        c.root = sc.root; c.scale = sc.scale; c.octave = sc.octave;
-        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-            c.layer[l].voice   = sc.voice[l];
-            c.layer[l].shift   = sc.shift[l];
-            c.layer[l].lowNote = sc.lowNote[l];
+        SceneView v;
+        if (view(cfg, cfg.currentScene, v)) {
+            SavedConfig c = cfg;
+            putFields(c, v);
+            storageCommit(c, CommitField::All);
         }
-        storageCommit(c, CommitField::All);
     }
 
     uint32_t phase = barPhase();
@@ -107,14 +142,14 @@ void scenesUpdate(SavedConfig& cfg) {
         if (land) {
             uint8_t slot = pending;
             pending = SCENE_NONE;
-            if (sceneUsed(cfg, slot)) apply(cfg, slot);
+            apply(cfg, slot);
         }
     }
     lastPhase = phase;
 }
 
 void sceneSave(SavedConfig& cfg, uint8_t slot) {
-    if (slot >= NUM_SCENES) return;
+    if (slot >= NUM_SCENES) return;   // Defaults is read-only
     SceneSlot& s = cfg.scenes[slot];
     s.used   = true;
     s.root   = cfg.root;
@@ -124,6 +159,7 @@ void sceneSave(SavedConfig& cfg, uint8_t slot) {
         s.voice[l]   = cfg.layer[l].voice;
         s.shift[l]   = cfg.layer[l].shift;
         s.lowNote[l] = cfg.layer[l].lowNote;
+        cfg.sceneLayerOctave[slot][l] = cfg.layer[l].octaveOffset;
     }
     s.pitch   = pitchGetOffset();
     s.balance = layerBalance();
@@ -134,24 +170,25 @@ void sceneSave(SavedConfig& cfg, uint8_t slot) {
 }
 
 bool sceneModified(const SavedConfig& cfg) {
-    if (!sceneUsed(cfg, cfg.currentScene)) return false;
-    const SceneSlot& s = cfg.scenes[cfg.currentScene];
-    if (cfg.root != s.root || cfg.scale != s.scale || cfg.octave != s.octave) return true;
-    if (cfg.scale == Scale::Learned &&
-        scaleLearnedMask() != cfg.sceneLearned[cfg.currentScene]) return true;
+    SceneView v;
+    if (!view(cfg, cfg.currentScene, v)) return false;
+    if (cfg.root != v.s.root || cfg.scale != v.s.scale || cfg.octave != v.s.octave) return true;
+    if (cfg.scale == Scale::Learned && scaleLearnedMask() != v.learned) return true;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-        if (cfg.layer[l].voice   != s.voice[l] ||
-            cfg.layer[l].shift   != s.shift[l] ||
-            cfg.layer[l].lowNote != s.lowNote[l]) return true;
+        if (cfg.layer[l].voice        != v.s.voice[l] ||
+            cfg.layer[l].shift        != v.s.shift[l] ||
+            cfg.layer[l].lowNote      != v.s.lowNote[l] ||
+            cfg.layer[l].octaveOffset != v.octave[l]) return true;
     }
-    return fabsf(pitchGetOffset() - s.pitch) > 0.001f || layerBalance() != s.balance;
+    return fabsf(pitchGetOffset() - v.s.pitch) > 0.001f || layerBalance() != v.s.balance;
 }
 
 void sceneRevertLive(SavedConfig& cfg) {
     storageRevertLive(cfg);
-    bool have = sceneUsed(cfg, cfg.currentScene);
-    pitchSetOffset(have ? cfg.scenes[cfg.currentScene].pitch : 0.0f);
-    layerSetBalance(have ? cfg.scenes[cfg.currentScene].balance : 0);
+    SceneView v;
+    bool have = view(cfg, cfg.currentScene, v);
+    pitchSetOffset(have ? v.s.pitch : 0.0f);
+    layerSetBalance(have ? v.s.balance : 0);
     restoreLearned(cfg);
     layersApply(cfg);
 }

@@ -36,6 +36,7 @@ static void copyLiveModulatedFields(SavedConfig& dst, const SavedConfig& src) {
         dst.layer[l].voice = src.layer[l].voice;
         dst.layer[l].shift   = src.layer[l].shift;
         dst.layer[l].lowNote = src.layer[l].lowNote;
+        dst.layer[l].octaveOffset = src.layer[l].octaveOffset;
     }
 }
 
@@ -69,6 +70,14 @@ static void setV13Defaults(SavedConfig& c) {
     c.midiInChannel[LAYER_B] = DEFAULT_MIDI_IN_CHANNEL_B;
     c.midiFn = DEFAULT_MIDI_FN;
     for (uint8_t i = 0; i < NUM_SCENES; i++) c.sceneLearned[i] = 0;
+}
+
+// Defaults for the field added in version 14. Existing scenes take the
+// layers' saved octave offsets, so they sound as they did before.
+static void setV14Defaults(SavedConfig& c) {
+    for (uint8_t i = 0; i < NUM_SCENES; i++)
+        for (uint8_t l = 0; l < NUM_LAYERS; l++)
+            c.sceneLayerOctave[i][l] = c.layer[l].octaveOffset;
 }
 
 static void setLayerDefaults(SavedConfig& c) {
@@ -133,6 +142,7 @@ SavedConfig storageDefaults() {
     setV11Defaults(c);
     setV12Defaults(c);
     setV13Defaults(c);
+    setV14Defaults(c);
     return c;
 }
 
@@ -168,17 +178,19 @@ void storageLoad(SavedConfig& cfg) {
         setV11Defaults(cfg);
         setV12Defaults(cfg);
         setV13Defaults(cfg);
+        setV14Defaults(cfg);
         committed = cfg;
         storageSave(cfg);
         return;
     }
 
-    // Versions 10 to 12 are straight prefixes: only the bar start (11), scene
-    // (12) and MIDI in (13) fields are new.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 10 && cfg.version <= 12) {
+    // Versions 10 to 13 are straight prefixes: only the bar start (11), scene
+    // (12), MIDI in (13) and scene layer octave (14) fields are new.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 10 && cfg.version <= 13) {
         if (cfg.version <= 10) setV11Defaults(cfg);
         if (cfg.version <= 11) setV12Defaults(cfg);
-        setV13Defaults(cfg);
+        if (cfg.version <= 12) setV13Defaults(cfg);
+        setV14Defaults(cfg);
         cfg.version = EEPROM_VERSION;
         committed = cfg;
         storageSave(cfg);
@@ -215,6 +227,8 @@ void storageCommit(const SavedConfig& cfg, CommitField field, uint8_t layer) {
     case CommitField::Voice:   committed.layer[layer].voice   = cfg.layer[layer].voice;   break;
     case CommitField::Shift:   committed.layer[layer].shift   = cfg.layer[layer].shift;   break;
     case CommitField::LowNote: committed.layer[layer].lowNote = cfg.layer[layer].lowNote; break;
+    case CommitField::LayerOctave:
+        committed.layer[layer].octaveOffset = cfg.layer[layer].octaveOffset;           break;
     }
     storageSave(cfg);
 }

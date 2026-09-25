@@ -10,6 +10,9 @@
 // the next bar start, so it can be picked any time and falls on the downbeat;
 // with the platter stopped or the start unknown it applies at once.
 //
+// Besides the 8 slots there is a read-only Defaults scene (SCENE_DEFAULTS):
+// the factory values of the same fields. It can be loaded, never saved over.
+//
 // Loading or saving a scene also makes its values the saved main settings,
 // as if they had been picked in the menu, so power-up plays the last scene
 // plus any menu changes made since. There is one "saved" state, not two.
@@ -18,8 +21,8 @@
 void    scenesInit(SavedConfig& cfg);   // at boot: the scene's pitch, balance, learned scale
 void    scenesUpdate(SavedConfig& cfg);       // call every loop: lands a queued load
 
+// True for a saved slot, and always for SCENE_DEFAULTS.
 bool    sceneUsed(const SavedConfig& cfg, uint8_t slot);
-bool    sceneAnyUsed(const SavedConfig& cfg);
 
 // The scene shown as selected: the one queued to load, else the current one.
 uint8_t sceneSelected(const SavedConfig& cfg);

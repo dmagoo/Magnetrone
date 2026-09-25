@@ -114,6 +114,17 @@ live display.
   selected. Turn to pick another, press to start changing it.
 - Press again to go back. The menu button returns straight to the live display.
 
+The function list:
+
+| Entry | |
+|-------|-|
+| Octave, Root Note, Scale, Pitch | Shared by both layers. |
+| Layer A >, Layer B > | Open that layer's own functions: Voice, Octave, Shift, Low Note. |
+| A/B Balance, Load Scene | See the tables below and [Scenes](#scenes). |
+| Save Scene | Saves the current setup as a [scene](#scenes). |
+| Reset All | Undoes every Aux change. |
+| Exit | Back to the live display. |
+
 **Aux changes are not saved.** They are for playing. Power off, or choose
 **Reset All** at the bottom of the Aux function list, and everything returns to
 the saved settings. To keep a value, set it in the main menu, or save the whole
@@ -125,7 +136,8 @@ You can also set it from **Main > Aux Fn**.
 ## Scenes
 
 A scene saves everything the Aux knob can change, so a setup you like can be
-brought back mid-song. There are 8.
+brought back mid-song. There are 8, plus a fixed **Defaults** scene that holds
+the factory settings.
 
 - **Save Scene** (in the Aux function list): turn the Aux knob to pick a slot
   and press. Saving over a used slot asks first.
@@ -135,6 +147,8 @@ brought back mid-song. There are 8.
   downbeat. With the platter stopped it loads at once.
 
 Each slot shows its root and scale, such as `2: D Minor`, or `3: (empty)`.
+**0: Defaults** comes first in the Load Scene list. It can be loaded but not
+saved over, and shows as `Scene 0` on the live display.
 
 Loading or saving a scene also saves its settings, as if you had picked them in
 the main menu. At power-up the table plays the last scene, plus any main menu
@@ -155,7 +169,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in the
 | Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. | Per layer. Layer B follows A's shift by default; set a number to unbind it. |
 | Wrap        | Layer  | No  | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. | Follows Shift: if B follows A's shift, it uses A's Wrap. Drums always wrap. |
 | Low Note    | Layer  | Yes | Which end of the arm plays the lowest note: Inner or Outer. | Per layer. Layer B follows A by default. On Drums it flips the kit end to end. |
-| Octave (layer) | Layer | No | Offset from the main Octave, -3 to +3. | Per layer. Drums ignore it. |
+| Octave (layer) | Layer | Yes | Offset from the main Octave, -3 to +3. | Per layer. Drums ignore it. |
 | Level       | Layer  | No  | Layer volume, 0 to 100%. Also sets MIDI velocity. | Per layer. |
 | A/B Balance | Aux only | Yes | Crossfades between the layers. Centre is both at full level. | Needs both layers on. |
 | Load Scene  | Aux only | Yes | Loads a saved scene at the next bar. See [Scenes](#scenes). | Covers both layers. |
@@ -184,7 +198,10 @@ Settings you choose once and leave alone.
 | StartPos Check  | Tools | No | On: at power-up, offers to find the start mark if it was lost. Off: never asks. Default On. | - |
 | Info            | Tools | No | Read-only pages, turned through with the menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | No | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
-| Reset All       | Tools | No | Returns every setting to factory defaults. Asks first. | - |
+| Reset Settings  | Tools | No | Returns every setting to factory defaults, keeping calibration, the start mark and your scenes. Asks first. | - |
+| Factory Reset   | Tools | No | Erases everything, scenes and calibration included. Asks first. | - |
+| MIDI Fn         | Main  | No | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). Default Off. | - |
+| MIDI In         | Layer | No | The MIDI channel this layer listens on, or Off. Default: Layer A 1, Layer B 2. | Per layer. |
 
 ## Voices and Drums
 
@@ -220,22 +237,34 @@ The Magnetrone sends on MIDI OUT:
 - **Pitch bend** for the Pitch function, so external synths follow detuned
   settings too.
 
-### MIDI In (work in progress)
+### MIDI In
 
-Planned:
+MIDI IN only controls the table; incoming notes never play its sound.
 
-- **Clock in**: the platter follows an external tempo.
-- **Start and Stop in**: an external device starts and stops the platter.
-- **CC in**: external knobs control octave and volume.
-- **MIDI Fn**: keys on an attached keyboard drive a function, like the Aux
-  knob, bound separately so both can be used at once. The pitch bend wheel
-  always drives Pitch.
+Each layer listens on its own channel (**Layer > MIDI In**). A message on a
+layer's channel applies to that layer, and with both layers on one channel it
+applies to both. Shared settings (root, scale, octave, pitch, volume) respond
+on either layer's channel.
+
+- **Keys** drive the **MIDI Fn** (**Main > MIDI Fn**), much as the Aux knob
+  drives its function.
+- **Pitch bend wheel** bends the whole table up to 2 semitones either way and
+  springs back.
+- **CC 7** sets the volume. **CC 20** sets the octave. (A CC is the message a
+  knob or slider on a controller sends; most controllers let you choose the
+  number.)
 
 | MIDI Fn     | What the keys do |
 |-------------|------------------|
-| Pitch       | A key sets root and octave together. |
-| Shift       | A key sets which note the low track plays. |
-| Scale Learn | Play seven different notes and they become the scale, lowest note as root. Saved as the **Learned** scale. |
+| Off         | Nothing. |
+| Pitch       | A key sets root and octave together: G3 makes the root G, octave 3. |
+| Shift       | A key sets which note the layer's low track plays. A key outside the scale picks the nearest scale note. Drum layers ignore it. |
+| Scale Learn | Play seven different notes and they become the scale, shown as **Learned**, with the lowest note as root. Keep going and each new note replaces the oldest. |
+
+Like Aux changes, all of this is live and not saved, except the volume. Save a
+scene to keep a learned scale.
+
+Not yet: following an external clock.
 
 ## Troubleshooting
 
@@ -253,6 +282,10 @@ from USB.
 
 **USB.** Use USB only for firmware updates and debugging, never to power the
 unit. Do not connect USB while the 24 V supply is plugged in.
+
+**MIDI keys do odd things, or Scale Learn learns the wrong notes.** The other
+device or DAW is probably echoing the table's MIDI OUT back to its input. Turn
+off MIDI thru (echo) on that device.
 
 **No sound, or the wrong layer plays.** Check **Main > Tools > Magnet Pole**, and check
 that the layer's Mode is On. If some tracks play once and then stop,

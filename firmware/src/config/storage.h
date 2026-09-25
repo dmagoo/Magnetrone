@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 13;
+constexpr uint8_t  EEPROM_VERSION = 14;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -58,7 +58,8 @@ struct LayerCfgV9 {
 // A scene: everything the Aux knob can change, saved together so a setup can
 // be recalled live. Pitch and A/B Balance are otherwise never saved.
 constexpr uint8_t NUM_SCENES  = 8;
-constexpr uint8_t SCENE_NONE  = 0xFF;   // no scene loaded yet
+constexpr uint8_t SCENE_NONE     = 0xFF;   // no scene loaded yet
+constexpr uint8_t SCENE_DEFAULTS = 0xFE;   // the read-only factory scene, "0: Defaults"
 
 struct SceneSlot {
     bool     used;
@@ -115,6 +116,8 @@ struct SavedConfig {
     uint8_t   midiInChannel[NUM_LAYERS];  // 1-16, 0 = off
     uint8_t   midiFn;                     // what incoming keys do (MidiFn)
     uint16_t  sceneLearned[NUM_SCENES];   // each scene's Learned scale mask
+    // Added in version 14: each scene's per-layer octave offset, now an Aux Fn.
+    int8_t    sceneLayerOctave[NUM_SCENES][NUM_LAYERS];
 };
 
 void storageLoad(SavedConfig& cfg);
@@ -127,7 +130,8 @@ void storageSave(const SavedConfig& cfg);
 
 // Which aux-modulated field storageCommit() adopts. All is for Reset All,
 // where every value was set deliberately.
-enum class CommitField : uint8_t { All, Root, Scale, Octave, Voice, Shift, LowNote };
+enum class CommitField : uint8_t { All, Root, Scale, Octave, Voice, Shift, LowNote,
+                                   LayerOctave };
 
 // The menu's save: adopts the live value of ONE aux-modulated field (for the
 // per-layer fields, on the given layer) as the new committed one, then writes.

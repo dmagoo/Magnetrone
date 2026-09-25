@@ -45,6 +45,7 @@ enum class MenuState : uint8_t {
     AuxFnDefault,
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
+    AuxLayerSelect, // aux knob: the same, inside Layer A > or Layer B >
     AuxParam,       // aux knob: modulate the chosen parameter, live
     SceneSaveSelect,  // aux knob: pick the scene slot to save to
     SceneSaveConfirm, // aux knob: overwrite a used slot?
@@ -63,7 +64,8 @@ enum class MenuState : uint8_t {
     Info,               // read-only pages: belt, StartPos, threshold, driver
     SensorLevels,       // live: each sensor's reading against its rest level
     ResetCalPrompt,
-    ResetAllPrompt
+    ResetSettingsPrompt,
+    FactoryResetPrompt
 };
 
 static MenuState state        = MenuState::Status;
@@ -182,12 +184,14 @@ static const uint8_t MIDI_FN_COUNT = 5;
 // bar start: where the start mark on the platter passes the arm.
 static const char* TOOLS_ITEMS[] = {
     "Go to StartPos","Full Calibrate","Reset Calib.","Calib. StartPos",
-    "Magnet Pole","StartPos Check","Info","Sensor Levels","Reset All","Back"
+    "Magnet Pole","StartPos Check","Info","Sensor Levels","Reset Settings",
+    "Factory Reset","Back"
 };
-static const uint8_t TOOLS_COUNT = 10;
+static const uint8_t TOOLS_COUNT = 11;
 enum : uint8_t { TOOL_GO_TO_START, TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_CALIB_START, TOOL_MAGNET_POLE, TOOL_START_CHECK,
-                 TOOL_INFO, TOOL_SENSOR_LEVELS, TOOL_RESET_ALL, TOOL_BACK };
+                 TOOL_INFO, TOOL_SENSOR_LEVELS, TOOL_RESET_SETTINGS,
+                 TOOL_FACTORY_RESET, TOOL_BACK };
 
 // Info: one page per value, turned through with the menu knob.
 enum : uint8_t { INFO_BELT, INFO_START_POS, INFO_THRESHOLD, INFO_DRIVER,
@@ -217,41 +221,61 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 // -------------------------------------------------------------------------
 // Aux function knob
 // -------------------------------------------------------------------------
-// What the aux knob can be bound to. Order must match AUX_FN_LABELS, and the
-// stored cfg.auxFn is an index into it.
+// What the aux knob can be bound to. The stored cfg.auxFn is this number, so
+// new Fns go at the END; the order on screen is set by the lists below.
 // Storage migration (migrateAuxFn() in storage.cpp) knows this order too.
 enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, ShiftA, ShiftB,
                              LowNoteA, LowNoteB, Pitch,
-                             Balance, VoiceA, VoiceB, LoadScene, COUNT };
+                             Balance, VoiceA, VoiceB, LoadScene,
+                             OctaveA, OctaveB, COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
-// The select list carries three trailing actions, Save Scene, Reset and Exit. The "set the
-// default binding" menu carries only a trailing Back -- reset has no meaning
-// there, since that menu sets committed values rather than modulating live ones.
-static const char* AUX_FN_LABELS[] = {
-    "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
-    "Layer A Low","Layer B Low","Pitch",
-    "A/B Balance","Layer A Voice","Layer B Voice","Load Scene",
-    "Save Scene","Reset All","Exit"
+// The Aux list, as shown: the shared Fns, a submenu per layer, the scene Fn,
+// then three actions. Layer entries open the per-layer list below.
+static const char* AUX_TOP_LABELS[] = {
+    "Octave","Root Note","Scale","Pitch","Layer A >","Layer B >",
+    "A/B Balance","Load Scene","Save Scene","Reset All","Exit"
 };
+enum : uint8_t { AUXT_OCTAVE, AUXT_ROOT, AUXT_SCALE, AUXT_PITCH,
+                 AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE, AUXT_LOAD_SCENE,
+                 AUXT_SAVE_SCENE, AUXT_RESET, AUXT_EXIT, AUXT_COUNT };
+// The Fn behind each top entry; COUNT where the entry is not a Fn.
+static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
+    AuxFn::Octave, AuxFn::RootNote, AuxFn::ScaleFn, AuxFn::Pitch,
+    AuxFn::COUNT, AuxFn::COUNT, AuxFn::Balance, AuxFn::LoadScene,
+    AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
+};
+
+// Inside Layer A > / Layer B >, in the layer submenu's order.
+static const char* AUX_LAYER_LABELS[] = { "Voice","Octave","Shift","Low Note","Back" };
+static const uint8_t AUX_LAYER_COUNT = 5;   // 4 Fns + Back
+static const AuxFn AUX_LAYER_FN[NUM_LAYERS][AUX_LAYER_COUNT - 1] = {
+    { AuxFn::VoiceA, AuxFn::OctaveA, AuxFn::ShiftA, AuxFn::LowNoteA },
+    { AuxFn::VoiceB, AuxFn::OctaveB, AuxFn::ShiftB, AuxFn::LowNoteB },
+};
+static uint8_t auxLayer = LAYER_A;   // which layer's list is open
+
+// Main > Aux Fn, which sets the binding ahead of time, stays one flat list.
+// Order matches AuxFn.
 static const char* AUX_FN_MENU_LABELS[] = {
     "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
     "Layer A Low","Layer B Low","Pitch",
-    "A/B Balance","Layer A Voice","Layer B Voice","Load Scene","Back"
+    "A/B Balance","Layer A Voice","Layer B Voice","Load Scene",
+    "Layer A Octave","Layer B Octave","Back"
 };
-static const uint8_t AUX_FN_SELECT_COUNT = AUX_FN_COUNT + 3;  // + Save Scene, Reset, Exit
 static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
-
-// Positions of the actions at the end of the select list.
-static const uint8_t AUX_ACTION_SAVE_SCENE = AUX_FN_COUNT;
-static const uint8_t AUX_ACTION_RESET      = AUX_FN_COUNT + 1;
-static const uint8_t AUX_ACTION_EXIT       = AUX_FN_COUNT + 2;
 
 // Scene list entries: "2: D Minor", or "3: (empty)". Rebuilt before each
 // draw, since the root and scale names come from the slots. The save list
 // adds Back.
 static char        SCENE_LABEL_BUF[NUM_SCENES][16];
 static const char* SCENE_ITEMS[NUM_SCENES + 1];
+
+// The Load Scene list: Defaults first, then the 8 slots.
+static const char*   LOAD_ITEMS[NUM_SCENES + 1];
+static const uint8_t LOAD_COUNT = NUM_SCENES + 1;
+static uint8_t loadPosToSlot(uint8_t p) { return p == 0 ? SCENE_DEFAULTS : (uint8_t)(p - 1); }
+static uint8_t loadSlotToPos(uint8_t s) { return s == SCENE_DEFAULTS ? 0 : (uint8_t)(s + 1); }
 static const uint8_t SCENE_SAVE_COUNT = NUM_SCENES + 1;
 
 // How far one aux step moves Pitch, as a divisor of a semitone.
@@ -266,6 +290,35 @@ static const uint8_t PITCH_STEP_COUNT = 6;   // 5 options + Back
 // the live display if the knob was simply turned there, or up to the Fn list if
 // that is where the parameter screen was entered from.
 static bool auxEnteredFromLive = false;
+
+// Opens the Aux list on the current binding: inside its layer's list for a
+// per-layer Fn, else the top list.
+static void enterState(MenuState s, uint8_t initialCursor = 0);
+static void openAuxSelect(const SavedConfig& cfg) {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        for (uint8_t i = 0; i < AUX_LAYER_COUNT - 1; i++) {
+            if ((uint8_t)AUX_LAYER_FN[l][i] == cfg.auxFn) {
+                auxLayer = l;
+                enterState(MenuState::AuxLayerSelect, i);
+                return;
+            }
+        }
+    }
+    uint8_t top = 0;
+    for (uint8_t i = 0; i < AUXT_COUNT; i++) {
+        if ((uint8_t)AUX_TOP_FN[i] == cfg.auxFn) { top = i; break; }
+    }
+    enterState(MenuState::AuxFnSelect, top);
+}
+
+// Binds the knob to `fn` and opens its parameter screen. Rebinding IS saved;
+// it changes rarely, unlike the values the knob modulates.
+static void auxBind(SavedConfig& cfg, AuxFn fn) {
+    cfg.auxFn = (uint8_t)fn;
+    storageSave(cfg);
+    auxEnteredFromLive = false;
+    enterState(MenuState::AuxParam, 0);
+}
 
 // Beats per platter revolution. 4 = one revolution is one 4/4 bar.
 static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8 };
@@ -299,7 +352,7 @@ static bool     jogMoving = false;
 
 // -------------------------------------------------------------------------
 
-static void enterState(MenuState s, uint8_t initialCursor = 0) {
+static void enterState(MenuState s, uint8_t initialCursor) {
     state        = s;
     cursor       = initialCursor;
     needsRedraw  = true;
@@ -401,8 +454,9 @@ static void drawStatus(const SavedConfig& cfg) {
     int bpm = (int)lroundf(cfg.rpm * cfg.beatsPerRev);
     char scene[16] = "";   // "Scene 2*"; sized for any %u
     if (sceneUsed(cfg, cfg.currentScene)) {
-        snprintf(scene, sizeof(scene), "Scene %u%c",
-                 (unsigned)(cfg.currentScene + 1), sceneModified(cfg) ? '*' : ' ');
+        // Defaults is scene 0, as in the Load Scene list.
+        unsigned n = (cfg.currentScene == SCENE_DEFAULTS) ? 0 : cfg.currentScene + 1;
+        snprintf(scene, sizeof(scene), "Scene %u%c", n, sceneModified(cfg) ? '*' : ' ');
     }
     lcdLine(0, "BPM:%-4d%s", bpm, scene);
     char vb[7];
@@ -425,6 +479,9 @@ static void buildSceneLabels(const SavedConfig& cfg) {
         SCENE_ITEMS[i] = SCENE_LABEL_BUF[i];
     }
     SCENE_ITEMS[NUM_SCENES] = "Back";
+
+    LOAD_ITEMS[0] = "0: Defaults";
+    for (uint8_t i = 0; i < NUM_SCENES; i++) LOAD_ITEMS[i + 1] = SCENE_LABEL_BUF[i];
 }
 
 static void drawList(const char** items, uint8_t count, uint8_t cur) {
@@ -564,18 +621,28 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             layersApply(cfg);
             break;
         }
+        case AuxFn::OctaveA:
+        case AuxFn::OctaveB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::OctaveA) ? LAYER_A : LAYER_B;
+            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) break;
+            int v = (int)cfg.layer[l].octaveOffset + delta;
+            cfg.layer[l].octaveOffset =                        // clamp: a range
+                (int8_t)constrain(v, -LAYER_OCTAVE_RANGE, LAYER_OCTAVE_RANGE);
+            break;
+        }
         case AuxFn::LoadScene: {
-            // Steps through the saved scenes only, wrapping, and queues the
-            // one landed on to load at the next bar start.
-            if (!sceneAnyUsed(cfg)) break;
-            int cur  = sceneSelected(cfg);
-            int step = (delta > 0) ? 1 : -1;
-            if (cur == SCENE_NONE) cur = (step > 0) ? -1 : NUM_SCENES;
+            // Steps through Defaults and the saved scenes, wrapping, and
+            // queues the one landed on to load at the next bar start.
+            // Defaults is always there, so the loop always finds one.
+            uint8_t sel  = sceneSelected(cfg);
+            int     step = (delta > 0) ? 1 : -1;
+            int     pos  = (sel == SCENE_NONE) ? (step > 0 ? -1 : LOAD_COUNT)
+                                               : loadSlotToPos(sel);
             for (int n = abs(delta); n > 0; n--) {
-                do { cur = (cur + step + NUM_SCENES) % NUM_SCENES; }
-                while (!sceneUsed(cfg, (uint8_t)cur));
+                do { pos = (pos + step + LOAD_COUNT) % LOAD_COUNT; }
+                while (!sceneUsed(cfg, loadPosToSlot((uint8_t)pos)));
             }
-            sceneQueue(cfg, (uint8_t)cur);
+            sceneQueue(cfg, loadPosToSlot((uint8_t)pos));
             break;
         }
         default: break;
@@ -677,15 +744,23 @@ static void drawAuxParam(const SavedConfig& cfg) {
             }
             break;
         }
-        case AuxFn::LoadScene: {
-            if (!sceneAnyUsed(cfg)) {
-                lcdLine(0, "No scenes saved");
-                lcdLine(1, "");
-                break;
+        case AuxFn::OctaveA:
+        case AuxFn::OctaveB: {
+            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::OctaveA) ? LAYER_A : LAYER_B;
+            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+                lcdLine(0, "Layer B is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(LAYER_OCTAVE_ITEMS, LAYER_OCTAVE_COUNT - 1,   // no Back
+                         (uint8_t)(constrain(cfg.layer[l].octaveOffset, -LAYER_OCTAVE_RANGE,
+                                             LAYER_OCTAVE_RANGE) + LAYER_OCTAVE_RANGE));
             }
+            break;
+        }
+        case AuxFn::LoadScene: {
             buildSceneLabels(cfg);
             uint8_t sel = sceneSelected(cfg);
-            drawList(SCENE_ITEMS, NUM_SCENES, sel == SCENE_NONE ? 0 : sel);
+            drawList(LOAD_ITEMS, LOAD_COUNT, sel == SCENE_NONE ? 0 : loadSlotToPos(sel));
             break;
         }
         default:
@@ -896,7 +971,8 @@ void menuUpdate(SavedConfig& cfg) {
                      state == MenuState::FindStart ||
                      state == MenuState::FindStartConfirm ||
                      state == MenuState::ResetCalPrompt ||
-                     state == MenuState::ResetAllPrompt);
+                     state == MenuState::ResetSettingsPrompt ||
+                     state == MenuState::FactoryResetPrompt);
 
     // Speed and volume act from any screen (above), but their feedback lives
     // on the status line, so touching either one -- turn or press -- brings
@@ -918,6 +994,7 @@ void menuUpdate(SavedConfig& cfg) {
     // player back to the live display between moves. The aux button is already
     // the way out.
     bool isAux = (state == MenuState::AuxFnSelect ||
+                  state == MenuState::AuxLayerSelect ||
                   state == MenuState::AuxParam ||
                   state == MenuState::SceneSaveSelect ||
                   state == MenuState::SceneSaveConfirm);
@@ -953,7 +1030,7 @@ void menuUpdate(SavedConfig& cfg) {
                 // this is also how you check what the knob is bound to, since
                 // the live display has no room to show it.
                 auxEnteredFromLive = false;
-                enterState(MenuState::AuxFnSelect, cfg.auxFn);
+                openAuxSelect(cfg);
             } else if (ev.auxDelta != 0) {
                 // The first step only opens the parameter screen; it shows the
                 // current value unchanged and modulating starts from the next
@@ -972,16 +1049,19 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             }
             if (ev.auxDelta) {
-                cursor = (uint8_t)((cursor + ev.auxDelta + AUX_FN_SELECT_COUNT) % AUX_FN_SELECT_COUNT);
+                cursor = (uint8_t)((cursor + ev.auxDelta + AUXT_COUNT) % AUXT_COUNT);
                 needsRedraw = true;
             }
             if (ev.auxPressed) {
-                if (cursor == AUX_ACTION_EXIT) {
+                if (cursor == AUXT_EXIT) {
                     enterState(MenuState::Status);
-                } else if (cursor == AUX_ACTION_SAVE_SCENE) {
+                } else if (cursor == AUXT_LAYER_A || cursor == AUXT_LAYER_B) {
+                    auxLayer = (cursor == AUXT_LAYER_A) ? LAYER_A : LAYER_B;
+                    enterState(MenuState::AuxLayerSelect, 0);
+                } else if (cursor == AUXT_SAVE_SCENE) {
                     uint8_t cur = cfg.currentScene;
                     enterState(MenuState::SceneSaveSelect, cur < NUM_SCENES ? cur : 0);
-                } else if (cursor == AUX_ACTION_RESET) {
+                } else if (cursor == AUXT_RESET) {
                     // Throw away every live modulation at once and drop back to
                     // the live display, where the restored values are visible on
                     // the status line: the saved settings, with the current
@@ -989,12 +1069,26 @@ void menuUpdate(SavedConfig& cfg) {
                     sceneRevertLive(cfg);
                     enterState(MenuState::Status);
                 } else {
-                    // Rebinding IS saved -- it changes rarely, unlike the values
-                    // the knob modulates.
-                    cfg.auxFn = cursor;
-                    storageSave(cfg);
-                    auxEnteredFromLive = false;
-                    enterState(MenuState::AuxParam);
+                    auxBind(cfg, AUX_TOP_FN[cursor]);
+                }
+            }
+            break;
+
+        case MenuState::AuxLayerSelect:
+            if (ev.menuPressed) {
+                enterState(MenuState::Status);
+                break;
+            }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + AUX_LAYER_COUNT) % AUX_LAYER_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == AUX_LAYER_COUNT - 1) {   // Back, to the top list
+                    enterState(MenuState::AuxFnSelect,
+                               auxLayer == LAYER_A ? AUXT_LAYER_A : AUXT_LAYER_B);
+                } else {
+                    auxBind(cfg, AUX_LAYER_FN[auxLayer][cursor]);
                 }
             }
             break;
@@ -1008,7 +1102,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.auxPressed) {
-                if (cursor >= NUM_SCENES)            enterState(MenuState::AuxFnSelect, AUX_ACTION_SAVE_SCENE);
+                if (cursor >= NUM_SCENES)            enterState(MenuState::AuxFnSelect, AUXT_SAVE_SCENE);
                 else if (sceneUsed(cfg, cursor)) {   saveSlot = cursor; enterState(MenuState::SceneSaveConfirm, 1); }
                 else                                 saveScene(cfg, cursor);
             }
@@ -1035,7 +1129,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.auxPressed) {
                 // The button is always "back", and back depends on how we got here.
                 if (auxEnteredFromLive) enterState(MenuState::Status);
-                else                    enterState(MenuState::AuxFnSelect, cfg.auxFn);
+                else                    openAuxSelect(cfg);
             }
             break;
 
@@ -1228,7 +1322,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < LAYER_OCTAVE_COUNT - 1) {   // last entry is Back
                     cfg.layer[editLayer].octaveOffset = (int8_t)cursor - LAYER_OCTAVE_RANGE;
-                    storageSave(cfg);
+                    storageCommit(cfg, CommitField::LayerOctave, editLayer);   // also an aux target
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_OCTAVE);
             }
@@ -1441,7 +1535,8 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::Info);
                         break;
                     case TOOL_SENSOR_LEVELS: enterState(MenuState::SensorLevels); break;
-                    case TOOL_RESET_ALL:   enterState(MenuState::ResetAllPrompt); break;
+                    case TOOL_RESET_SETTINGS: enterState(MenuState::ResetSettingsPrompt); break;
+                    case TOOL_FACTORY_RESET:  enterState(MenuState::FactoryResetPrompt); break;
                     default: enterState(MenuState::MainMenu, MAIN_ITEM_TOOLS); break;
                 }
             }
@@ -1648,25 +1743,50 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
-        case MenuState::ResetAllPrompt:
+        case MenuState::ResetSettingsPrompt:
+        case MenuState::FactoryResetPrompt: {
+            bool factory = (state == MenuState::FactoryResetPrompt);
             if (ev.menuDelta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
             if (ev.menuPressed) {
                 if (cursor == 0) {
-                    cfg = storageDefaults();
+                    SavedConfig d = storageDefaults();
+                    if (!factory) {
+                        // Reset Settings keeps calibration, StartPos and the
+                        // scenes; everything else is factory. The settings
+                        // are now the Defaults scene.
+                        d.calibrated     = cfg.calibrated;
+                        d.hallThreshold  = cfg.hallThreshold;
+                        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) d.hallBaseline[i] = cfg.hallBaseline[i];
+                        d.rpmCorrection  = cfg.rpmCorrection;
+                        d.magnetPolarity = cfg.magnetPolarity;
+                        d.barPhase       = cfg.barPhase;
+                        d.barPhaseValid  = cfg.barPhaseValid;
+                        for (uint8_t i = 0; i < NUM_SCENES; i++) {
+                            d.scenes[i]       = cfg.scenes[i];
+                            d.sceneLearned[i] = cfg.sceneLearned[i];
+                            for (uint8_t l = 0; l < NUM_LAYERS; l++)
+                                d.sceneLayerOctave[i][l] = cfg.sceneLayerOctave[i][l];
+                        }
+                        d.currentScene = SCENE_DEFAULTS;
+                    }
+                    cfg = d;
                     storageCommit(cfg, CommitField::All);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
-                    barInit(cfg);                  // defaults: start unknown
+                    if (factory) barInit(cfg);     // defaults: start unknown
                     audioSetVolume(cfg.volume);
+                    pitchSetOffset(0.0f);
                     layerSetBalance(0);
+                    midiInReset();
                     layersApply(cfg);
-                    menuMessage("Reset to defaults", "");
+                    menuMessage(factory ? "Factory reset" : "Settings reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::Tools, TOOL_RESET_ALL);
+                enterState(MenuState::Tools, factory ? TOOL_FACTORY_RESET : TOOL_RESET_SETTINGS);
             }
             break;
+        }
     }
 
     // redraw
@@ -1743,7 +1863,10 @@ void menuUpdate(SavedConfig& cfg) {
                 drawList(POLE_LABELS, POLE_COUNT, cursor);
                 break;
             case MenuState::AuxFnSelect:
-                drawList(AUX_FN_LABELS, AUX_FN_SELECT_COUNT, cursor);
+                drawList(AUX_TOP_LABELS, AUXT_COUNT, cursor);
+                break;
+            case MenuState::AuxLayerSelect:
+                drawList(AUX_LAYER_LABELS, AUX_LAYER_COUNT, cursor);
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);
@@ -1829,8 +1952,14 @@ void menuUpdate(SavedConfig& cfg) {
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
-            case MenuState::ResetAllPrompt:
-                lcdLine(0, "Reset ALL data?");
+            case MenuState::ResetSettingsPrompt:
+                lcdLine(0, "Reset settings?");
+                lcdLine(1, "%c Yes  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
+                break;
+            case MenuState::FactoryResetPrompt:
+                lcdLine(0, "Erase all data?");
                 lcdLine(1, "%c Yes  %c Back",
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
