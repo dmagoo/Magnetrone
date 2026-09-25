@@ -38,9 +38,18 @@ Platter::Platter(const Config& cfg)
 // -----------------------------------------------------------------------------
 void Platter::stepISR() {
     if (!instance_) return;
+    // A positioned move holds on its target: no new pulse once it is reached
+    // (the pin is low, so the last pulse is complete). update() then stops.
+    if (instance_->moveActive_ && !instance_->stepPinState_ &&
+        instance_->position_ == instance_->moveTarget_) return;
     instance_->stepPinState_ = !instance_->stepPinState_;
     digitalWriteFast(PIN_STEP, instance_->stepPinState_);
-    if (instance_->stepPinState_) instance_->stepCount_++;
+    if (instance_->stepPinState_) {
+        instance_->stepCount_++;
+        // DIR only changes at rest (applyDirection), so reversed_ is stable
+        // for as long as pulses are going out.
+        instance_->position_ += instance_->reversed_ ? -1 : 1;
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -140,22 +149,29 @@ void Platter::beginFromRest() {
     phase_ = Phase::PullInDwell;
 }
 
+// After a new target: from a standstill, pull in; otherwise let the ramp in
+// update() carry it (it handles a direction flip through zero). "Standstill"
+// is judged by the rate, not the phase, so a Running phase that has not yet
+// settled to Idle still gets a proper pull-in.
+void Platter::startOrRetarget() {
+    if (phase_ != Phase::PullInDwell && currentStepRate_ <= 1.0f) {
+        beginFromRest();
+    } else if (phase_ == Phase::Idle) {
+        phase_ = Phase::Running;
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Speed control
 // -----------------------------------------------------------------------------
 void Platter::setRPM(float rpm) {
+    moveActive_      = false;
     pendingReversed_ = (rpm < 0.0f);
     float mag = constrain(fabsf(rpm), cfg_.minRPM, cfg_.maxRPM);
     targetStepRate_ = rpmToStepRate(mag);
     stopped_ = false;
 
-    // Starting from a standstill needs the pull-in + dwell; otherwise the ramp
-    // in update() carries us (and handles a direction flip through zero).
-    if (phase_ == Phase::Idle && currentStepRate_ <= 1.0f) {
-        beginFromRest();
-    } else if (phase_ == Phase::Idle) {
-        phase_ = Phase::Running;
-    }
+    startOrRetarget();
 }
 
 void Platter::adjustRPM(float delta) {
@@ -176,10 +192,14 @@ float Platter::currentRPM() const {
 // Stop / resume
 // -----------------------------------------------------------------------------
 void Platter::stop() {
+    moveActive_     = false;
     resumeRPM_      = commandedRPM();   // latch where we were heading (signed)
     targetStepRate_ = 0.0f;
     stopped_        = true;
-    if (phase_ == Phase::Idle) phase_ = Phase::Running; // let the ramp settle to 0
+    // Let the ramp settle to 0, but only if there is something to settle: a
+    // platter already at rest stays Idle, or the next start would find it
+    // Running at rate 0 and never pull in.
+    if (phase_ == Phase::Idle && currentStepRate_ > 1.0f) phase_ = Phase::Running;
 }
 
 void Platter::resume() {
@@ -220,14 +240,26 @@ bool Platter::isEnabled() const { return enabled_; }
 void Platter::setStepRate(float stepsPerSec) {
     // Raw rung for the calibration sweep: command step rate directly, still
     // going through the pull-in/ramp machinery so the start is gentle.
+    moveActive_      = false;
     pendingReversed_ = (stepsPerSec < 0.0f);
     targetStepRate_  = fabsf(stepsPerSec);
     stopped_         = false;
-    if (phase_ == Phase::Idle && currentStepRate_ <= 1.0f) {
-        beginFromRest();
-    } else if (phase_ == Phase::Idle) {
-        phase_ = Phase::Running;
-    }
+    startOrRetarget();
+}
+
+void Platter::moveBy(int32_t steps, float maxRPM) {
+    if (steps == 0) return;
+    moveMaxRate_     = rpmToStepRate(fabsf(maxRPM));
+    pendingReversed_ = (steps < 0);
+    targetStepRate_  = moveMaxRate_;
+    stopped_         = false;
+    moveTarget_      = position_ + steps;
+    moveActive_      = true;
+    startOrRetarget();
+}
+
+uint8_t Platter::driverVersion() {
+    return driver_.version();
 }
 
 void Platter::setStepsPerPlatterRev(uint32_t steps) {
@@ -236,6 +268,10 @@ void Platter::setStepsPerPlatterRev(uint32_t steps) {
 
 uint32_t Platter::stepsPerPlatterRev() const {
     return stepsPerRev_;
+}
+
+int32_t Platter::position() const {
+    return position_;   // one 32-bit read: atomic on the Cortex-M7
 }
 
 void Platter::beginCalibration() {
@@ -270,6 +306,25 @@ void Platter::update() {
     float dt = (nowUs - lastUpdateUs_) * 1e-6f;   // wraps ~every 71 min; benign blip
     lastUpdateUs_ = nowUs;
     if (dt <= 0.0f) return;
+
+    // Positioned move: aim at the fastest speed that can still stop in the
+    // steps left (v = sqrt(2 a d)), but never below pull-in, which it can stop
+    // from dead. Arrived: stop here, holding.
+    if (moveActive_) {
+        int32_t left = moveTarget_ - position_;
+        if (reversed_) left = -left;
+        if (left <= 0) {
+            moveActive_      = false;
+            targetStepRate_  = 0.0f;
+            currentStepRate_ = 0.0f;
+            applyStepRate(0.0f);
+            stopped_         = true;
+            phase_           = Phase::Idle;
+            return;
+        }
+        float v = sqrtf(2.0f * cfg_.accelStepsPerSec2 * (float)left);
+        targetStepRate_ = constrain(v, rpmToStepRate(cfg_.pullInRPM), moveMaxRate_);
+    }
 
     switch (phase_) {
         case Phase::Idle:

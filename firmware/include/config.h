@@ -93,6 +93,14 @@ constexpr float     DEFAULT_RPM          = 45.0f;
 constexpr float     MIN_RPM              = 10.0f;
 constexpr float     MAX_RPM              = 120.0f;
 
+// Calibration spins slower than play speed: more accurate revolution timing,
+// more samples per magnet pass, and below where the mechanics get noisy.
+constexpr float     CALIBRATION_RPM      = 24.0f;
+
+// At boot, if the bar start was lost (power cut while spinning), offer to
+// find it again. Can be turned off from the menu.
+constexpr bool      DEFAULT_START_CHECK  = true;
+
 constexpr uint16_t  MOTOR_STEPS_PER_REV  = 200;     // NEMA17 full steps
 constexpr uint8_t   MICROSTEP_DIVISOR    = 16;       // A4988 1/16 microstepping
 constexpr uint16_t  GEAR_RATIO           = 11;       // 220T driven / 20T drive (GT2)

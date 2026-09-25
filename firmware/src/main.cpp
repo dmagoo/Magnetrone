@@ -1,10 +1,11 @@
 #include <Arduino.h>
-#include <math.h>
 #include "config/storage.h"
 #include "motion/stepper.h"
 #include "ui/encoder.h"
 #include "audio/audio.h"
 #include "midi/midi.h"
+#include "midi/transport.h"
+#include "motion/bar.h"
 #include "sensors/hall.h"
 #include "menu/menu.h"
 #include "sequencer/sequencer.h"
@@ -16,6 +17,7 @@ void setup() {
     storageLoad(cfg);
     stepperInit();
     stepperSetCorrection(cfg.rpmCorrection);   // measured by calibration
+    barInit(cfg);
     encoderInit();
     audioInit(cfg.volume, cfg.muted);
     midiInit();
@@ -33,8 +35,8 @@ void loop() {
     sequencerUpdate(cfg);
     menuUpdate(cfg);
     midiUpdate();
+    barUpdate(cfg);
 
-    // Beat clock follows the platter. RPM is signed (negative = reversed), but
-    // tempo is not, so the clock tracks the magnitude.
-    midiClockUpdate(fabsf(cfg.rpm) * cfg.beatsPerRev, stepperRunning());
+    // Beat clock follows the platter's position, so it tracks the real speed.
+    transportUpdate(cfg.beatsPerRev);
 }

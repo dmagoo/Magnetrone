@@ -43,13 +43,9 @@ void midiSetBend(float semitones);
 void midiSetBendRange(uint8_t semitones);
 
 // --- Beat clock / transport -------------------------------------------------
-// Drives MIDI beat clock (0xF8, 24 ppqn) plus Start / Stop / Continue from the
-// platter, so external gear follows the table's tempo. Call every loop with the
-// current platter BPM and whether the platter is turning; it emits Start on the
-// first spin-up, Continue on later ones, and Stop when the platter halts.
-void midiClockUpdate(float bpm, bool running);
-
-// Individual transport messages, if something needs to send them directly.
+// Raw messages. transport.cpp decides when to send them, from the platter.
+void midiClock();                            // 0xF8, one of 24 per quarter note
 void midiStart();
 void midiStop();
 void midiContinue();
+void midiSongPosition(uint16_t sixteenths);  // Song Position Pointer

@@ -14,6 +14,7 @@
 #include "sensors/hall.h"
 #include "sequencer/pitch.h"
 #include "sequencer/layers.h"
+#include "motion/bar.h"
 
 static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
@@ -41,8 +42,20 @@ enum class MenuState : uint8_t {
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
     AuxParam,       // aux knob: modulate the chosen parameter, live
-    CalibrationPrompt,
-    CalibrationRunning,
+    CalClearPrompt,     // calibration step 1: clear the platter
+    CalSampling,        //   blocking: baselines
+    CalMagnetPrompt,    // calibration step 2: one magnet on the start mark
+    CalDetecting,       //   blocking: threshold, pole, belt, bar start
+    Tools,              // calibration and maintenance submenu
+    StartCheckPrompt,   // at boot: the bar start was lost, find it or skip
+    StartPosMode,       // Calib. StartPos: Auto or Manual
+    StartPosAutoPrompt, // Auto: one magnet on the mark, outer track otherwise clear
+    StartPosAuto,       //   blocking: find the start from that magnet
+    FindStart,          // Manual: jog the platter until the start mark is at the arm
+    FindStartConfirm,
+    StartCheck,         // setting: whether the boot prompt above is shown
+    Info,               // read-only pages: belt, StartPos, threshold, driver
+    SensorLevels,       // live: each sensor's reading against its rest level
     ResetCalPrompt,
     ResetAllPrompt
 };
@@ -137,10 +150,40 @@ static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
 
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
-    "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step",
-    "Magnet Pole","Calibration","Reset Cal","Reset All","Exit"
+    "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step","Tools","Exit"
 };  // Exit returns to the live display; submenus keep "Back"
-static const uint8_t MAIN_COUNT = 15;
+static const uint8_t MAIN_COUNT = 12;
+enum : uint8_t { MAIN_ITEM_TOOLS = 10, MAIN_ITEM_EXIT = 11 };
+
+// Calibration and maintenance, kept out of the main menu. StartPos is the
+// bar start: where the start mark on the platter passes the arm.
+static const char* TOOLS_ITEMS[] = {
+    "Go to StartPos","Full Calibrate","Reset Calib.","Calib. StartPos",
+    "Magnet Pole","StartPos Check","Info","Sensor Levels","Reset All","Back"
+};
+static const uint8_t TOOLS_COUNT = 10;
+enum : uint8_t { TOOL_GO_TO_START, TOOL_FULL_CAL, TOOL_RESET_CAL,
+                 TOOL_CALIB_START, TOOL_MAGNET_POLE, TOOL_START_CHECK,
+                 TOOL_INFO, TOOL_SENSOR_LEVELS, TOOL_RESET_ALL, TOOL_BACK };
+
+// Info: one page per value, turned through with the menu knob.
+enum : uint8_t { INFO_BELT, INFO_START_POS, INFO_THRESHOLD, INFO_DRIVER,
+                 INFO_PAGE_COUNT };
+
+// Live screens (the StartPos page, Sensor Levels) redraw at this rate:
+// enough to watch a magnet go by, cheap on the I2C bus.
+static const uint32_t LIVE_REDRAW_MS = 200;
+static uint32_t lastLiveDraw = 0;
+static uint8_t  driverVersion = 0;   // read once on entering Info
+
+// Calib. StartPos: Auto finds it from a magnet on the mark, Manual jogs.
+static const char* START_MODE_ITEMS[] = { "Auto","Manual","Back" };
+static const uint8_t START_MODE_COUNT = 3;
+
+// Go to StartPos speed, and backstops for its waits.
+static const float    GO_TO_START_RPM  = 12.0f;
+static const uint32_t GO_TO_STOP_MS    = 6000;
+static const uint32_t GO_TO_ARRIVE_MS  = 10000;
 
 // Which way a passing magnet pushes the sensor output. Calibration measures
 // this; the override exists so a wrong guess does not leave the table silent.
@@ -209,6 +252,19 @@ static const uint8_t LCD_TIMEOUT_COUNT = 8;  // 7 options + Back
 
 static const uint8_t CONFIRM_COUNT = 2;
 
+// Calibration and Calib. StartPos can be reached from a boot prompt or the
+// Tools menu, and finish back where they came from.
+static bool fromBoot = false;
+
+// Find Start jog: slow for placing the mark exactly, faster when the knob is
+// spun, stopping shortly after the knob does.
+static const float    JOG_FINE_RPM    = 1.5f;
+static const float    JOG_FAST_RPM    = 6.0f;
+static const uint32_t JOG_FAST_GAP_MS = 80;    // detents closer than this: fast
+static const uint32_t JOG_HOLD_MS     = 150;   // keep turning this long per detent
+static uint32_t lastJogMs = 0;
+static bool     jogMoving = false;
+
 // -------------------------------------------------------------------------
 
 static void enterState(MenuState s, uint8_t initialCursor = 0) {
@@ -216,6 +272,50 @@ static void enterState(MenuState s, uint8_t initialCursor = 0) {
     cursor       = initialCursor;
     needsRedraw  = true;
     lastActivity = millis();
+}
+
+// Ends a calibration or StartPos flow: back to the live display if it began
+// at a boot prompt, else to the Tools entry it was opened from.
+static void leaveTo(uint8_t toolItem) {
+    if (fromBoot) enterState(MenuState::Status);
+    else          enterState(MenuState::Tools, toolItem);
+    fromBoot = false;
+}
+
+// Waits, servicing the ramp, until the platter is at rest or `ms` runs out.
+static void waitForRest(uint32_t ms) {
+    uint32_t deadline = millis() + ms;
+    while (stepperRunning() && millis() < deadline) {
+        stepperUpdate();
+        delay(2);
+    }
+}
+
+// Turns the platter so the start mark stops at the arm, the shorter way
+// round. A check: if the start is right, the mark lands under the arm.
+// Blocking; the move takes a second or two.
+static void goToStart() {
+    if (!barKnown()) {
+        menuMessage("StartPos unknown", "Calib. StartPos");
+        delay(2000);
+        return;
+    }
+    menuMessage("Moving...", "");
+    stepperStop();
+    waitForRest(GO_TO_STOP_MS);
+
+    int32_t n     = (int32_t)barStepsPerRev();
+    int32_t steps = (n - (int32_t)barPhase()) % n;   // forward to the mark
+    if (steps > n / 2) steps -= n;                   // shorter the other way
+    stepperMoveBy(steps, GO_TO_START_RPM);
+    waitForRest(GO_TO_ARRIVE_MS);
+}
+
+// Find Start works on a platter at rest: stop it first if it is playing.
+static void enterFindStart() {
+    if (stepperRunning()) stepperStop();
+    jogMoving = false;
+    enterState(MenuState::FindStart);
 }
 
 // Wake the backlight and reset the inactivity timer.
@@ -269,6 +369,53 @@ static void drawList(const char** items, uint8_t count, uint8_t cur) {
     } else {
         lcdLine(0, " %-15s", items[cur - 1]);
         lcdLine(1, "%c%-15s", LCD_ARROW_RIGHT, items[cur]);
+    }
+}
+
+// One Info page: the name and page number on top, the value below.
+static void drawInfo(const SavedConfig& cfg, uint8_t page) {
+    static const char* NAMES[INFO_PAGE_COUNT] = {
+        "Belt ratio", "StartPos", "Threshold", "Motor driver"
+    };
+    lcdLine(0, "%-13s%u/%u", NAMES[page], page + 1, INFO_PAGE_COUNT);
+    switch (page) {
+        case INFO_BELT: {
+            if (!cfg.calibrated) { lcdLine(1, "Not calibrated"); break; }
+            // As shown after calibration: GEAR_RATIO / correction, in tenths.
+            int tenths = constrain((int)lroundf((float)GEAR_RATIO * 10.0f /
+                                                cfg.rpmCorrection), 0, 999);
+            lcdLine(1, "%d.%d:1", tenths / 10, tenths % 10);
+            break;
+        }
+        case INFO_START_POS: {
+            if (!barKnown()) { lcdLine(1, "Unknown"); break; }
+            // Where the platter is in the bar now, 0 at the mark.
+            uint32_t deg = barPhase() * 360UL / barStepsPerRev();
+            lcdLine(1, "Known, at %lu%c", (unsigned long)deg, LCD_DEGREE);
+            break;
+        }
+        case INFO_THRESHOLD:
+            lcdLine(1, "%u", cfg.hallThreshold);
+            break;
+        case INFO_DRIVER:
+            if (driverVersion == STEPPER_DRIVER_VERSION) lcdLine(1, "OK (v0x%02X)", driverVersion);
+            else                                         lcdLine(1, "No reply (0x%02X)", driverVersion);
+            break;
+    }
+}
+
+// Each sensor's live deviation from its resting level, sensors 1-4 on top
+// and 5-8 below: the sign (which pole) then the size, capped at 999.
+static void drawSensorLevels() {
+    char row[2][17];
+    for (uint8_t r = 0; r < 2; r++) {
+        char* p = row[r];
+        for (uint8_t k = 0; k < 4; k++) {
+            int16_t d = hallDeviation(r * 4 + k);
+            int mag = min(abs((int)d), 999);
+            p += snprintf(p, 5, "%c%3d", d < 0 ? '-' : '+', mag);
+        }
+        lcdLine(r, "%s", row[r]);
     }
 }
 
@@ -561,6 +708,9 @@ void menuInit(const SavedConfig& cfg) {
     // so some sensors would fire once and then go quiet. Offer to fix that
     // before the table is played rather than letting it look like a fault.
     if (!cfg.calibrated) enterState(MenuState::FirstBootPrompt);
+    // The bar start was lost (power cut while spinning, or never found):
+    // offer to find it, unless that check has been turned off.
+    else if (!barKnown() && cfg.startCheck) enterState(MenuState::StartCheckPrompt);
     else                 enterState(MenuState::Status);
 }
 
@@ -639,8 +789,16 @@ void menuUpdate(SavedConfig& cfg) {
     // reliably takes longer than MENU_TIMEOUT_MS, and having the question
     // vanish mid-task was a real bug. They stay put until answered.
     bool isPrompt = (state == MenuState::FirstBootPrompt ||
-                     state == MenuState::CalibrationPrompt ||
-                     state == MenuState::CalibrationRunning ||
+                     state == MenuState::CalClearPrompt ||
+                     state == MenuState::CalSampling ||
+                     state == MenuState::CalMagnetPrompt ||
+                     state == MenuState::CalDetecting ||
+                     state == MenuState::StartCheckPrompt ||
+                     state == MenuState::StartPosMode ||
+                     state == MenuState::StartPosAutoPrompt ||
+                     state == MenuState::StartPosAuto ||
+                     state == MenuState::FindStart ||
+                     state == MenuState::FindStartConfirm ||
                      state == MenuState::ResetCalPrompt ||
                      state == MenuState::ResetAllPrompt);
 
@@ -666,8 +824,13 @@ void menuUpdate(SavedConfig& cfg) {
     bool isAux = (state == MenuState::AuxFnSelect ||
                   state == MenuState::AuxParam);
 
+    // Screens you read rather than drive. Timing out would cut the reading
+    // short; the menu button is the way out.
+    bool isView = (state == MenuState::Info ||
+                   state == MenuState::SensorLevels);
+
     if (ev.menuDelta != 0 || ev.menuPressed) lastActivity = millis();
-    if (state != MenuState::Status && !isPrompt && !isAux &&
+    if (state != MenuState::Status && !isPrompt && !isAux && !isView &&
         millis() - lastActivity > MENU_TIMEOUT_MS) {
         enterState(MenuState::Status);
     }
@@ -792,12 +955,8 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
-                    case 10: enterState(MenuState::MagnetPole,
-                                cfg.magnetPolarity < 0 ? 1 : 0); break;
-                    case 11: enterState(MenuState::CalibrationPrompt); break;
-                    case 12: enterState(MenuState::ResetCalPrompt); break;
-                    case 13: enterState(MenuState::ResetAllPrompt); break;
-                    case 14: enterState(MenuState::Status); break;
+                    case MAIN_ITEM_TOOLS: enterState(MenuState::Tools); break;
+                    case MAIN_ITEM_EXIT:  enterState(MenuState::Status); break;
                 }
             }
             break;
@@ -1093,6 +1252,36 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::Tools:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + TOOLS_COUNT) % TOOLS_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                fromBoot = false;
+                switch (cursor) {
+                    case TOOL_GO_TO_START:
+                        goToStart();
+                        enterState(MenuState::Tools, TOOL_GO_TO_START);
+                        break;
+                    case TOOL_FULL_CAL:    enterState(MenuState::CalClearPrompt); break;
+                    case TOOL_RESET_CAL:   enterState(MenuState::ResetCalPrompt); break;
+                    case TOOL_CALIB_START: enterState(MenuState::StartPosMode); break;
+                    case TOOL_MAGNET_POLE:
+                        enterState(MenuState::MagnetPole, cfg.magnetPolarity < 0 ? 1 : 0); break;
+                    case TOOL_START_CHECK:
+                        enterState(MenuState::StartCheck, cfg.startCheck ? 0 : 1); break;
+                    case TOOL_INFO:
+                        driverVersion = stepperDriverVersion();   // UART, so once
+                        enterState(MenuState::Info);
+                        break;
+                    case TOOL_SENSOR_LEVELS: enterState(MenuState::SensorLevels); break;
+                    case TOOL_RESET_ALL:   enterState(MenuState::ResetAllPrompt); break;
+                    default: enterState(MenuState::MainMenu, MAIN_ITEM_TOOLS); break;
+                }
+            }
+            break;
+
         case MenuState::MagnetPole:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + POLE_COUNT) % POLE_COUNT;
@@ -1104,31 +1293,171 @@ void menuUpdate(SavedConfig& cfg) {
                     storageSave(cfg);
                     hallSetPolarity(cfg.magnetPolarity);
                 }
-                enterState(MenuState::MainMenu, 10);
+                enterState(MenuState::Tools, TOOL_MAGNET_POLE);
             }
             break;
 
         case MenuState::FirstBootPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
-                if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else             enterState(MenuState::Status);
+                fromBoot = true;
+                if (cursor == 0) enterState(MenuState::CalClearPrompt);
+                else             leaveTo(TOOL_FULL_CAL);
             }
             break;
 
-        case MenuState::CalibrationPrompt:
+        case MenuState::CalClearPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
-                if (cursor == 0) enterState(MenuState::CalibrationRunning);
-                else enterState(MenuState::MainMenu, 11);
+                if (cursor == 0) enterState(MenuState::CalSampling);
+                else             leaveTo(TOOL_FULL_CAL);
             }
             break;
 
-        case MenuState::CalibrationRunning: {
-            calibrationRun(cfg);
-            enterState(MenuState::MainMenu, 11);
+        case MenuState::CalSampling:
+            calibrationSampleBaselines();
+            enterState(MenuState::CalMagnetPrompt);
+            break;
+
+        case MenuState::CalMagnetPrompt:
+            if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
+            if (ev.menuPressed) {
+                if (cursor == 0) enterState(MenuState::CalDetecting);
+                else             leaveTo(TOOL_FULL_CAL);
+            }
+            break;
+
+        case MenuState::CalDetecting:
+            // On failure the error has been shown; ask again, so the magnet
+            // can be moved and retried without sampling the clear platter again.
+            if (calibrationDetect(cfg) == CalibrationStatus::Success) {
+                leaveTo(TOOL_FULL_CAL);
+            } else {
+                enterState(MenuState::CalMagnetPrompt);
+            }
+            break;
+
+        case MenuState::StartCheckPrompt:
+            if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
+            if (ev.menuPressed) {
+                fromBoot = true;
+                if (cursor == 0) enterState(MenuState::StartPosMode);
+                else             leaveTo(TOOL_CALIB_START);
+            }
+            break;
+
+        case MenuState::StartPosMode:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + START_MODE_COUNT) % START_MODE_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor == 0) {
+                    // Auto reads the magnet with the saved calibration.
+                    if (cfg.calibrated) {
+                        enterState(MenuState::StartPosAutoPrompt);
+                    } else {
+                        menuMessage("Not calibrated", "Full Calibrate");
+                        delay(2000);
+                        needsRedraw = true;
+                    }
+                } else if (cursor == 1) {
+                    enterFindStart();
+                } else {
+                    leaveTo(TOOL_CALIB_START);
+                }
+            }
+            break;
+
+        case MenuState::StartPosAutoPrompt:
+            if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
+            if (ev.menuPressed) {
+                if (cursor == 0) enterState(MenuState::StartPosAuto);
+                else             leaveTo(TOOL_CALIB_START);
+            }
+            break;
+
+        case MenuState::StartPosAuto:
+            // On failure the error has been shown; ask again.
+            if (calibrationFindStart(cfg) == CalibrationStatus::Success) {
+                leaveTo(TOOL_CALIB_START);
+            } else {
+                enterState(MenuState::StartPosAutoPrompt);
+            }
+            break;
+
+        case MenuState::FindStart: {
+            // The menu knob jogs the platter, powered, so the step count stays
+            // exact. Each detent keeps it turning a moment; quick detents turn
+            // it faster.
+            uint32_t now = millis();
+            if (ev.menuDelta) {
+                float rpm = (now - lastJogMs < JOG_FAST_GAP_MS) ? JOG_FAST_RPM : JOG_FINE_RPM;
+                stepperJog(ev.menuDelta > 0 ? rpm : -rpm);
+                lastJogMs = now;
+                jogMoving = true;
+            } else if (jogMoving && now - lastJogMs > JOG_HOLD_MS) {
+                stepperStop();
+                jogMoving = false;
+            }
+            if (ev.menuPressed) {
+                if (jogMoving) { stepperStop(); jogMoving = false; }
+                enterState(MenuState::FindStartConfirm);
+            }
             break;
         }
+
+        case MenuState::FindStartConfirm:
+            if (ev.menuDelta) {
+                cursor = (uint8_t)((cursor + ev.menuDelta + 3) % 3);
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor == 0) {
+                    // The mark is at the arm: this position is the bar start.
+                    // barUpdate() saves it once the platter is at rest.
+                    barSetStart(stepperPosition());
+                    menuMessage("StartPos set", "");
+                    delay(1500);
+                    leaveTo(TOOL_CALIB_START);
+                } else if (cursor == 1) {
+                    enterState(MenuState::FindStart);   // keep jogging
+                } else {
+                    leaveTo(TOOL_CALIB_START);
+                }
+            }
+            break;
+
+        case MenuState::Info:
+            if (ev.menuDelta) {
+                cursor = (uint8_t)((cursor + ev.menuDelta + INFO_PAGE_COUNT) % INFO_PAGE_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) enterState(MenuState::Tools, TOOL_INFO);
+            // The StartPos page follows the platter.
+            if (cursor == INFO_START_POS && millis() - lastLiveDraw >= LIVE_REDRAW_MS) {
+                needsRedraw = true;
+            }
+            break;
+
+        case MenuState::SensorLevels:
+            if (ev.menuPressed) enterState(MenuState::Tools, TOOL_SENSOR_LEVELS);
+            if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
+            break;
+
+        case MenuState::StartCheck:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + WELCOME_COUNT) % WELCOME_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < WELCOME_COUNT - 1) {   // last entry is Back
+                    cfg.startCheck = (cursor == 0);
+                    storageSave(cfg);
+                }
+                enterState(MenuState::Tools, TOOL_START_CHECK);
+            }
+            break;
 
         case MenuState::ResetCalPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
@@ -1142,6 +1471,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.rpmCorrection = 1.0f;
                     cfg.calibrated    = false;
                     cfg.magnetPolarity = DEFAULT_MAGNET_POLARITY;
+                    barForget(cfg);
                     storageSave(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
@@ -1149,7 +1479,7 @@ void menuUpdate(SavedConfig& cfg) {
                     menuMessage("Cal reset", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 12);
+                enterState(MenuState::Tools, TOOL_RESET_CAL);
             }
             break;
 
@@ -1162,13 +1492,14 @@ void menuUpdate(SavedConfig& cfg) {
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
+                    barInit(cfg);                  // defaults: start unknown
                     audioSetVolume(cfg.volume);
                     layerSetBalance(0);
                     layersApply(cfg);
                     menuMessage("Reset to defaults", "");
                     delay(1500);
                 }
-                enterState(MenuState::MainMenu, 13);
+                enterState(MenuState::Tools, TOOL_RESET_ALL);
             }
             break;
     }
@@ -1252,14 +1583,64 @@ void menuUpdate(SavedConfig& cfg) {
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
-            case MenuState::CalibrationPrompt:
-                lcdLine(0, "Place a magnet");
+            case MenuState::CalClearPrompt:
+                lcdLine(0, "Clear platter");
                 lcdLine(1, "%c OK  %c Back",
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
-            case MenuState::CalibrationRunning:
-                // calibrationRun() blocks and drives the LCD directly via menuMessage().
+            case MenuState::CalMagnetPrompt:
+                lcdLine(0, "Magnet on mark");
+                lcdLine(1, "%c OK  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
+                break;
+            case MenuState::CalSampling:
+            case MenuState::CalDetecting:
+                // Calibration blocks and drives the LCD directly via menuMessage().
+                break;
+            case MenuState::Tools:
+                drawList(TOOLS_ITEMS, TOOLS_COUNT, cursor);
+                break;
+            case MenuState::StartPosMode:
+                drawList(START_MODE_ITEMS, START_MODE_COUNT, cursor);
+                break;
+            case MenuState::StartPosAutoPrompt:
+                lcdLine(0, "Magnet on mark");
+                lcdLine(1, "%c OK  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
+                break;
+            case MenuState::StartPosAuto:
+                // Blocks and drives the LCD directly via menuMessage().
+                break;
+            case MenuState::StartCheckPrompt:
+                lcdLine(0, "StartPos unknown");
+                lcdLine(1, "%c Find  %c Skip",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
+                break;
+            case MenuState::FindStart:
+                lcdLine(0, "Mark to the arm");
+                lcdLine(1, "Turn, then press");
+                break;
+            case MenuState::FindStartConfirm:
+                lcdLine(0, "StartPos here?");
+                lcdLine(1, "%cYes %cMore %cBack",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 2 ? LCD_ARROW_RIGHT : ' ');
+                break;
+            case MenuState::StartCheck:
+                drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);
+                break;
+            case MenuState::Info:
+                drawInfo(cfg, cursor);
+                lastLiveDraw = millis();
+                break;
+            case MenuState::SensorLevels:
+                drawSensorLevels();
+                lastLiveDraw = millis();
                 break;
             case MenuState::ResetCalPrompt:
                 lcdLine(0, "Reset cal data?");

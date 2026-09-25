@@ -22,6 +22,10 @@ static bool commanded = false;
 // calibration has run.
 static float correction = 1.0f;
 
+// True while the platter is being jogged by hand from the menu (Find Start).
+// Cleared by any real start.
+static bool jogging = false;
+
 void stepperSetCorrection(float actualOverCommanded) {
     // Ignore absurd or uninitialised values rather than letting a bad EEPROM
     // read divide the commanded speed into nonsense.
@@ -43,6 +47,7 @@ void stepperUpdate() {
 
 void stepperStart(float rpm) {
     commanded = true;
+    jogging   = false;
     platter.enable();
     platter.setRPM(rpm / correction);   // spins up from rest via pull-in + ramp
 }
@@ -65,4 +70,36 @@ bool stepperRunning() {
 float stepperCurrentRPM() {
     // Report the real platter speed, undoing the correction applied on the way in.
     return platter.currentRPM() * correction;
+}
+
+int32_t stepperPosition() {
+    return platter.position();
+}
+
+uint32_t stepperStepsPerRev() {
+    return platter.stepsPerPlatterRev();
+}
+
+void stepperJog(float rpm) {
+    // Raw step rate: below MIN_RPM, which setRPM() would clamp away, and with
+    // no correction, since nothing here is timed.
+    commanded = true;
+    jogging   = true;
+    platter.enable();
+    platter.setStepRate(rpm / 60.0f * (float)platter.stepsPerPlatterRev());
+}
+
+void stepperMoveBy(int32_t steps, float rpm) {
+    commanded = true;
+    jogging   = true;   // positioning, not playing
+    platter.enable();
+    platter.moveBy(steps, rpm);
+}
+
+uint8_t stepperDriverVersion() {
+    return platter.driverVersion();
+}
+
+bool stepperJogging() {
+    return jogging;
 }

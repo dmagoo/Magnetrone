@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 10;
+constexpr uint8_t  EEPROM_VERSION = 11;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -83,6 +83,13 @@ struct SavedConfig {
                                 // layer[LAYER_A].voice); kept for the layout
     // Added in version 9.
     LayerCfg layer[NUM_LAYERS];
+    // Added in version 11. Where the platter sat in the bar when it last came
+    // to rest, in motor steps past the start mark. Valid only if it was saved
+    // at rest: it is cleared when the platter starts, so a power cut mid-spin
+    // leaves it invalid rather than wrong.
+    int32_t  barPhase;
+    bool     barPhaseValid;
+    bool     startCheck;       // at boot, offer Find Start if the start is unknown
 };
 
 void storageLoad(SavedConfig& cfg);

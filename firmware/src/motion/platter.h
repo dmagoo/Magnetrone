@@ -127,6 +127,20 @@ public:
     void     recordCalibrationEvent();
     uint32_t endCalibration();      // returns measured stepsPerPlatterRev; does NOT apply it
 
+    // Signed microstep position: +1 per step forward, -1 per step reversed.
+    // Starts at 0 at power-up and only means anything relative to a reference
+    // (the bar start, see bar.h). Coils off, a hand-turned platter is not seen.
+    int32_t  position() const;
+
+    // Positioned move: turn exactly `steps` (signed) from rest, at up to
+    // maxRPM, decelerating so it stops on the target. Any other speed
+    // command cancels it. isStopped() is true once it has arrived.
+    void     moveBy(int32_t steps, float maxRPM);
+
+    // The TMC2209's version register, read over UART: 0x21 when the driver
+    // is answering, 0 or 0xFF when it is not.
+    uint8_t  driverVersion();
+
 private:
     // TMC2209 hardware constants (BigTreeTech V1.3, MS1/MS2 low -> UART addr 0).
     static constexpr float    kRSense          = 0.11f;
@@ -149,6 +163,7 @@ private:
     void  applyStepRate(float stepsPerSec); // (re)program the step timer
     void  applyDirection();                 // write DIR pin (only safe at rest)
     void  beginFromRest();                  // pull-in + dwell, then ramp to target
+    void  startOrRetarget();                // after a new target: pull in if at rest
 
     enum class Phase : uint8_t { Idle, PullInDwell, Running };
 
@@ -159,6 +174,10 @@ private:
 
     volatile bool     stepPinState_ = false;
     volatile uint32_t stepCount_    = 0;    // step pulses emitted (for calibration)
+    volatile int32_t  position_     = 0;    // signed: follows direction
+    volatile bool     moveActive_   = false;  // a moveBy() is under way
+    volatile int32_t  moveTarget_   = 0;
+    float             moveMaxRate_  = 0.0f;
 
     Phase    phase_           = Phase::Idle;
     bool     timerRunning_    = false;

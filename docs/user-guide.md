@@ -38,18 +38,41 @@ line is the root note, the scale and the volume, or `[MUTE]`.
 ## First Run
 
 On first power-up the screen shows **Not calibrated**. Choose **Setup** to
-calibrate now, or **Skip** to do it later from **Main > Calibration**. Until it
+calibrate now, or **Skip** to do it later from **Main > Tools > Full Calibrate**. Until it
 is calibrated, some tracks may play once and then go quiet.
 
 To calibrate:
 
-1. Remove all magnets and choose **OK**. The platter starts spinning.
-2. While the screen shows **Sampling... Keep magnets off**, keep the platter
-   clear.
-3. When it shows **Searching...**, place a single magnet on the outer track.
-   Whichever way up it sits becomes the normal side (Layer A).
-4. **Calibrated!** means it worked. **Too many magnets** means remove the extras
-   and try again.
+1. At **Clear platter**, remove all magnets and choose **OK**. The platter
+   spins while the screen shows **Sampling...**, then stops.
+2. At **Magnet on mark**, place a single magnet on the start mark, on the outer
+   track, and choose **OK**. Whichever way up it sits becomes the normal side
+   (Layer A).
+3. **Calibrated!** means it worked. The start mark is now where each bar
+   begins. On an error, fix the magnet and choose **OK** again:
+   - **No magnet found**: the magnet is not on the mark.
+   - **Wrong track**: move it to the outer track.
+   - **Too many magnets**: remove the extras.
+
+### The start mark
+
+The table keeps track of where the start mark is (StartPos), so external MIDI
+gear starts its bars there. It remembers this when the table is turned off with
+the platter stopped. If the power goes off while the platter is spinning, the
+table shows **StartPos unknown** at power-up. Choose **Find** to set it again,
+or **Skip**. Turning the platter by hand while the table is off moves the mark
+without the table knowing.
+
+**Tools > Calib. StartPos** sets it again without a full calibration:
+
+- **Auto**: place one magnet on the start mark, with nothing else on the outer
+  track. Magnets on the other tracks can stay. Choose **OK** and the platter
+  spins until it has found the mark.
+- **Manual**: turn the menu knob to move the platter until the mark is under
+  the arm, press, then choose **Yes**. **More** goes back to moving it.
+
+To check it, choose **Tools > Go to StartPos**. The platter turns until the
+mark should be under the arm.
 
 ## Playing
 
@@ -75,6 +98,8 @@ live. Each one is described under [Performance Functions](#performance-functions
 or [Setup Functions](#setup-functions).
 
 Choosing a value in the menu saves it.
+
+Calibration and maintenance live in **Main > Tools**.
 
 ## Aux Knob
 
@@ -129,10 +154,15 @@ Settings you choose once and leave alone.
 | LCD Timeout  | Main  | No  | How long the backlight stays on after you touch a knob, from Always Off to Always On. | - |
 | Aux Fn       | Main  | No  | Which function the Aux knob controls. | - |
 | Pitch Step   | Main  | No  | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | - |
-| Magnet Pole  | Main  | No  | Swaps which way up is Layer A. Calibration sets it. | Swaps the layers. |
-| Calibration  | Main  | No  | See [First Run](#first-run). | - |
-| Reset Cal    | Main  | No  | Clears calibration only. | - |
-| Reset All    | Main  | No  | Returns every setting to factory defaults. Asks first. | - |
+| Go to StartPos  | Tools | No | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
+| Full Calibrate  | Tools | No | See [First Run](#first-run). | - |
+| Reset Calib.    | Tools | No | Clears calibration only, including the start mark. | - |
+| Calib. StartPos | Tools | No | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
+| Magnet Pole     | Tools | No | Swaps which way up is Layer A. Calibration sets it. | Swaps the layers. |
+| StartPos Check  | Tools | No | On: at power-up, offers to find the start mark if it was lost. Off: never asks. Default On. | - |
+| Info            | Tools | No | Read-only pages, turned through with the menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
+| Sensor Levels   | Tools | No | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
+| Reset All       | Tools | No | Returns every setting to factory defaults. Asks first. | - |
 
 ## Voices and Drums
 
@@ -159,8 +189,12 @@ hi-hat cuts off an open one, as on a real kit.
 The Magnetrone sends on MIDI OUT:
 
 - **Notes** on each layer's channel.
-- **Clock** at the platter's tempo, so drum machines and DAWs follow it.
-- **Start** and **Stop** when the platter starts and stops.
+- **Clock** that follows the platter exactly, speed changes included, so drum
+  machines and DAWs follow it.
+- **Start**, **Stop** and **Continue** when the platter starts and stops. Once
+  the start mark is set, starting also sends the position in the bar, so the
+  external bars line up with the mark even when the platter starts mid-bar.
+  Some gear ignores the position.
 - **Pitch bend** for the Pitch function, so external synths follow detuned
   settings too.
 
@@ -198,6 +232,6 @@ from USB.
 **USB.** Use USB only for firmware updates and debugging, never to power the
 unit. Do not connect USB while the 24 V supply is plugged in.
 
-**No sound, or the wrong layer plays.** Check **Main > Magnet Pole**, and check
+**No sound, or the wrong layer plays.** Check **Main > Tools > Magnet Pole**, and check
 that the layer's Mode is On. If some tracks play once and then stop,
 recalibrate.

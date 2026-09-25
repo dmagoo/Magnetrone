@@ -50,6 +50,13 @@ static void setV10Defaults(LayerCfg& lc, bool sameAsA) {
     lc.lowNoteSameAsA = sameAsA;
 }
 
+// Defaults for the fields added in version 11 (bar start).
+static void setV11Defaults(SavedConfig& c) {
+    c.barPhase      = 0;
+    c.barPhaseValid = false;
+    c.startCheck    = DEFAULT_START_CHECK;
+}
+
 static void setLayerDefaults(SavedConfig& c) {
     c.layer[LAYER_A] = { LayerMode::On,      (uint8_t)VoiceId::Piano,
                          LAYER_CHANNEL_AUTO,  0, 100 };
@@ -109,6 +116,7 @@ SavedConfig storageDefaults() {
     c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
     c.voiceV8         = 0;
     setLayerDefaults(c);
+    setV11Defaults(c);
     return c;
 }
 
@@ -141,6 +149,16 @@ void storageLoad(SavedConfig& cfg) {
         cfg.version       = EEPROM_VERSION;
         cfg.voiceV8       = 0;
         cfg.sensorShiftV9 = 0;
+        setV11Defaults(cfg);
+        committed = cfg;
+        storageSave(cfg);
+        return;
+    }
+
+    // Version 10 is a straight prefix: only the bar start fields are new.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 10) {
+        setV11Defaults(cfg);
+        cfg.version = EEPROM_VERSION;
         committed = cfg;
         storageSave(cfg);
         return;
