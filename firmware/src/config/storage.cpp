@@ -15,8 +15,8 @@
 // So storage keeps its own copy of what EEPROM holds. An ordinary storageSave()
 // -- a speed change, a volume change, calibration results -- writes everything
 // EXCEPT the live-modulated fields, which keep their committed values.
-// storageCommit() is the menu's version: it adopts the live values as the new
-// committed ones first.
+// storageCommit() is the menu's version: it first adopts the live value of the
+// one field the menu set as the new committed one.
 //
 // The alternative was to have the save routine hunt for exceptions at each call
 // site, which hides the asymmetry and silently breaks whenever a new aux target
@@ -166,7 +166,16 @@ void storageRevertLive(SavedConfig& cfg) {
     copyLiveModulatedFields(cfg, committed);
 }
 
-void storageCommit(const SavedConfig& cfg) {
-    copyLiveModulatedFields(committed, cfg);   // the menu set these deliberately
+void storageCommit(const SavedConfig& cfg, CommitField field, uint8_t layer) {
+    // Only the field the menu set deliberately; any other aux drift stays live.
+    switch (field) {
+    case CommitField::All:     copyLiveModulatedFields(committed, cfg);            break;
+    case CommitField::Root:    committed.root   = cfg.root;                        break;
+    case CommitField::Scale:   committed.scale  = cfg.scale;                       break;
+    case CommitField::Octave:  committed.octave = cfg.octave;                      break;
+    case CommitField::Voice:   committed.layer[layer].voice   = cfg.layer[layer].voice;   break;
+    case CommitField::Shift:   committed.layer[layer].shift   = cfg.layer[layer].shift;   break;
+    case CommitField::LowNote: committed.layer[layer].lowNote = cfg.layer[layer].lowNote; break;
+    }
     storageSave(cfg);
 }

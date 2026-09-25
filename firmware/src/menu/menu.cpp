@@ -808,7 +808,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 12) { cfg.root = static_cast<RootNote>(cursor); storageCommit(cfg); }
+                if (cursor < 12) { cfg.root = static_cast<RootNote>(cursor); storageCommit(cfg, CommitField::Root); }
                 enterState(MenuState::MainMenu, 0);
             }
             break;
@@ -819,7 +819,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 8) { cfg.scale = static_cast<Scale>(cursor); storageCommit(cfg); }
+                if (cursor < 8) { cfg.scale = static_cast<Scale>(cursor); storageCommit(cfg, CommitField::Scale); }
                 enterState(MenuState::MainMenu, 1);
             }
             break;
@@ -830,7 +830,7 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 8) { cfg.octave = cursor; storageCommit(cfg); }
+                if (cursor < 8) { cfg.octave = cursor; storageCommit(cfg, CommitField::Octave); }
                 enterState(MenuState::MainMenu, 2);
             }
             break;
@@ -903,7 +903,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < VOICE_COUNT) {   // last entry is Back
                     cfg.layer[editLayer].voice = cursor;
-                    storageCommit(cfg);       // voice is also an aux target
+                    storageCommit(cfg, CommitField::Voice, editLayer);
                     layersApply(cfg);
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_VOICE);
@@ -964,7 +964,7 @@ void menuUpdate(SavedConfig& cfg) {
                     // Picking a value also unbinds B's shift from A's.
                     cfg.layer[editLayer].shift = cursor;
                     cfg.layer[editLayer].shiftSameAsA = false;
-                    storageCommit(cfg);       // shift is also an aux target
+                    storageCommit(cfg, CommitField::Shift, editLayer);
                 } else if (editLayer == LAYER_B && cursor == SHIFT_ITEM_SAME_AS_A) {
                     cfg.layer[LAYER_B].shiftSameAsA = true;
                     storageSave(cfg);
@@ -1001,7 +1001,7 @@ void menuUpdate(SavedConfig& cfg) {
                     // Picking a value also unbinds B's Low Note from A's.
                     cfg.layer[editLayer].lowNote = cursor;
                     cfg.layer[editLayer].lowNoteSameAsA = false;
-                    storageCommit(cfg);       // Low Note is also an aux target
+                    storageCommit(cfg, CommitField::LowNote, editLayer);
                 } else if (editLayer == LAYER_B && cursor == LOW_NOTE_ITEM_SAME_AS_A) {
                     cfg.layer[LAYER_B].lowNoteSameAsA = true;
                     storageSave(cfg);
@@ -1158,7 +1158,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor == 0) {
                     cfg = storageDefaults();
-                    storageCommit(cfg);
+                    storageCommit(cfg, CommitField::All);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);

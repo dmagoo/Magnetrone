@@ -93,10 +93,15 @@ void storageLoad(SavedConfig& cfg);
 // worrying that in-flight performance modulation will be persisted.
 void storageSave(const SavedConfig& cfg);
 
-// The menu's save: adopts the live values of the aux-modulated fields as the
-// new committed ones, then writes. Use this ONLY where the user deliberately
-// set one of those values from a menu, not from the aux knob.
-void storageCommit(const SavedConfig& cfg);
+// Which aux-modulated field storageCommit() adopts. All is for Reset All,
+// where every value was set deliberately.
+enum class CommitField : uint8_t { All, Root, Scale, Octave, Voice, Shift, LowNote };
+
+// The menu's save: adopts the live value of ONE aux-modulated field (for the
+// per-layer fields, on the given layer) as the new committed one, then writes.
+// Other aux drift in play stays out of EEPROM. Use this ONLY where the user
+// deliberately set that value from a menu, not from the aux knob.
+void storageCommit(const SavedConfig& cfg, CommitField field, uint8_t layer = 0);
 
 // Discards live aux modulation: copies the committed values of the
 // aux-modulated fields back over the live ones. Writes nothing to EEPROM --
