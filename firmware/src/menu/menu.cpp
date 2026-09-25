@@ -16,6 +16,7 @@
 #include "sequencer/layers.h"
 #include "motion/bar.h"
 #include "sequencer/scenes.h"
+#include "midi/midi_in.h"
 
 static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
@@ -34,6 +35,8 @@ enum class MenuState : uint8_t {
     LayerShift,
     LayerWrap,
     LayerLowNote,
+    LayerMidiIn,
+    MidiFnSetting,
     WelcomeTune,
     LcdTimeout,
     BeatsPerRev,
@@ -86,6 +89,13 @@ static const char* SCALE_ITEMS[] = {
 };
 static const uint8_t SCALE_COUNT = 9;
 
+// Every scale's name, Learned included, for the live display, scenes and the
+// Aux Scale Fn. The main menu list above has no Learned: it can only be
+// learned, from MIDI keys.
+static const char* SCALE_NAMES[] = {
+    "Major","Minor","PMajor","PMinor","Blues","Chromat","Dorian","Mixolyd","Learned"
+};
+
 static const char* OCTAVE_ITEMS[] = {
     "0","1","2","3","4","5","6","7","Back"
 };
@@ -100,12 +110,18 @@ static const uint8_t VOICE_ITEMS_COUNT = VOICE_COUNT + 1;
 static uint8_t editLayer = LAYER_A;
 
 static const char* LAYER_ITEMS[] = {
-    "Mode","Voice","Channel","Octave","Level","Shift","Wrap","Low Note","Back"
+    "Mode","Voice","Channel","Octave","Level","Shift","Wrap","Low Note","MIDI In","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 9;
+static const uint8_t LAYER_ITEMS_COUNT = 10;
 enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
                  LAYER_ITEM_OCTAVE, LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT,
-                 LAYER_ITEM_WRAP, LAYER_ITEM_LOW_NOTE, LAYER_ITEM_BACK };
+                 LAYER_ITEM_WRAP, LAYER_ITEM_LOW_NOTE, LAYER_ITEM_MIDI_IN,
+                 LAYER_ITEM_BACK };
+
+// A layer's MIDI in channel: Off, then channels 1-16, then Back. Index ==
+// stored value. Filled in by menuInit().
+static const char*   MIDI_IN_ITEMS[18];
+static const uint8_t MIDI_IN_COUNT = 18;
 
 // Order matches LayerMode. Layer A has no Same as A, so its list is shorter.
 static const char* MODE_ITEMS_A[] = { "On","Off","Back" };
@@ -153,10 +169,14 @@ static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
 
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
-    "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step","Tools","Exit"
+    "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step","MIDI Fn","Tools","Exit"
 };  // Exit returns to the live display; submenus keep "Back"
-static const uint8_t MAIN_COUNT = 12;
-enum : uint8_t { MAIN_ITEM_TOOLS = 10, MAIN_ITEM_EXIT = 11 };
+static const uint8_t MAIN_COUNT = 13;
+enum : uint8_t { MAIN_ITEM_MIDI_FN = 10, MAIN_ITEM_TOOLS = 11, MAIN_ITEM_EXIT = 12 };
+
+// What incoming MIDI keys do. Order matches MidiFn.
+static const char* MIDI_FN_ITEMS[] = { "Off","Pitch","Shift","Scale Learn","Back" };
+static const uint8_t MIDI_FN_COUNT = 5;
 
 // Calibration and maintenance, kept out of the main menu. StartPos is the
 // bar start: where the start mark on the platter passes the arm.
@@ -389,7 +409,7 @@ static void drawStatus(const SavedConfig& cfg) {
     buildVolBar(vb, cfg.volume, cfg.muted);
     lcdLine(1, "%-2s %-7s%s",
         ROOT_ITEMS[static_cast<uint8_t>(cfg.root)],
-        SCALE_ITEMS[static_cast<uint8_t>(cfg.scale)],
+        SCALE_NAMES[static_cast<uint8_t>(cfg.scale)],
         vb);
 }
 
@@ -398,7 +418,7 @@ static void buildSceneLabels(const SavedConfig& cfg) {
         const SceneSlot& s = cfg.scenes[i];
         if (s.used) {
             snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: %s %s", i + 1,
-                     ROOT_ITEMS[(uint8_t)s.root], SCALE_ITEMS[(uint8_t)s.scale]);
+                     ROOT_ITEMS[(uint8_t)s.root], SCALE_NAMES[(uint8_t)s.scale]);
         } else {
             snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: (empty)", i + 1);
         }
@@ -495,7 +515,7 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             break;
         }
         case AuxFn::ScaleFn: {
-            int n = (int)Scale::COUNT;
+            int n = scaleHasLearned() ? (int)Scale::COUNT : (int)SCALE_BUILTIN_COUNT;
             int v = ((int)cfg.scale + delta) % n;
             if (v < 0) v += n;
             cfg.scale = (Scale)v;                              // wrap: a list
@@ -582,7 +602,9 @@ static void drawAuxParam(const SavedConfig& cfg) {
             drawList(ROOT_ITEMS, 12, (uint8_t)cfg.root);
             break;
         case AuxFn::ScaleFn:
-            drawList(SCALE_ITEMS, (uint8_t)Scale::COUNT, (uint8_t)cfg.scale);
+            // Learned is in the list only once something has been learned.
+            drawList(SCALE_NAMES, scaleHasLearned() ? (uint8_t)Scale::COUNT : SCALE_BUILTIN_COUNT,
+                     (uint8_t)cfg.scale);
             break;
         case AuxFn::ShiftA:
         case AuxFn::ShiftB: {
@@ -760,6 +782,10 @@ void menuInit(const SavedConfig& cfg) {
     }
     CHANNEL_ITEMS[17] = "Back";
 
+    MIDI_IN_ITEMS[0] = "Off";
+    for (uint8_t c = 1; c <= 16; c++) MIDI_IN_ITEMS[c] = CHANNEL_ITEMS[c];
+    MIDI_IN_ITEMS[17] = "Back";
+
     // Apply initial backlight state based on saved timeout setting.
     if (cfg.lcdTimeout == LCD_TIMEOUT_ALWAYS_OFF) {
         lcd.noBacklight();
@@ -899,6 +925,8 @@ void menuUpdate(SavedConfig& cfg) {
     // A scene load landed on the bar: the status line (or the scene list)
     // shows it.
     if (sceneTakeChanged()) needsRedraw = true;
+    // So did something from MIDI in (root, scale, octave, volume, shift).
+    if (midiInTakeChanged()) needsRedraw = true;
 
     // Screens you read rather than drive. Timing out would cut the reading
     // short; the menu button is the way out.
@@ -1055,6 +1083,10 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
+                    case MAIN_ITEM_MIDI_FN:
+                        enterState(MenuState::MidiFnSetting,
+                                   (uint8_t)constrain(cfg.midiFn, 0, (int)MidiFn::COUNT - 1));
+                        break;
                     case MAIN_ITEM_TOOLS: enterState(MenuState::Tools); break;
                     case MAIN_ITEM_EXIT:  enterState(MenuState::Status); break;
                 }
@@ -1130,6 +1162,10 @@ void menuUpdate(SavedConfig& cfg) {
                                    (editLayer == LAYER_B && lc.lowNoteSameAsA)
                                        ? LOW_NOTE_ITEM_SAME_AS_A
                                        : (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
+                        break;
+                    case LAYER_ITEM_MIDI_IN:
+                        enterState(MenuState::LayerMidiIn,
+                                   (uint8_t)constrain(cfg.midiInChannel[editLayer], 0, 16));
                         break;
                     default:
                         enterState(MenuState::MainMenu, editLayer == LAYER_A ? 3 : 4); break;
@@ -1269,6 +1305,35 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
         }
+
+        case MenuState::LayerMidiIn:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + MIDI_IN_COUNT) % MIDI_IN_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < MIDI_IN_COUNT - 1) {   // last entry is Back
+                    cfg.midiInChannel[editLayer] = cursor;   // 0 = Off
+                    storageSave(cfg);
+                }
+                enterState(MenuState::LayerMenu, LAYER_ITEM_MIDI_IN);
+            }
+            break;
+
+        case MenuState::MidiFnSetting:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + MIDI_FN_COUNT) % MIDI_FN_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < MIDI_FN_COUNT - 1) {   // last entry is Back
+                    cfg.midiFn = cursor;
+                    midiInReset();   // a half-learned scale belongs to the old Fn
+                    storageSave(cfg);
+                }
+                enterState(MenuState::MainMenu, MAIN_ITEM_MIDI_FN);
+            }
+            break;
 
         case MenuState::WelcomeTune:
             if (ev.menuDelta) {
@@ -1652,6 +1717,12 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::LayerLowNote:
                 if (editLayer == LAYER_A) drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_COUNT_A, cursor);
                 else                      drawList(LOW_NOTE_ITEMS_B, LOW_NOTE_COUNT_B, cursor);
+                break;
+            case MenuState::LayerMidiIn:
+                drawList(MIDI_IN_ITEMS, MIDI_IN_COUNT, cursor);
+                break;
+            case MenuState::MidiFnSetting:
+                drawList(MIDI_FN_ITEMS, MIDI_FN_COUNT, cursor);
                 break;
             case MenuState::WelcomeTune:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);

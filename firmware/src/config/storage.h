@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 12;
+constexpr uint8_t  EEPROM_VERSION = 13;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -110,6 +110,11 @@ struct SavedConfig {
     // Added in version 12.
     SceneSlot scenes[NUM_SCENES];
     uint8_t   currentScene;    // last loaded or saved, or SCENE_NONE
+    // Added in version 13. MIDI in. Kept out of SceneSlot and LayerCfg so
+    // neither changes size.
+    uint8_t   midiInChannel[NUM_LAYERS];  // 1-16, 0 = off
+    uint8_t   midiFn;                     // what incoming keys do (MidiFn)
+    uint16_t  sceneLearned[NUM_SCENES];   // each scene's Learned scale mask
 };
 
 void storageLoad(SavedConfig& cfg);

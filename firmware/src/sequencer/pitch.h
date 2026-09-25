@@ -25,6 +25,11 @@
 // clips no matter how far the offset travels.
 // ---------------------------------------------------------------------------
 
+// The incoming pitch bend wheel: a temporary offset on top of the Pitch
+// offset, springing back to 0 at centre. Not part of pitchGetOffset(), so it
+// never ends up in a scene.
+void  pitchSetWheel(float semitones);
+
 void  pitchSetOffset(float semitones);
 void  pitchAdjust(float deltaSemitones);
 float pitchGetOffset();

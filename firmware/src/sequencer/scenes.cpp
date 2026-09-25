@@ -3,6 +3,7 @@
 #include <math.h>
 #include "layers.h"
 #include "pitch.h"
+#include "scale.h"
 #include "motion/bar.h"
 #include "motion/stepper.h"
 
@@ -29,14 +30,24 @@ uint8_t sceneSelected(const SavedConfig& cfg) {
     return (pending != SCENE_NONE) ? pending : cfg.currentScene;
 }
 
-void scenesInit(const SavedConfig& cfg) {
-    // The rest of the scene is already in the saved settings; pitch and
-    // balance are the two it alone keeps.
+// A learned scale lives only in scenes. If the saved scale is Learned, its
+// notes come from the current scene; with none to be had, play Major.
+static void restoreLearned(SavedConfig& cfg) {
+    if (cfg.scale != Scale::Learned) return;
+    uint16_t mask = sceneUsed(cfg, cfg.currentScene) ? cfg.sceneLearned[cfg.currentScene] : 0;
+    if (mask) scaleSetLearned(mask);
+    else if (!scaleHasLearned()) cfg.scale = Scale::Major;
+}
+
+void scenesInit(SavedConfig& cfg) {
+    // The rest of the scene is already in the saved settings; pitch, balance
+    // and a learned scale are what it alone keeps.
     if (sceneUsed(cfg, cfg.currentScene)) {
         const SceneSlot& s = cfg.scenes[cfg.currentScene];
         pitchSetOffset(s.pitch);
         layerSetBalance(s.balance);
     }
+    restoreLearned(cfg);
 }
 
 static void apply(SavedConfig& cfg, uint8_t slot) {
@@ -51,6 +62,7 @@ static void apply(SavedConfig& cfg, uint8_t slot) {
     }
     pitchSetOffset(s.pitch);
     layerSetBalance(s.balance);
+    if (s.scale == Scale::Learned && cfg.sceneLearned[slot]) scaleSetLearned(cfg.sceneLearned[slot]);
     layersApply(cfg);
     cfg.currentScene = slot;
     changed    = true;
@@ -115,6 +127,7 @@ void sceneSave(SavedConfig& cfg, uint8_t slot) {
     }
     s.pitch   = pitchGetOffset();
     s.balance = layerBalance();
+    cfg.sceneLearned[slot] = (cfg.scale == Scale::Learned) ? scaleLearnedMask() : 0;
     cfg.currentScene = slot;
     pending = SCENE_NONE;
     storageCommit(cfg, CommitField::All);
@@ -124,6 +137,8 @@ bool sceneModified(const SavedConfig& cfg) {
     if (!sceneUsed(cfg, cfg.currentScene)) return false;
     const SceneSlot& s = cfg.scenes[cfg.currentScene];
     if (cfg.root != s.root || cfg.scale != s.scale || cfg.octave != s.octave) return true;
+    if (cfg.scale == Scale::Learned &&
+        scaleLearnedMask() != cfg.sceneLearned[cfg.currentScene]) return true;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         if (cfg.layer[l].voice   != s.voice[l] ||
             cfg.layer[l].shift   != s.shift[l] ||
@@ -137,6 +152,7 @@ void sceneRevertLive(SavedConfig& cfg) {
     bool have = sceneUsed(cfg, cfg.currentScene);
     pitchSetOffset(have ? cfg.scenes[cfg.currentScene].pitch : 0.0f);
     layerSetBalance(have ? cfg.scenes[cfg.currentScene].balance : 0);
+    restoreLearned(cfg);
     layersApply(cfg);
 }
 

@@ -20,10 +20,6 @@ void midiInit() {
     // use; it sends the bend range and bend to each one.
 }
 
-void midiUpdate() {
-    // MIDI input handling goes here (future)
-}
-
 uint8_t midiNoteOn(uint8_t layer, uint8_t channel, uint8_t note, uint8_t velocity) {
     // Whole semitones of the global offset move the note number; the remainder
     // rides on the channel bend, which pitch.cpp keeps current.

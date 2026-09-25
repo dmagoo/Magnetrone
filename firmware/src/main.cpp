@@ -5,6 +5,7 @@
 #include "audio/audio.h"
 #include "midi/midi.h"
 #include "midi/transport.h"
+#include "midi/midi_in.h"
 #include "motion/bar.h"
 #include "sensors/hall.h"
 #include "menu/menu.h"
@@ -36,7 +37,7 @@ void loop() {
     hallUpdate();
     sequencerUpdate(cfg);
     menuUpdate(cfg);
-    midiUpdate();
+    midiInUpdate(cfg);
     barUpdate(cfg);
     scenesUpdate(cfg);
 

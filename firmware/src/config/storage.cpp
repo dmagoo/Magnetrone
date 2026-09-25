@@ -63,6 +63,14 @@ static void setV12Defaults(SavedConfig& c) {
     c.currentScene = SCENE_NONE;
 }
 
+// Defaults for the fields added in version 13 (MIDI in).
+static void setV13Defaults(SavedConfig& c) {
+    c.midiInChannel[LAYER_A] = DEFAULT_MIDI_IN_CHANNEL_A;
+    c.midiInChannel[LAYER_B] = DEFAULT_MIDI_IN_CHANNEL_B;
+    c.midiFn = DEFAULT_MIDI_FN;
+    for (uint8_t i = 0; i < NUM_SCENES; i++) c.sceneLearned[i] = 0;
+}
+
 static void setLayerDefaults(SavedConfig& c) {
     c.layer[LAYER_A] = { LayerMode::On,      (uint8_t)VoiceId::Piano,
                          LAYER_CHANNEL_AUTO,  0, 100 };
@@ -124,6 +132,7 @@ SavedConfig storageDefaults() {
     setLayerDefaults(c);
     setV11Defaults(c);
     setV12Defaults(c);
+    setV13Defaults(c);
     return c;
 }
 
@@ -158,16 +167,18 @@ void storageLoad(SavedConfig& cfg) {
         cfg.sensorShiftV9 = 0;
         setV11Defaults(cfg);
         setV12Defaults(cfg);
+        setV13Defaults(cfg);
         committed = cfg;
         storageSave(cfg);
         return;
     }
 
-    // Versions 10 and 11 are straight prefixes: only the bar start (11) and
-    // scene (12) fields are new.
-    if (cfg.magic == EEPROM_MAGIC && (cfg.version == 10 || cfg.version == 11)) {
-        if (cfg.version == 10) setV11Defaults(cfg);
-        setV12Defaults(cfg);
+    // Versions 10 to 12 are straight prefixes: only the bar start (11), scene
+    // (12) and MIDI in (13) fields are new.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 10 && cfg.version <= 12) {
+        if (cfg.version <= 10) setV11Defaults(cfg);
+        if (cfg.version <= 11) setV12Defaults(cfg);
+        setV13Defaults(cfg);
         cfg.version = EEPROM_VERSION;
         committed = cfg;
         storageSave(cfg);

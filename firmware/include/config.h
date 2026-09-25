@@ -34,6 +34,17 @@ constexpr uint8_t   DEFAULT_AUX_FN       = 0;   // Octave
 constexpr uint8_t   DEFAULT_PITCH_STEP_DIV = 1;
 
 // -------------------------------------------------------------------------
+// MIDI in
+// -------------------------------------------------------------------------
+// Each layer listens on its own channel (0 = off). Most keyboards send on 1.
+constexpr uint8_t   DEFAULT_MIDI_IN_CHANNEL_A = 1;
+constexpr uint8_t   DEFAULT_MIDI_IN_CHANNEL_B = 2;
+constexpr uint8_t   DEFAULT_MIDI_FN           = 0;    // Off
+constexpr uint8_t   MIDI_CC_VOLUME            = 7;    // the standard volume CC
+constexpr uint8_t   MIDI_CC_OCTAVE            = 20;   // no standard; unassigned
+constexpr float     MIDI_BEND_IN_RANGE        = 2.0f; // semitones, the GM default
+
+// -------------------------------------------------------------------------
 // Hall sensors
 // -------------------------------------------------------------------------
 constexpr uint8_t   HALL_ADC_BITS           = 12;   // ADC resolution for hall sensors

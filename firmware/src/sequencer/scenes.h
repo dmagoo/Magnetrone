@@ -15,7 +15,7 @@
 // plus any menu changes made since. There is one "saved" state, not two.
 // =============================================================================
 
-void    scenesInit(const SavedConfig& cfg);   // at boot: the scene's pitch and balance
+void    scenesInit(SavedConfig& cfg);   // at boot: the scene's pitch, balance, learned scale
 void    scenesUpdate(SavedConfig& cfg);       // call every loop: lands a queued load
 
 bool    sceneUsed(const SavedConfig& cfg, uint8_t slot);
@@ -33,8 +33,8 @@ void    sceneSave(SavedConfig& cfg, uint8_t slot);
 // True when the live settings differ from the current scene.
 bool    sceneModified(const SavedConfig& cfg);
 
-// Aux Reset All: back to the saved settings, with the current scene's pitch
-// and balance (centred if none).
+// Aux Reset All: back to the saved settings, with the current scene's pitch,
+// balance and learned scale (centred / none if no scene).
 void    sceneRevertLive(SavedConfig& cfg);
 
 // True once after a load has landed, so the live display can redraw.

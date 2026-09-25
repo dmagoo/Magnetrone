@@ -14,8 +14,11 @@ enum class Scale : uint8_t {
     Chromatic,
     Dorian,
     Mixolydian,
+    Learned,       // set by Scale Learn from MIDI keys; live, kept only in scenes
     COUNT
 };
+
+constexpr uint8_t SCALE_BUILTIN_COUNT = (uint8_t)Scale::Learned;
 
 struct ScaleInfo {
     const char* name;
@@ -23,7 +26,14 @@ struct ScaleInfo {
     uint8_t     length;
 };
 
-extern const ScaleInfo SCALES[static_cast<uint8_t>(Scale::COUNT)];
+extern const ScaleInfo SCALES[SCALE_BUILTIN_COUNT];
+
+// The Learned scale, as a 12-bit mask: bit i set = i semitones above the
+// root is in the scale. Bit 0 (the root) is always set. 0 = none learned yet,
+// in which case Learned plays as Major.
+void     scaleSetLearned(uint16_t mask);
+uint16_t scaleLearnedMask();
+bool     scaleHasLearned();
 
 // Returns MIDI note number for a given scale degree.
 // degree is 0-based; wraps across octaves automatically.

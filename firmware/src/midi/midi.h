@@ -1,8 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-void midiInit();
-void midiUpdate();
+void midiInit();   // MIDI in is midi_in.h
 
 // Sends Note On on `channel` (1-16) for `note` shifted by the current global
 // pitch offset, and fires the given layer's internal synth bank at the exact
