@@ -24,6 +24,16 @@ turning physical arrangement into musical pattern.
   MIDI channel 10; Track Shift rotates the kit around the tracks and Low Note
   Outer flips it end to end
 - 1 revolution = 1 bar; BPM tracks RPM automatically
+- Bar start (StartPos): a start mark on the platter, located by calibration or
+  re-found later (Auto from one magnet, or Manual by jogging the platter), and
+  remembered across power cycles when the platter was at rest
+- Scenes: 8 saved Aux setups plus a read-only Defaults scene, loaded live on
+  the next bar start
+- MIDI beat clock driven by platter position, with Song Position Pointer so
+  external bars line up with the start mark
+- MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
+  (Pitch, Shift or Scale Learn), the bend wheel bends the table, CC 7 volume,
+  CC 20 octave
 - Root note, scale, and octave selectable from LCD menu
 - Speed and volume adjustable live at any time via dedicated encoders; touching
   either one returns to the live display from any menu (prompts excepted)
@@ -34,9 +44,11 @@ turning physical arrangement into musical pattern.
   button press skips it
 - LCD backlight timeout: configurable from always off to always on
 - Stepper motor sleeps when idle to reduce heat and power draw
-- Calibration routine measures magnet signal and actual platter RPM, and shows
-  the measured belt reduction (e.g. "Belt 10.9:1") against the assumed 11:1
-- Reset Calibration and Reset to Defaults available from the menu
+- Calibration (at 24 RPM, clear platter then one magnet on the start mark)
+  measures sensor baselines, threshold, magnet pole, the belt reduction
+  (e.g. "Belt 10.9:1", counted in motor steps) and the bar start
+- Tools menu: calibration, StartPos, Info and live Sensor Levels screens,
+  Reset Settings (keeps calibration and scenes) and Factory Reset
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1
 
@@ -51,8 +63,10 @@ index to scale degree and fires timed MIDI note on/off pairs; the audio module d
 an 8-voice synth bank per magnet layer plus a shared drum kit through the SGTL5000
 codec in parallel with MIDI out; the menu
 is a simple state machine driven by three encoders with live speed and volume handling
-at all times. A calibration routine samples the sensor baseline, times one full platter
-revolution, and derives a threshold and RPM correction factor stored in EEPROM.
+at all times. The platter keeps a signed step count, so the bar phase is exact; MIDI
+clock and scene loads are driven from it. A calibration routine samples the sensor
+baselines, counts motor steps over one platter revolution, and derives a threshold,
+RPM correction factor and bar start stored in EEPROM.
 
 ---
 
@@ -91,5 +105,7 @@ jack through a panel-mount power switch and an MP1584EN buck converter to 5V.
 
 ### First Run
 
-On first boot, no calibration data is present. Place a single magnet on the
-outer track of the platter and run Calibration from the menu (Main > Calibration).
+On first boot, no calibration data is present and the table offers to calibrate
+(later: Main > Tools > Full Calibrate). Clear the platter when asked, then place a
+single magnet on the start mark on the outer track. See the
+[user guide](docs/user-guide.md) for details.

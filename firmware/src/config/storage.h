@@ -128,8 +128,8 @@ void storageLoad(SavedConfig& cfg);
 // worrying that in-flight performance modulation will be persisted.
 void storageSave(const SavedConfig& cfg);
 
-// Which aux-modulated field storageCommit() adopts. All is for Reset All,
-// where every value was set deliberately.
+// Which aux-modulated field storageCommit() adopts. All is for Reset Settings,
+// Factory Reset and scene loads and saves, where every value was set deliberately.
 enum class CommitField : uint8_t { All, Root, Scale, Octave, Voice, Shift, LowNote,
                                    LayerOctave };
 
