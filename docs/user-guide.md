@@ -25,8 +25,8 @@ current scene, the key and the volume, and every menu leads back to it.
 | Aux    | Changes the selected function live    | Choose the function      |
 
 Speed and Volume work from any screen, and touching either one returns to the
-home screen. Menus also return to the home screen after 5 seconds of
-inactivity.
+home screen. Menus also return to the home screen after a while untouched
+(Menu Timeout, 30 seconds by default).
 
 The home screen shows:
 
@@ -191,6 +191,7 @@ Settings you choose once and leave alone.
 | Beats/Rev    | Main  | No  | Beats per revolution (1, 2, 3, 4, 6 or 8). Sets the BPM shown and the MIDI clock. Default 4. | Shared. |
 | Welcome Tune | Main  | No  | Plays each track's Layer A note at power-up. Press the menu button to skip it. Turning it on plays it once as a preview. | Layer A only. |
 | LCD Timeout  | Main  | No  | How long the backlight stays on after you touch a knob, from Always Off to Always On. | - |
+| Menu Timeout | Main  | No  | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. Default 30 s. | - |
 | Aux Fn       | Main  | No  | Which function the Aux knob controls. | - |
 | Pitch Step   | Main  | No  | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | - |
 | Go to StartPos  | Tools | No | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |

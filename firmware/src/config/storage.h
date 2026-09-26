@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 14;
+constexpr uint8_t  EEPROM_VERSION = 15;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -118,6 +118,8 @@ struct SavedConfig {
     uint16_t  sceneLearned[NUM_SCENES];   // each scene's Learned scale mask
     // Added in version 14: each scene's per-layer octave offset, now an Aux Fn.
     int8_t    sceneLayerOctave[NUM_SCENES][NUM_LAYERS];
+    // Added in version 15.
+    uint8_t   menuTimeout;     // seconds; MENU_TIMEOUT_NEVER = never
 };
 
 void storageLoad(SavedConfig& cfg);

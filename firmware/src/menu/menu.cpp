@@ -39,6 +39,7 @@ enum class MenuState : uint8_t {
     MidiFnSetting,
     WelcomeTune,
     LcdTimeout,
+    MenuTimeout,
     BeatsPerRev,
     MagnetPole,
     FirstBootPrompt,   // shown once on a fresh EEPROM: calibrate now or skip
@@ -171,10 +172,19 @@ static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
 
 static const char* MAIN_ITEMS[] = {
     "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
-    "LCD Timeout","Beats/Rev","Aux Fn","Pitch Step","MIDI Fn","Tools","Exit"
+    "LCD Timeout","Menu Timeout","Beats/Rev","Aux Fn","Pitch Step","MIDI Fn",
+    "Tools","Exit"
 };  // Exit returns to the live display; submenus keep "Back"
-static const uint8_t MAIN_COUNT = 13;
-enum : uint8_t { MAIN_ITEM_MIDI_FN = 10, MAIN_ITEM_TOOLS = 11, MAIN_ITEM_EXIT = 12 };
+static const uint8_t MAIN_COUNT = 14;
+enum : uint8_t { MAIN_ITEM_ROOT, MAIN_ITEM_SCALE, MAIN_ITEM_OCTAVE, MAIN_ITEM_LAYER_A,
+                 MAIN_ITEM_LAYER_B, MAIN_ITEM_WELCOME, MAIN_ITEM_LCD_TIMEOUT,
+                 MAIN_ITEM_MENU_TIMEOUT, MAIN_ITEM_BEATS, MAIN_ITEM_AUX_FN,
+                 MAIN_ITEM_PITCH_STEP, MAIN_ITEM_MIDI_FN, MAIN_ITEM_TOOLS, MAIN_ITEM_EXIT };
+
+// Menu timeout choices in seconds, as LCD Timeout offers its own.
+static const uint8_t MENU_TIMEOUT_VALUES[] = { 5, 10, 30, 60, MENU_TIMEOUT_NEVER };
+static const char*   MENU_TIMEOUT_LABELS[] = { "5 sec","10 sec","30 sec","1 min","Never","Back" };
+static const uint8_t MENU_TIMEOUT_COUNT = 6;   // 5 options + Back
 
 // What incoming MIDI keys do. Order matches MidiFn.
 static const char* MIDI_FN_ITEMS[] = { "Off","Pitch","Shift","Scale Learn","Chord","Back" };
@@ -957,7 +967,7 @@ void menuUpdate(SavedConfig& cfg) {
     // Prompts are questions waiting on an answer. Neither the menu timeout nor
     // a brushed speed or volume knob may dismiss one: they ask you to go and do
     // something physical (place a magnet, decide about wiping settings), which
-    // reliably takes longer than MENU_TIMEOUT_MS, and having the question
+    // reliably takes longer than the menu timeout, and having the question
     // vanish mid-task was a real bug. They stay put until answered.
     bool isPrompt = (state == MenuState::FirstBootPrompt ||
                      state == MenuState::CalClearPrompt ||
@@ -1012,7 +1022,8 @@ void menuUpdate(SavedConfig& cfg) {
 
     if (ev.menuDelta != 0 || ev.menuPressed) lastActivity = millis();
     if (state != MenuState::Status && !isPrompt && !isAux && !isView &&
-        millis() - lastActivity > MENU_TIMEOUT_MS) {
+        cfg.menuTimeout != MENU_TIMEOUT_NEVER &&
+        millis() - lastActivity > (uint32_t)cfg.menuTimeout * 1000UL) {
         enterState(MenuState::Status);
     }
 
@@ -1140,16 +1151,16 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 switch (cursor) {
-                    case 0: enterState(MenuState::RootNote,
+                    case MAIN_ITEM_ROOT: enterState(MenuState::RootNote,
                                 static_cast<uint8_t>(cfg.root)); break;
-                    case 1: enterState(MenuState::Scale,
+                    case MAIN_ITEM_SCALE: enterState(MenuState::Scale,
                                 static_cast<uint8_t>(cfg.scale)); break;
-                    case 2: enterState(MenuState::Octave, cfg.octave); break;
-                    case 3: editLayer = LAYER_A; enterState(MenuState::LayerMenu); break;
-                    case 4: editLayer = LAYER_B; enterState(MenuState::LayerMenu); break;
-                    case 5: enterState(MenuState::WelcomeTune,
+                    case MAIN_ITEM_OCTAVE: enterState(MenuState::Octave, cfg.octave); break;
+                    case MAIN_ITEM_LAYER_A: editLayer = LAYER_A; enterState(MenuState::LayerMenu); break;
+                    case MAIN_ITEM_LAYER_B: editLayer = LAYER_B; enterState(MenuState::LayerMenu); break;
+                    case MAIN_ITEM_WELCOME: enterState(MenuState::WelcomeTune,
                                 cfg.playWelcomeTune ? 0 : 1); break;
-                    case 6: {
+                    case MAIN_ITEM_LCD_TIMEOUT: {
                         // Find current timeout value in the options list.
                         uint8_t idx = 1; // default to 5s if not found
                         for (uint8_t i = 0; i < 7; i++) {
@@ -1158,7 +1169,7 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LcdTimeout, idx);
                         break;
                     }
-                    case 7: {
+                    case MAIN_ITEM_BEATS: {
                         // Land the cursor on the stored value, not the top.
                         uint8_t idx = 3;  // default to 4 beats if not found
                         for (uint8_t i = 0; i < 6; i++) {
@@ -1167,14 +1178,22 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::BeatsPerRev, idx);
                         break;
                     }
-                    case 8: enterState(MenuState::AuxFnDefault,
+                    case MAIN_ITEM_AUX_FN: enterState(MenuState::AuxFnDefault,
                                 (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1)); break;
-                    case 9: {
+                    case MAIN_ITEM_PITCH_STEP: {
                         uint8_t idx = 0;
                         for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
                             if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
                         }
                         enterState(MenuState::PitchStep, idx);
+                        break;
+                    }
+                    case MAIN_ITEM_MENU_TIMEOUT: {
+                        uint8_t idx = 2;   // 30 sec if not found
+                        for (uint8_t i = 0; i < MENU_TIMEOUT_COUNT - 1; i++) {
+                            if (MENU_TIMEOUT_VALUES[i] == cfg.menuTimeout) { idx = i; break; }
+                        }
+                        enterState(MenuState::MenuTimeout, idx);
                         break;
                     }
                     case MAIN_ITEM_MIDI_FN:
@@ -1194,7 +1213,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < 12) { cfg.root = static_cast<RootNote>(cursor); storageCommit(cfg, CommitField::Root); }
-                enterState(MenuState::MainMenu, 0);
+                enterState(MenuState::MainMenu, MAIN_ITEM_ROOT);
             }
             break;
 
@@ -1205,7 +1224,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < 8) { cfg.scale = static_cast<Scale>(cursor); storageCommit(cfg, CommitField::Scale); }
-                enterState(MenuState::MainMenu, 1);
+                enterState(MenuState::MainMenu, MAIN_ITEM_SCALE);
             }
             break;
 
@@ -1216,7 +1235,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < 8) { cfg.octave = cursor; storageCommit(cfg, CommitField::Octave); }
-                enterState(MenuState::MainMenu, 2);
+                enterState(MenuState::MainMenu, MAIN_ITEM_OCTAVE);
             }
             break;
 
@@ -1262,7 +1281,7 @@ void menuUpdate(SavedConfig& cfg) {
                                    (uint8_t)constrain(cfg.midiInChannel[editLayer], 0, 16));
                         break;
                     default:
-                        enterState(MenuState::MainMenu, editLayer == LAYER_A ? 3 : 4); break;
+                        enterState(MenuState::MainMenu, editLayer == LAYER_A ? MAIN_ITEM_LAYER_A : MAIN_ITEM_LAYER_B); break;
                 }
             }
             break;
@@ -1442,7 +1461,7 @@ void menuUpdate(SavedConfig& cfg) {
                     playWelcomeTune(cfg);
                 }
                 if (cursor == 1) { cfg.playWelcomeTune = false; storageSave(cfg); }
-                enterState(MenuState::MainMenu, 5);
+                enterState(MenuState::MainMenu, MAIN_ITEM_WELCOME);
             }
             break;
 
@@ -1465,7 +1484,21 @@ void menuUpdate(SavedConfig& cfg) {
                         lastInteraction = millis();
                     }
                 }
-                enterState(MenuState::MainMenu, 6);
+                enterState(MenuState::MainMenu, MAIN_ITEM_LCD_TIMEOUT);
+            }
+            break;
+
+        case MenuState::MenuTimeout:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + MENU_TIMEOUT_COUNT) % MENU_TIMEOUT_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < MENU_TIMEOUT_COUNT - 1) {   // last entry is Back
+                    cfg.menuTimeout = MENU_TIMEOUT_VALUES[cursor];
+                    storageSave(cfg);
+                }
+                enterState(MenuState::MainMenu, MAIN_ITEM_MENU_TIMEOUT);
             }
             break;
 
@@ -1479,7 +1512,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.beatsPerRev = BEATS_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 7);
+                enterState(MenuState::MainMenu, MAIN_ITEM_BEATS);
             }
             break;
 
@@ -1493,7 +1526,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.auxFn = cursor;
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 8);
+                enterState(MenuState::MainMenu, MAIN_ITEM_AUX_FN);
             }
             break;
 
@@ -1507,7 +1540,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.pitchStepDiv = PITCH_STEP_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, 9);
+                enterState(MenuState::MainMenu, MAIN_ITEM_PITCH_STEP);
             }
             break;
 
@@ -1850,6 +1883,9 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::LcdTimeout:
                 drawList(LCD_TIMEOUT_LABELS, LCD_TIMEOUT_COUNT, cursor);
+                break;
+            case MenuState::MenuTimeout:
+                drawList(MENU_TIMEOUT_LABELS, MENU_TIMEOUT_COUNT, cursor);
                 break;
             case MenuState::BeatsPerRev:
                 drawList(BEATS_LABELS, BEATS_COUNT, cursor);

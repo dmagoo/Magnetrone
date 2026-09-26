@@ -80,6 +80,11 @@ static void setV14Defaults(SavedConfig& c) {
             c.sceneLayerOctave[i][l] = c.layer[l].octaveOffset;
 }
 
+// Defaults for the field added in version 15.
+static void setV15Defaults(SavedConfig& c) {
+    c.menuTimeout = DEFAULT_MENU_TIMEOUT;
+}
+
 static void setLayerDefaults(SavedConfig& c) {
     c.layer[LAYER_A] = { LayerMode::On,      (uint8_t)VoiceId::Piano,
                          LAYER_CHANNEL_AUTO,  0, 100 };
@@ -143,6 +148,7 @@ SavedConfig storageDefaults() {
     setV12Defaults(c);
     setV13Defaults(c);
     setV14Defaults(c);
+    setV15Defaults(c);
     return c;
 }
 
@@ -179,18 +185,21 @@ void storageLoad(SavedConfig& cfg) {
         setV12Defaults(cfg);
         setV13Defaults(cfg);
         setV14Defaults(cfg);
+        setV15Defaults(cfg);
         committed = cfg;
         storageSave(cfg);
         return;
     }
 
-    // Versions 10 to 13 are straight prefixes: only the bar start (11), scene
-    // (12), MIDI in (13) and scene layer octave (14) fields are new.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 10 && cfg.version <= 13) {
+    // Versions 10 to 14 are straight prefixes: only the bar start (11), scene
+    // (12), MIDI in (13), scene layer octave (14) and menu timeout (15)
+    // fields are new.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 10 && cfg.version <= 14) {
         if (cfg.version <= 10) setV11Defaults(cfg);
         if (cfg.version <= 11) setV12Defaults(cfg);
         if (cfg.version <= 12) setV13Defaults(cfg);
-        setV14Defaults(cfg);
+        if (cfg.version <= 13) setV14Defaults(cfg);
+        setV15Defaults(cfg);
         cfg.version = EEPROM_VERSION;
         committed = cfg;
         storageSave(cfg);

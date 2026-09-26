@@ -129,7 +129,10 @@ constexpr uint32_t rpmToStepPeriodUs(float rpm) {
 // -------------------------------------------------------------------------
 // UI
 // -------------------------------------------------------------------------
-constexpr uint16_t  MENU_TIMEOUT_MS      = 5000;    // return to status screen
+// Menu timeout in seconds: how long a menu waits, untouched, before returning
+// to the home screen. 0 = never. A setting; this is only the factory default.
+constexpr uint8_t   DEFAULT_MENU_TIMEOUT = 30;
+constexpr uint8_t   MENU_TIMEOUT_NEVER   = 0;
 
 // LCD backlight timeout in seconds.
 // 0 = always off, 255 = always on, any other value = seconds of inactivity.
