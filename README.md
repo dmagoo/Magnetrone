@@ -32,7 +32,7 @@ turning physical arrangement into musical pattern.
 - MIDI beat clock driven by platter position, with Song Position Pointer so
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
-  (Pitch, Shift or Scale Learn), the bend wheel bends the table, CC 7 volume,
+  (Pitch, Shift, Scale Learn or Chord), the bend wheel bends the table, CC 7 volume,
   CC 20 octave
 - Root note, scale, and octave selectable from LCD menu
 - Speed and volume adjustable live at any time via dedicated encoders; touching
