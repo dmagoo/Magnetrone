@@ -17,6 +17,10 @@ static const uint32_t VOLUME_SAVE_DELAY_MS = 2000;
 
 static const uint8_t  LEARN_NOTES = 7;
 
+// Chord: keys pressed within this long of the first one count as one chord.
+static const uint32_t CHORD_WINDOW_MS = 40;
+static const uint8_t  CHORD_MAX_KEYS  = 4;
+
 // Parser state: running status is kept, so a message may arrive without its
 // status byte if the last one had the same.
 static uint8_t  status   = 0;
@@ -33,8 +37,14 @@ static uint8_t  learnPc[LEARN_NOTES];
 static uint8_t  learnNote[LEARN_NOTES];
 static uint8_t  learnCount = 0;
 
+// Chord: the keys of the chord being collected, and when it closes.
+static uint8_t  chordKeys[CHORD_MAX_KEYS];
+static uint8_t  chordCount = 0;
+static uint32_t chordAtMs  = 0;
+
 void midiInReset() {
     learnCount = 0;
+    chordCount = 0;
 }
 
 bool midiInTakeChanged() {
@@ -125,6 +135,43 @@ static void keyLearn(SavedConfig& cfg, uint8_t note) {
     changed = true;
 }
 
+// --- MIDI Fn: Chord ----------------------------------------------------------
+// Single-finger chords, as on arranger keyboards (Yamaha's Single Finger):
+// the highest key is the root, and extra keys to its left pick the scale.
+//   root alone                      Major
+//   + a black key to its left       Minor
+//   + a white key to its left       Mixolydian (a 7th chord)
+//   + a black and a white key       Dorian (a minor 7th)
+// The root key also sets the octave, as the Pitch Fn does.
+static void keyChord(uint8_t note) {
+    if (chordCount == 0) chordAtMs = millis() + CHORD_WINDOW_MS;
+    if (chordCount < CHORD_MAX_KEYS) chordKeys[chordCount++] = note;
+}
+
+static bool isBlack(uint8_t note) {
+    switch (note % 12) { case 1: case 3: case 6: case 8: case 10: return true; }
+    return false;
+}
+
+static void chordClose(SavedConfig& cfg) {
+    uint8_t root = chordKeys[0];
+    for (uint8_t i = 1; i < chordCount; i++) if (chordKeys[i] > root) root = chordKeys[i];
+    bool black = false, white = false;
+    for (uint8_t i = 0; i < chordCount; i++) {
+        if (chordKeys[i] == root) continue;
+        if (isBlack(chordKeys[i])) black = true;
+        else                       white = true;
+    }
+    chordCount = 0;
+
+    keyPitch(cfg, root);
+    if (black && white) cfg.scale = Scale::Dorian;
+    else if (black)     cfg.scale = Scale::Minor;
+    else if (white)     cfg.scale = Scale::Mixolydian;
+    else                cfg.scale = Scale::Major;
+    changed = true;
+}
+
 // -----------------------------------------------------------------------------
 
 static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8_t d1) {
@@ -138,6 +185,7 @@ static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8
                 case MidiFn::Pitch:      keyPitch(cfg, d0);          break;
                 case MidiFn::Shift:      keyShift(cfg, layers, d0);  break;
                 case MidiFn::ScaleLearn: keyLearn(cfg, d0);          break;
+                case MidiFn::Chord:      keyChord(d0);               break;
                 default: break;
             }
             break;
@@ -187,6 +235,8 @@ void midiInUpdate(SavedConfig& cfg) {
         count = 0;
         handle(cfg, type, (uint8_t)((status & 0x0F) + 1), data[0], data[1]);
     }
+
+    if (chordCount && (int32_t)(millis() - chordAtMs) >= 0) chordClose(cfg);
 
     if (volumeDirty && millis() - volumeAtMs >= VOLUME_SAVE_DELAY_MS) {
         volumeDirty = false;

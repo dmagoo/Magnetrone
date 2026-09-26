@@ -263,6 +263,7 @@ on either layer's channel.
 | Pitch       | A key sets root and octave together: G3 makes the root G, octave 3. |
 | Shift       | A key sets which note the layer's low track plays. A key outside the scale picks the nearest scale note. Drum layers ignore it. |
 | Scale Learn | Play seven different notes and they become the scale, shown as **Learned**, with the lowest note as root. Keep going and each new note replaces the oldest. |
+| Chord       | Single-finger chords, as on arranger keyboards. The highest key sets root and octave; extra keys to its left pick the scale: none = Major, a black key = Minor, a white key = Mixolydian (7th), both = Dorian (minor 7th). Keys pressed together count as one chord. |
 
 Like Aux changes, all of this is live and not saved, except the volume. Save a
 scene to keep a learned scale.

@@ -11,7 +11,7 @@
 // to both. Shared settings (root, scale, octave, pitch, volume) take a
 // message from either layer's channel.
 //
-//   Keys           the MIDI Fn: Pitch, Shift or Scale Learn (or Off)
+//   Keys           the MIDI Fn: Pitch, Shift, Scale Learn or Chord (or Off)
 //   Pitch bend     always a temporary pitch offset, +/-MIDI_BEND_IN_RANGE
 //   CC 7           volume
 //   CC 20          octave
@@ -23,7 +23,8 @@
 // own notes arrive here as control. Echo (MIDI thru) must be off there.
 // =============================================================================
 
-enum class MidiFn : uint8_t { Off, Pitch, Shift, ScaleLearn, COUNT };
+// Stored in cfg.midiFn: new Fns go at the end.
+enum class MidiFn : uint8_t { Off, Pitch, Shift, ScaleLearn, Chord, COUNT };
 
 void midiInUpdate(SavedConfig& cfg);   // call every loop
 
