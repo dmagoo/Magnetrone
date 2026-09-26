@@ -113,8 +113,8 @@ home screen.
 
 - **Turn** from the home screen: the first click shows the current value, and
   each click after that changes it straight away.
-- **Press** from the home screen: opens the function list with the current one
-  selected. Turn to pick another, press to start changing it.
+- **Press** from the home screen: opens the function list at the top. Turn to
+  pick a function, press to start changing it.
 - Press again to go back. The menu button returns straight to the home screen.
 
 The function list:

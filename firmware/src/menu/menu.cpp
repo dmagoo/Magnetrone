@@ -1037,11 +1037,10 @@ void menuUpdate(SavedConfig& cfg) {
                 // first step.
                 enterState(MenuState::MainMenu);
             } else if (ev.auxPressed) {
-                // Straight to the Fn list, with the current binding selected --
-                // this is also how you check what the knob is bound to, since
-                // the live display has no room to show it.
+                // Straight to the top of the Fn list. Not to the current
+                // binding: turning the knob here already gets to that.
                 auxEnteredFromLive = false;
-                openAuxSelect(cfg);
+                enterState(MenuState::AuxFnSelect, 0);
             } else if (ev.auxDelta != 0) {
                 // The first step only opens the parameter screen; it shows the
                 // current value unchanged and modulating starts from the next
