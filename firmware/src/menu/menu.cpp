@@ -1776,6 +1776,7 @@ void menuUpdate(SavedConfig& cfg) {
                     stepperSetCorrection(cfg.rpmCorrection);
                     if (factory) barInit(cfg);     // defaults: start unknown
                     audioSetVolume(cfg.volume);
+                    cfg.muted ? audioMute() : audioUnmute();
                     pitchSetOffset(0.0f);
                     layerSetBalance(0);
                     midiInReset();

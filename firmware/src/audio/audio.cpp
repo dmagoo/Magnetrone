@@ -131,7 +131,15 @@ static uint8_t allocVoice(uint8_t layer) {
 
 // ----------------------------------------------------------------------------
 
+// The level the volume knob (or MIDI CC) last set, and whether the output is
+// muted. Kept here so unmuting can restore the level, and so a volume change
+// while muted stays silent instead of quietly unmuting.
+static float currentVolume = 0.0f;
+static bool  isMuted       = false;
+
 void audioInit(float volume, bool muted) {
+    currentVolume = volume;
+    isMuted       = muted;
     // 16 voices, the drum kit and the mixers. Running short of blocks fails as
     // silent dropouts, not an error, so this is sized with headroom rather than
     // to the minimum.
@@ -212,16 +220,18 @@ void audioSetVoice(uint8_t layer, const Voice& voice) {
 }
 
 void audioSetVolume(float volume) {
-    sgtl5000.volume(volume);
+    currentVolume = volume;
+    if (!isMuted) sgtl5000.volume(volume);
 }
 
 void audioMute() {
+    isMuted = true;
     sgtl5000.volume(0.0f);
 }
 
 void audioUnmute() {
-    // Volume is managed by the SGTL5000 -- re-read from the caller's cfg.
-    // audioSetVolume() is called by the menu after unmuting.
+    isMuted = false;
+    sgtl5000.volume(currentVolume);
 }
 
 void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz) {
