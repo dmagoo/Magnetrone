@@ -19,9 +19,9 @@ current scene, the key and the volume, and every menu leads back to it.
 
 | Knob   | Turn                                  | Press                    |
 |--------|---------------------------------------|--------------------------|
+| Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects. Anywhere outside the main menu and its questions, it is the Home button |
 | Speed  | Platter speed. Below zero it reverses | Start or stop the platter |
 | Volume | Volume                                | Mute                     |
-| Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects. Anywhere outside the main menu and its questions, it is the Home button |
 | Aux    | Changes the selected function live    | Choose the function      |
 
 Speed and Volume work from any screen, and touching either one returns to the
