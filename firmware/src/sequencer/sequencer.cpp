@@ -22,6 +22,12 @@ struct NoteState {
 // sounding when a reversed magnet fires its Layer B note.
 static NoteState notes[NUM_LAYERS][NUM_HALL_SENSORS] = {};
 
+static uint8_t trackMask = 0xFF;
+
+void sequencerSetTrackMask(uint8_t mask) {
+    trackMask = mask;
+}
+
 static void noteOff(uint8_t layer, uint8_t i) {
     NoteState& n = notes[layer][i];
     if (n.kit) midiDrumOff(n.channel, n.note);
@@ -43,6 +49,7 @@ void sequencerUpdate(const SavedConfig& cfg) {
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         HallPole pole = hallTrigger(i);
         if (pole == HallPole::None) continue;
+        if (!(trackMask & (1u << i))) continue;   // muted in Placement Mode
 
         uint8_t l = (pole == HallPole::Normal) ? LAYER_A : LAYER_B;
         if (!layerActive(cfg, l)) continue;

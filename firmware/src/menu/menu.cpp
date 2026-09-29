@@ -18,6 +18,7 @@
 #include "motion/bar.h"
 #include "sequencer/scenes.h"
 #include "midi/midi_in.h"
+#include "sequencer/sequencer.h"
 
 static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 
@@ -73,6 +74,7 @@ enum class MenuState : uint8_t {
     FindStartConfirm,
     FindFront,          // Manual, first: jog the mark to the player (Front)
     FindFrontConfirm,
+    Placement,          // Placement Mode: the knobs position the platter
     StartCheck,         // setting: whether the boot prompt above is shown
     Info,               // read-only pages: belt, StartPos, threshold, driver
     SensorLevels,       // live: each sensor's reading against its rest level
@@ -220,12 +222,13 @@ static const uint8_t MIDI_FN_COUNT = 6;
 // bar start: where the start mark on the platter passes the arm. Front is
 // where the player sits.
 static const char* TOOLS_ITEMS[] = {
-    "Go to StartPos","Go to Front","Full Calibrate","Reset Calib.",
-    "Calib. StartPos","Info","Sensor Levels","Reset Settings","Factory Reset",
-    "Back"
+    "Go to StartPos","Go to Front","Placement Mode","Full Calibrate",
+    "Reset Calib.","Calib. StartPos","Info","Sensor Levels","Reset Settings",
+    "Factory Reset","Back"
 };
-static const uint8_t TOOLS_COUNT = 10;
-enum : uint8_t { TOOL_GO_TO_START, TOOL_GO_TO_FRONT, TOOL_FULL_CAL, TOOL_RESET_CAL,
+static const uint8_t TOOLS_COUNT = 11;
+enum : uint8_t { TOOL_GO_TO_START, TOOL_GO_TO_FRONT, TOOL_PLACEMENT,
+                 TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_CALIB_START, TOOL_INFO, TOOL_SENSOR_LEVELS,
                  TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
 
@@ -494,6 +497,7 @@ static bool auxEnteredFromLive = false;
 // Opens the Aux list on the current binding: inside its layer's list for a
 // per-layer Fn, else the top list.
 static void enterState(MenuState s, uint8_t initialCursor = 0);
+static void lcdLine(uint8_t row, const char* fmt, ...);
 static void openAuxSelect(const SavedConfig& cfg) {
     AuxFn fn = (AuxFn)cfg.auxFn;
     if (auxIsLayerFn(fn)) {
@@ -645,6 +649,124 @@ static void enterFindStart() {
     jogMoving    = false;
     frontPending = false;
     enterState(MenuState::FindFront);   // Front first, then the arm
+}
+
+// A knob jogs the platter, powered, so the step count stays exact. Each
+// detent keeps it turning a moment; quick detents turn it faster. Call every
+// pass with that knob's delta, 0 included, so the jog stops on time.
+static void jogUpdate(int8_t delta) {
+    uint32_t now = millis();
+    if (delta) {
+        float rpm = (now - lastJogMs < JOG_FAST_GAP_MS) ? JOG_FAST_RPM : JOG_FINE_RPM;
+        stepperJog(delta > 0 ? rpm : -rpm);
+        lastJogMs = now;
+        jogMoving = true;
+    } else if (jogMoving && now - lastJogMs > JOG_HOLD_MS) {
+        stepperStop();
+        jogMoving = false;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Placement Mode: the platter as a workbench for placing magnets at Front.
+// Speed jogs (press: Go to Front), Aux snaps to the next step (press: the next
+// beat), Volume picks and mutes tracks, Menu exits. Snapping and the readout
+// need StartPos and Front.
+// ---------------------------------------------------------------------------
+static const uint8_t PLACE_STEPS = 16;   // the platter's markings
+static uint8_t placeTracks = 0xFF;       // bit i = sensor i plays
+static uint8_t placeCursor = 0;          // selected track, 0 = innermost
+static bool    placeMoving = false;      // a snap move is under way
+static int8_t  placeDir    = 0;          // its direction
+static int32_t placeTarget = 0;          // its end, as a motor position
+static bool    placeWasRunning = false;  // for one last redraw at rest
+
+static bool placeGridKnown(const SavedConfig& cfg) {
+    return barKnown() && cfg.frontKnown;
+}
+
+// Where the platter is at Front, in steps of bar time: the point on the
+// platter that sits at Front when the platter is at motor position `pos`.
+// 0 is the start mark.
+static int32_t placeAtFront(const SavedConfig& cfg, int32_t pos) {
+    int32_t n = (int32_t)barStepsPerRev();
+    int32_t u = ((int32_t)barPhaseAt(pos) - (int32_t)cfg.frontPhase) % n;
+    return u < 0 ? u + n : u;
+}
+
+// Line k of a grid of `lines` per revolution, in the same units. k may be -1
+// or `lines`, a line just past either end.
+static int32_t placeLine(int32_t k, uint8_t lines) {
+    return (int32_t)((int64_t)k * (int64_t)barStepsPerRev() / lines);
+}
+
+// Steps to the next grid line from `u`, forward (dir > 0) or back. Never 0.
+static int32_t placeToLine(int32_t u, uint8_t lines, int8_t dir) {
+    int32_t n = (int32_t)barStepsPerRev();
+    int32_t k = (int32_t)((int64_t)u * lines / n);
+    if (dir > 0) {
+        while (placeLine(k, lines) <= u) k++;
+        return placeLine(k, lines) - u;
+    }
+    while (placeLine(k, lines) >= u) k--;
+    return placeLine(k, lines) - u;
+}
+
+// Snap `count` grid lines forward or back. A snap under way in the same
+// direction is extended from where it is heading; one the other way, or a
+// jog, is left to finish first.
+static void placeSnap(const SavedConfig& cfg, uint8_t lines, int8_t dir, uint8_t count) {
+    if (!placeGridKnown(cfg) || jogMoving) return;
+    if (placeMoving && dir != placeDir) return;
+    int32_t from = placeMoving ? placeTarget : stepperPosition();
+    int32_t to   = from;
+    for (uint8_t i = 0; i < count; i++) {
+        to += placeToLine(placeAtFront(cfg, to), lines, dir);
+    }
+    placeTarget = to;
+    placeDir    = dir;
+    placeMoving = true;
+    stepperMoveBy(to - stepperPosition(), GO_TO_START_RPM);
+}
+
+static void enterPlacement() {
+    if (stepperRunning()) stepperStop();
+    jogMoving   = false;
+    placeMoving = false;
+    placeTracks = 0xFF;   // all on each time; the mutes are not kept
+    placeCursor = 0;
+    sequencerSetTrackMask(placeTracks);
+    enterState(MenuState::Placement);
+}
+
+static void leavePlacement() {
+    stepperStop();
+    jogMoving   = false;
+    placeMoving = false;
+    placeTracks = 0xFF;
+    sequencerSetTrackMask(placeTracks);
+    enterState(MenuState::Tools, TOOL_PLACEMENT);
+}
+
+static void drawPlacement(const SavedConfig& cfg) {
+    if (placeGridKnown(cfg)) {
+        // Tenths of a step, 1-based like the markings: the mark is 1.0.
+        int32_t n      = (int32_t)barStepsPerRev();
+        int32_t tenths = (int32_t)(((int64_t)placeAtFront(cfg, stepperPosition()) *
+                                    PLACE_STEPS * 10 + n / 2) / n) % (PLACE_STEPS * 10);
+        lcdLine(0, "Step %d.%d/%u", (int)(tenths / 10 + 1), (int)(tenths % 10),
+                (unsigned)PLACE_STEPS);
+    } else {
+        lcdLine(0, barKnown() ? "Front unknown" : "StartPos unknown");
+    }
+    // Two columns per track: the cursor, then the number or - if muted.
+    char row[17];
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        row[i * 2]     = (i == placeCursor) ? LCD_ARROW_RIGHT : ' ';
+        row[i * 2 + 1] = (placeTracks & (1u << i)) ? (char)('1' + i) : '-';
+    }
+    row[16] = '\0';
+    lcdLine(1, "%s", row);
 }
 
 // Motor off at rest, for the hand-turn prompts. Turning the platter by hand
@@ -1281,7 +1403,16 @@ void menuUpdate(SavedConfig& cfg) {
         }
     }
 
-    // live speed control - all states
+    // Placement Mode takes over the speed, volume and aux knobs. Speed and
+    // volume are kept from the live controls below; aux stays in ev.
+    EncoderEvent place{};
+    if (state == MenuState::Placement) {
+        place = ev;
+        ev.speedDelta  = 0;  ev.speedPressed  = false;
+        ev.volumeDelta = 0;  ev.volumePressed = false;
+    }
+
+    // live speed control - all states except Placement Mode
     //
     // cfg.rpm is SIGNED: negative means the platter runs in reverse. Turning
     // down past the low end passes through a stop and out the other side into
@@ -1289,9 +1420,12 @@ void menuUpdate(SavedConfig& cfg) {
     // between -MIN_RPM and +MIN_RPM is a dead zone that reads as zero, and
     // leaving zero jumps straight to +/-MIN_RPM rather than crawling back up
     // through a dead zone it could never escape one detent at a time.
+    // Stopped with a press, the platter is at zero too: turning starts from
+    // +/-MIN_RPM the way the knob turns, not from the old speed. The press
+    // is the way to resume it.
     if (ev.speedDelta != 0) {
         float r;
-        if (cfg.rpm == 0.0f) {
+        if (cfg.rpm == 0.0f || !stepperRunning()) {
             r = (ev.speedDelta > 0) ? MIN_RPM : -MIN_RPM;
         } else {
             r = cfg.rpm + ev.speedDelta;
@@ -1343,6 +1477,8 @@ void menuUpdate(SavedConfig& cfg) {
                      state == MenuState::FindStartConfirm ||
                      state == MenuState::FindFront ||
                      state == MenuState::FindFrontConfirm ||
+                     state == MenuState::Placement ||   // a mode, not a prompt, but
+                                                        // it stays until Menu exits it
                      state == MenuState::ResetCalPrompt ||
                      state == MenuState::ResetSettingsPrompt ||
                      state == MenuState::FactoryResetPrompt);
@@ -2097,6 +2233,7 @@ void menuUpdate(SavedConfig& cfg) {
                         goToFront(cfg);
                         enterState(MenuState::Tools, TOOL_GO_TO_FRONT);
                         break;
+                    case TOOL_PLACEMENT:   enterPlacement(); break;
                     case TOOL_FULL_CAL:    enterState(MenuState::CalClearPrompt); break;
                     case TOOL_RESET_CAL:   enterState(MenuState::ResetCalPrompt); break;
                     case TOOL_CALIB_START: enterState(MenuState::StartPosMode); break;
@@ -2234,19 +2371,7 @@ void menuUpdate(SavedConfig& cfg) {
 
         case MenuState::FindStart:
         case MenuState::FindFront: {
-            // The menu knob jogs the platter, powered, so the step count stays
-            // exact. Each detent keeps it turning a moment; quick detents turn
-            // it faster.
-            uint32_t now = millis();
-            if (ev.menuDelta) {
-                float rpm = (now - lastJogMs < JOG_FAST_GAP_MS) ? JOG_FAST_RPM : JOG_FINE_RPM;
-                stepperJog(ev.menuDelta > 0 ? rpm : -rpm);
-                lastJogMs = now;
-                jogMoving = true;
-            } else if (jogMoving && now - lastJogMs > JOG_HOLD_MS) {
-                stepperStop();
-                jogMoving = false;
-            }
+            jogUpdate(ev.menuDelta);   // the menu knob jogs the platter
             if (ev.menuPressed) {
                 if (jogMoving) { stepperStop(); jogMoving = false; }
                 enterState(state == MenuState::FindStart ? MenuState::FindStartConfirm
@@ -2293,6 +2418,49 @@ void menuUpdate(SavedConfig& cfg) {
                     frontPending = (cursor == 0);
                     enterState(MenuState::FindStart);
                 }
+            }
+            break;
+
+        case MenuState::Placement:
+            if (ev.menuPressed) { leavePlacement(); break; }
+            if (!stepperRunning()) placeMoving = false;
+
+            // Speed: jog, or press for Front.
+            if (!placeMoving) jogUpdate(place.speedDelta);
+            if (place.speedPressed) {
+                jogMoving   = false;
+                placeMoving = false;
+                goToFront(cfg);
+                needsRedraw = true;
+            }
+
+            // Aux: the next step either way, or press for the next beat.
+            if (ev.auxDelta) {
+                placeSnap(cfg, PLACE_STEPS, ev.auxDelta > 0 ? 1 : -1,
+                          (uint8_t)abs(ev.auxDelta));
+            }
+            if (ev.auxPressed) placeSnap(cfg, cfg.beatsPerRev, 1, 1);
+
+            // Volume: pick a track, press to mute or unmute it.
+            if (place.volumeDelta) {
+                placeCursor = (uint8_t)((placeCursor + place.volumeDelta + NUM_HALL_SENSORS * 8)
+                                        % NUM_HALL_SENSORS);
+                needsRedraw = true;
+            }
+            if (place.volumePressed) {
+                placeTracks ^= (uint8_t)(1u << placeCursor);
+                sequencerSetTrackMask(placeTracks);
+                needsRedraw = true;
+            }
+
+            // The readout follows the platter while it moves, and shows where
+            // it stopped.
+            {
+                bool running = stepperRunning();
+                if (running ? millis() - lastLiveDraw >= LIVE_REDRAW_MS : placeWasRunning) {
+                    needsRedraw = true;
+                }
+                placeWasRunning = running;
             }
             break;
 
@@ -2603,6 +2771,10 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::StartCheck:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);
+                break;
+            case MenuState::Placement:
+                drawPlacement(cfg);
+                lastLiveDraw = millis();
                 break;
             case MenuState::Info:
                 drawInfo(cfg, cursor);

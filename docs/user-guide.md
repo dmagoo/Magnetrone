@@ -24,7 +24,7 @@ current scene, the key and the volume, and every menu leads back to it.
 | Knob   | Turn                                  | Press                    |
 |--------|---------------------------------------|--------------------------|
 | Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects. On the Aux screens, returns to the home screen |
-| Speed  | Platter speed. Below zero it reverses | Start or stop the platter |
+| Speed  | Platter speed. Below zero it reverses. From a stop it starts from zero, in the direction you turn | Start or stop the platter (start resumes the last speed) |
 | Volume | Volume                                | Mute                     |
 | Aux    | Changes the selected function live    | Opens the Aux function list. In the main menu, returns to the home screen |
 
@@ -116,6 +116,24 @@ set of magnets can play piano one way up and bass the other.
 
 For single-voice play, set Layer B's Mode to **Same as A**. Both sides then play
 the same, and it never matters which way up a magnet sits.
+
+### Placement Mode
+
+**Menu > Tools > Placement Mode** turns the platter into a workbench for placing
+magnets at [Front](#the-start-mark). The screen shows the step at Front, such as
+`Step 5.0/16` (the start mark is step 1), and the eight tracks, 1 innermost.
+
+| Knob   | Turn                              | Press                    |
+|--------|-----------------------------------|--------------------------|
+| Speed  | Moves the platter either way      | Turns the mark to Front  |
+| Aux    | Moves to the next step either way | Moves to the next beat   |
+| Volume | Picks a track                     | Mutes or unmutes it      |
+| Menu   |                                   | Leaves Placement Mode    |
+
+Magnets play as they pass the arm, so muting the other tracks lets you hear one
+track on its own. The mutes are cleared when you leave, and volume stays where
+it was. Steps, beats and the readout need StartPos and Front; without them only
+the Speed knob moves the platter.
 
 ## Main Menu
 
@@ -290,6 +308,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Magnet Pole  | System | Swaps which way up is Layer A. Calibration sets it. | Set by calibration |
 | Go to StartPos  | Tools | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
 | Go to Front     | Tools | Turns the platter the shorter way round until the start mark is in front of you (Front). See [The start mark](#the-start-mark). | - |
+| Placement Mode  | Tools | The knobs move the platter by hand, by step or by beat, and mute tracks, for placing magnets. See [Placement Mode](#placement-mode). | - |
 | Full Calibrate  | Tools | See [First Run](#first-run). | - |
 | Reset Calib.    | Tools | Clears calibration only, including the start mark. | - |
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
