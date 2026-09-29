@@ -32,6 +32,7 @@ static void put(SavedConfig& cfg, uint8_t slot) {
     for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.layer[l] = s.layer[l];
     pitchSetOffset(s.pitch);
     layerSetBalance(s.balance);
+    layersResetVoices();   // Voice Edit tweaks are not part of a scene
     layersApply(cfg);
 }
 

@@ -19,3 +19,23 @@ static const Voice VOICES[VOICE_COUNT] = {
 const Voice& voiceGet(uint8_t id) {
     return VOICES[(id < VOICE_COUNT) ? id : (uint8_t)VoiceId::Piano];
 }
+
+static const short WAVEFORMS[WAVE_COUNT] = {
+    WAVEFORM_SINE, WAVEFORM_TRIANGLE, WAVEFORM_BANDLIMIT_SAWTOOTH, WAVEFORM_BANDLIMIT_SQUARE
+};
+static const char* WAVE_NAMES[WAVE_COUNT] = { "Sine", "Triangle", "Saw", "Square" };
+
+short voiceWaveform(Wave w) {
+    return WAVEFORMS[(uint8_t)w < WAVE_COUNT ? (uint8_t)w : 0];
+}
+
+Wave voiceWave(short waveform) {
+    if (waveform == WAVEFORM_SAWTOOTH) return Wave::Saw;
+    if (waveform == WAVEFORM_SQUARE)   return Wave::Square;
+    for (uint8_t i = 0; i < WAVE_COUNT; i++) if (WAVEFORMS[i] == waveform) return (Wave)i;
+    return Wave::Sine;
+}
+
+const char* voiceWaveName(Wave w) {
+    return WAVE_NAMES[(uint8_t)w < WAVE_COUNT ? (uint8_t)w : 0];
+}

@@ -131,11 +131,31 @@ The function list:
 | Entry | |
 |-------|-|
 | Pitch | Moves both layers together. |
-| Layer A >, Layer B > | Open that layer's own functions: Voice, Root Note, Scale, Octave, Shift, Low Note. |
+| Layer A >, Layer B > | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note. |
 | A/B Balance, Load Scene | See the tables below and [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
 | Reset All | Undoes every Aux change. |
 | Exit | Back to the home screen. |
+
+### Voice Edit
+
+**Aux > Layer A > Voice Edit** (or Layer B) tweaks the voice that layer is
+playing. Turn to pick a setting, press to change it, and each click is heard
+from the next note:
+
+| Setting | Range |
+|---------|-------|
+| Wave    | Sine, Triangle, Saw, Square |
+| Attack  | How long the note takes to reach full volume, 0 to 2000 ms |
+| Decay   | How long it then takes to fall to the Sustain level, 0 to 2000 ms |
+| Sustain | The level it holds while the note lasts, 0 to 100%. At 100% Decay does nothing |
+| Release | How long it fades after the note ends, 0 to 3000 ms |
+| Length  | How long each note is held, 10 to 2000 ms |
+
+A tweaked voice shows `*` in the Voice list, such as `Piano*`. Tweaks affect
+only that layer, and are not saved: choosing another voice, loading a scene,
+**Reset All** or a restart puts the stock voice back. Drums and None cannot be
+edited.
 
 **Aux changes are not saved.** They are for playing, on top of the current
 scene. Power off, or choose **Reset All**, and the scene comes back as it was

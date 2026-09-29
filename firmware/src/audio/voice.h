@@ -37,5 +37,13 @@ constexpr uint8_t VOICE_COUNT = (uint8_t)VoiceId::COUNT;
 // Out-of-range ids (a corrupt or future EEPROM value) fall back to Piano.
 const Voice& voiceGet(uint8_t id);
 
+// The wave shapes Voice Edit offers. Saw and Square are the band-limited
+// ones the presets use.
+enum class Wave : uint8_t { Sine, Triangle, Saw, Square, COUNT };
+constexpr uint8_t WAVE_COUNT = (uint8_t)Wave::COUNT;
+short       voiceWaveform(Wave w);        // WAVEFORM_* for Voice::waveform
+Wave        voiceWave(short waveform);    // the reverse; unknown shapes read as Sine
+const char* voiceWaveName(Wave w);
+
 inline bool voiceIsKit(const Voice& v)    { return v.source == NoteSource::Kit; }
 inline bool voiceIsSilent(const Voice& v) { return v.source == NoteSource::Silent; }

@@ -13,6 +13,8 @@ bool layerActive(const SavedConfig& cfg, uint8_t layer);
 // The settings this layer plays with. Layer B in Same as A returns Layer A's.
 const LayerCfg& layerEffective(const SavedConfig& cfg, uint8_t layer);
 
+// The voice this layer plays: its live copy (see Voice Edit below). Layer B
+// in Same as A plays Layer A's, tweaks included.
 const Voice& layerVoice(const SavedConfig& cfg, uint8_t layer);
 
 // MIDI channel 1-16, with Auto resolved from the voice.
@@ -49,6 +51,24 @@ float layerGain(const SavedConfig& cfg, uint8_t layer);
 constexpr int8_t BALANCE_STEPS = 10;
 int8_t layerBalance();
 void   layerSetBalance(int8_t balance);
+
+// --- Voice Edit -----------------------------------------------------------------
+// Each layer plays a live copy of its voice, which Voice Edit can tweak.
+// Tweaks are live only: choosing another voice, loading a scene or Aux Reset
+// All goes back to the stock voice.
+
+// The live copy for Voice Edit to change. Layer B in Same as A gets Layer A's.
+// Call layerVoiceTweaked() after changing it.
+Voice& layerVoiceEdit(const SavedConfig& cfg, uint8_t layer);
+
+// Marks the layer's voice as tweaked and pushes it to the synth.
+void   layerVoiceTweaked(const SavedConfig& cfg, uint8_t layer);
+
+bool   layerVoiceIsTweaked(const SavedConfig& cfg, uint8_t layer);
+
+// Drops every tweak: each layer goes back to its stock voice. Call before
+// layersApply().
+void   layersResetVoices();
 
 // Pushes voices and MIDI channels to the audio and MIDI layers. Call after
 // anything that changes a layer setting. The balance needs no apply: it is

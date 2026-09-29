@@ -50,6 +50,8 @@ enum class MenuState : uint8_t {
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
     AuxLayerSelect, // aux knob: the same, inside Layer A > or Layer B >
+    VoiceEditList,  // aux knob: the layer's voice, which setting to tweak
+    VoiceEditParam, // aux knob: tweak it, live
     AuxParam,       // aux knob: modulate the chosen parameter, live
     SceneSaveSelect,  // aux knob: pick the scene slot to save to
     SceneSaveConfirm, // aux knob: overwrite a used slot?
@@ -284,12 +286,58 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
     AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
 };
 
-// Inside Layer A > / Layer B >, in AuxKind order.
+// Inside Layer A > / Layer B >: the per-layer Fns in AuxKind order, with
+// Voice Edit after Voice, then Back.
 static const char* AUX_LAYER_LABELS[] = {
-    "Voice","Root Note","Scale","Octave","Shift","Low Note","Back"
+    "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Back"
 };
-static const uint8_t AUX_LAYER_COUNT = AUX_KIND_COUNT + 1;   // + Back
+static const uint8_t AUX_LAYER_COUNT      = AUX_KIND_COUNT + 2;   // + Voice Edit, Back
+static const uint8_t AUX_LAYER_VOICE_EDIT = 1;
 static uint8_t auxLayer = LAYER_A;   // which layer's list is open
+
+// Where each AuxKind sits in that list, and back.
+static uint8_t auxKindPos(AuxKind k) {
+    return (k == AuxKind::Voice) ? 0 : (uint8_t)k + 1;
+}
+static AuxKind auxPosKind(uint8_t pos) {
+    return (pos == 0) ? AuxKind::Voice : (AuxKind)(pos - 1);
+}
+
+// --- Voice Edit -------------------------------------------------------------
+// Live tweaks to the voice a layer plays (layers.h). Not saved anywhere yet.
+static const char* VOICE_EDIT_LABELS[] = {
+    "Wave","Attack","Decay","Sustain","Release","Length","Back"
+};
+enum : uint8_t { VE_WAVE, VE_ATTACK, VE_DECAY, VE_SUSTAIN, VE_RELEASE, VE_LENGTH,
+                 VE_BACK, VE_COUNT };
+static uint8_t voiceEditParam = VE_WAVE;   // what VoiceEditParam changes
+
+// Envelope and note times, in ms. We hear these roughly in proportion to
+// their length, so the steps widen as they grow: each click is a change you
+// can hear, and a few turns cover the range. Every preset's value is a step.
+static const uint16_t TIME_STEPS[] = {
+    0, 5, 10, 20, 50, 100, 150, 200, 250, 300, 400, 500, 600, 800,
+    1000, 1500, 2000, 2500, 3000
+};
+static const uint8_t TIME_STEP_COUNT = sizeof(TIME_STEPS) / sizeof(TIME_STEPS[0]);
+
+// Moves a time `delta` steps from its nearest step, within [lo, hi] ms.
+static uint16_t timeStep(uint16_t ms, int8_t delta, uint16_t lo, uint16_t hi) {
+    uint8_t near = 0;
+    for (uint8_t i = 1; i < TIME_STEP_COUNT; i++) {
+        if (abs((int)TIME_STEPS[i] - (int)ms) < abs((int)TIME_STEPS[near] - (int)ms)) near = i;
+    }
+    int i = constrain((int)near + delta, 0, TIME_STEP_COUNT - 1);
+    return (uint16_t)constrain((int)TIME_STEPS[i], (int)lo, (int)hi);
+}
+
+// Layer B in Same as A plays A's voice, and Drums and None have nothing to
+// tweak.
+static bool voiceEditable(const SavedConfig& cfg, uint8_t l) {
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) return false;
+    const Voice& v = layerVoice(cfg, l);
+    return !voiceIsKit(v) && !voiceIsSilent(v);
+}
 
 // Play Setup > Aux Fn, which sets the binding ahead of time, stays one flat
 // list. Order matches AuxFn.
@@ -331,7 +379,7 @@ static void openAuxSelect(const SavedConfig& cfg) {
     AuxFn fn = (AuxFn)cfg.auxFn;
     if (auxIsLayerFn(fn)) {
         auxLayer = auxLayerOf(fn);
-        enterState(MenuState::AuxLayerSelect, (uint8_t)auxKindOf(fn));
+        enterState(MenuState::AuxLayerSelect, auxKindPos(auxKindOf(fn)));
         return;
     }
     uint8_t top = 0;
@@ -723,9 +771,19 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
     // Explicit counts: these lists carry a trailing "Back" for menu use that
     // has no meaning here, where the button is already back.
     switch (kind) {
-        case AuxKind::Voice:
-            drawList(VOICE_ITEMS, VOICE_COUNT, (uint8_t)constrain(lc.voice, 0, VOICE_COUNT - 1));
+        case AuxKind::Voice: {
+            // A tweaked voice is marked, "Piano*", so you know it is not stock.
+            uint8_t cur = (uint8_t)constrain(lc.voice, 0, VOICE_COUNT - 1);
+            static char marked[17];
+            const char* items[VOICE_COUNT];
+            for (uint8_t i = 0; i < VOICE_COUNT; i++) items[i] = VOICE_ITEMS[i];
+            if (layerVoiceIsTweaked(cfg, l)) {
+                snprintf(marked, sizeof(marked), "%s*", VOICE_ITEMS[cur]);
+                items[cur] = marked;
+            }
+            drawList(items, VOICE_COUNT, cur);
             break;
+        }
         case AuxKind::Root:
             drawList(ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
             break;
@@ -769,6 +827,58 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
 // on the current value, so the next value is visible before you turn into it.
 // Pitch is continuous rather than a list, so it shows its offset and the step
 // size currently in force.
+// Voice Edit's list, or why this layer's voice cannot be edited.
+static void drawVoiceEditList(const SavedConfig& cfg) {
+    if (voiceEditable(cfg, auxLayer)) { drawList(VOICE_EDIT_LABELS, VE_COUNT, cursor); return; }
+    if (auxLayer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+        lcdLine(0, "Layer B is");
+        lcdLine(1, "Same as A");
+    } else {
+        lcdLine(0, "%s can't be", layerVoice(cfg, auxLayer).name);
+        lcdLine(1, "edited");
+    }
+}
+
+// One voice setting: its name on top, the value below.
+static void drawVoiceEditParam(const SavedConfig& cfg) {
+    const Voice& v = layerVoice(cfg, auxLayer);
+    lcdLine(0, "%s", VOICE_EDIT_LABELS[voiceEditParam]);
+    switch (voiceEditParam) {
+        case VE_WAVE:    lcdLine(1, "%s", voiceWaveName(voiceWave(v.waveform)));    break;
+        case VE_ATTACK:  lcdLine(1, "%u ms", (unsigned)v.attackMs);                 break;
+        case VE_DECAY:   lcdLine(1, "%u ms", (unsigned)v.decayMs);                  break;
+        case VE_SUSTAIN: lcdLine(1, "%d%%", (int)lroundf(v.sustain * 100.0f));      break;
+        case VE_RELEASE: lcdLine(1, "%u ms", (unsigned)v.releaseMs);                break;
+        case VE_LENGTH:  lcdLine(1, "%u ms", (unsigned)v.noteMs);                   break;
+        default:         lcdLine(1, "");                                            break;
+    }
+}
+
+// One Voice Edit step, heard from the next note. Wave wraps (a list); the
+// rest clamp (magnitudes).
+static void voiceEditApply(SavedConfig& cfg, int8_t delta) {
+    Voice& v = layerVoiceEdit(cfg, auxLayer);
+    switch (voiceEditParam) {
+        case VE_WAVE: {
+            int w = ((int)voiceWave(v.waveform) + delta) % WAVE_COUNT;
+            if (w < 0) w += WAVE_COUNT;
+            v.waveform = voiceWaveform((Wave)w);
+            break;
+        }
+        case VE_ATTACK:  v.attackMs  = timeStep(v.attackMs,  delta, 0,  2000); break;
+        case VE_DECAY:   v.decayMs   = timeStep(v.decayMs,   delta, 0,  2000); break;
+        case VE_RELEASE: v.releaseMs = timeStep(v.releaseMs, delta, 0,  3000); break;
+        case VE_LENGTH:  v.noteMs    = timeStep(v.noteMs,    delta, 10, 2000); break;
+        case VE_SUSTAIN: {
+            int pct = (int)lroundf(v.sustain * 20.0f) * 5 + delta * 5;   // 5% steps
+            v.sustain = (float)constrain(pct, 0, 100) / 100.0f;
+            break;
+        }
+        default: return;
+    }
+    layerVoiceTweaked(cfg, auxLayer);
+}
+
 static void drawAuxParam(const SavedConfig& cfg) {
     AuxFn fn = (AuxFn)cfg.auxFn;
     if (auxIsLayerFn(fn)) {
@@ -1046,6 +1156,8 @@ void menuUpdate(SavedConfig& cfg) {
     // the way out.
     bool isAux = (state == MenuState::AuxFnSelect ||
                   state == MenuState::AuxLayerSelect ||
+                  state == MenuState::VoiceEditList ||
+                  state == MenuState::VoiceEditParam ||
                   state == MenuState::AuxParam ||
                   state == MenuState::SceneSaveSelect ||
                   state == MenuState::SceneSaveConfirm);
@@ -1138,10 +1250,46 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor == AUX_LAYER_COUNT - 1) {   // Back, to the top list
                     enterState(MenuState::AuxFnSelect,
                                auxLayer == LAYER_A ? AUXT_LAYER_A : AUXT_LAYER_B);
+                } else if (cursor == AUX_LAYER_VOICE_EDIT) {
+                    enterState(MenuState::VoiceEditList, 0);
                 } else {
-                    auxBind(cfg, auxLayerFn((AuxKind)cursor, auxLayer));
+                    auxBind(cfg, auxLayerFn(auxPosKind(cursor), auxLayer));
                 }
             }
+            break;
+
+        // Voice Edit: like the rest of the Aux, the aux knob picks and the aux
+        // button chooses or goes back; the menu button goes home. A voice
+        // that cannot be edited shows why, and the aux button goes back.
+        case MenuState::VoiceEditList:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (!voiceEditable(cfg, auxLayer)) {
+                if (ev.auxPressed) enterState(MenuState::AuxLayerSelect, AUX_LAYER_VOICE_EDIT);
+                break;
+            }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + VE_COUNT) % VE_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == VE_BACK) {
+                    enterState(MenuState::AuxLayerSelect, AUX_LAYER_VOICE_EDIT);
+                } else {
+                    voiceEditParam = cursor;
+                    enterState(MenuState::VoiceEditParam);
+                }
+            }
+            break;
+
+        case MenuState::VoiceEditParam:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) {
+                // The voice can stop being editable underneath (a MIDI Fn or
+                // scene load changing it); then this screen just goes back.
+                if (!voiceEditable(cfg, auxLayer)) enterState(MenuState::VoiceEditList, voiceEditParam);
+                else { voiceEditApply(cfg, ev.auxDelta); needsRedraw = true; }
+            }
+            if (ev.auxPressed) enterState(MenuState::VoiceEditList, voiceEditParam);
             break;
 
         // Save Scene: the aux knob picks a slot, the aux button chooses it. A
@@ -1987,6 +2135,12 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::AuxLayerSelect:
                 drawList(AUX_LAYER_LABELS, AUX_LAYER_COUNT, cursor);
+                break;
+            case MenuState::VoiceEditList:
+                drawVoiceEditList(cfg);
+                break;
+            case MenuState::VoiceEditParam:
+                drawVoiceEditParam(cfg);
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);

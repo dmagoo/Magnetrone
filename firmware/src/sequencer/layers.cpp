@@ -5,6 +5,26 @@
 
 static int8_t balance = 0;
 
+// Each layer's live copy of its voice, and which voice it is a copy of.
+// A layer set to a different voice starts again from stock.
+static const uint8_t NO_VOICE = 0xFF;
+static Voice   live[NUM_LAYERS];
+static uint8_t liveId[NUM_LAYERS]  = { NO_VOICE, NO_VOICE };
+static bool    tweaked[NUM_LAYERS] = { false, false };
+
+// Whose voice this layer plays: Layer A's for B in Same as A.
+static uint8_t voiceSource(const SavedConfig& cfg, uint8_t layer) {
+    return (layer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) ? LAYER_A : layer;
+}
+
+static void sync(const SavedConfig& cfg, uint8_t l) {
+    uint8_t id = cfg.layer[l].voice;
+    if (liveId[l] == id) return;
+    live[l]    = voiceGet(id);
+    liveId[l]  = id;
+    tweaked[l] = false;
+}
+
 bool layerActive(const SavedConfig& cfg, uint8_t layer) {
     LayerMode m = cfg.layer[layer].mode;
     if (layer == LAYER_B && m == LayerMode::SameAsA) m = cfg.layer[LAYER_A].mode;
@@ -19,7 +39,30 @@ const LayerCfg& layerEffective(const SavedConfig& cfg, uint8_t layer) {
 }
 
 const Voice& layerVoice(const SavedConfig& cfg, uint8_t layer) {
-    return voiceGet(layerEffective(cfg, layer).voice);
+    uint8_t src = voiceSource(cfg, layer);
+    sync(cfg, src);
+    return live[src];
+}
+
+Voice& layerVoiceEdit(const SavedConfig& cfg, uint8_t layer) {
+    uint8_t src = voiceSource(cfg, layer);
+    sync(cfg, src);
+    return live[src];
+}
+
+void layerVoiceTweaked(const SavedConfig& cfg, uint8_t layer) {
+    tweaked[voiceSource(cfg, layer)] = true;
+    layersApply(cfg);
+}
+
+bool layerVoiceIsTweaked(const SavedConfig& cfg, uint8_t layer) {
+    uint8_t src = voiceSource(cfg, layer);
+    sync(cfg, src);
+    return tweaked[src];
+}
+
+void layersResetVoices() {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) liveId[l] = NO_VOICE;
 }
 
 uint8_t layerChannel(const SavedConfig& cfg, uint8_t layer) {
