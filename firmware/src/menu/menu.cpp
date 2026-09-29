@@ -514,9 +514,9 @@ static void auxBind(SavedConfig& cfg, AuxFn fn) {
 }
 
 // Beats per platter revolution. 4 = one revolution is one 4/4 bar.
-static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8 };
-static const char*   BEATS_LABELS[] = { "1","2","3","4","6","8","Back" };
-static const uint8_t BEATS_COUNT = 7;   // 6 options + Back
+static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32 };
+static const char*   BEATS_LABELS[] = { "1","2","3","4","6","8","12","16","24","32","Back" };
+static const uint8_t BEATS_COUNT = 11;   // 10 options + Back
 
 static const char* WELCOME_ITEMS[] = { "On", "Off", "Back" };
 static const uint8_t WELCOME_COUNT = 3;

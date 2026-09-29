@@ -102,7 +102,7 @@ constexpr uint8_t   DEFAULT_BEATS_PER_REV = 4;
 // Motion
 // -------------------------------------------------------------------------
 constexpr float     DEFAULT_RPM          = 45.0f;
-constexpr float     MIN_RPM              = 10.0f;
+constexpr float     MIN_RPM              = 1.0f;
 constexpr float     MAX_RPM              = 120.0f;
 
 // Calibration spins slower than play speed: more accurate revolution timing,

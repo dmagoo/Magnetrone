@@ -10,6 +10,9 @@ The platter has eight concentric tracks, one sensor each. By default the
 innermost track plays the lowest note of the current scale and the outermost
 plays the highest.
 
+The platter is marked in 16 equal divisions. Each one is a **step**, so one
+revolution is 16 steps.
+
 Sound comes from the built-in synth (headphone or line out) and from MIDI OUT,
 so it can also drive external synths and send them tempo. See [MIDI](#midi).
 
@@ -265,7 +268,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 |--------------|-------|--------------|---------|
 | Channel      | Layer | MIDI channel. Auto follows the voice (see [Voices and Drums](#voices-and-drums)), or pick 1 to 16. Saved in scenes. | Auto |
 | MIDI In      | Layer | The MIDI channel this layer listens on, or Off. Not part of scenes. | A: 1, B: 2 |
-| Beats/Rev    | Play Setup | Beats per revolution (1, 2, 3, 4, 6 or 8). Sets the BPM shown and the MIDI clock. | 4 |
+| Beats/Rev    | Play Setup | Beats per revolution (1, 2, 3, 4, 6, 8, 12, 16, 24 or 32). Sets the BPM shown and the MIDI clock. | 4 |
 | Pitch Step   | Play Setup | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | 1 semitone |
 | Aux Fn       | Play Setup | Which function the Aux knob controls. | Pitch |
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |

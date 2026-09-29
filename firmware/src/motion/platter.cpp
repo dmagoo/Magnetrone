@@ -14,7 +14,7 @@ Platter* Platter::instance_ = nullptr;
 Platter::Config Platter::defaultConfig() {
     Config c;
     c.startRPM           = DEFAULT_RPM;                 // 45
-    c.minRPM             = MIN_RPM;                     // 10
+    c.minRPM             = MIN_RPM;                     // 1
     c.maxRPM             = MAX_RPM;                     // 120 (see UNCERTAINTIES)
     c.rpmStep            = 1.0f;                        // guess; no config constant
     c.microsteps         = 8;                           // TMC2209 reference, NOT config's 16
