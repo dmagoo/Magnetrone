@@ -37,6 +37,16 @@ constexpr uint8_t VOICE_COUNT = (uint8_t)VoiceId::COUNT;
 // Out-of-range ids (a corrupt or future EEPROM value) fall back to Piano.
 const Voice& voiceGet(uint8_t id);
 
+// Saved voices, stored by id beside the built-ins in LayerCfg::voice. The
+// ids leave room for more built-ins below them.
+constexpr uint8_t NUM_CUSTOM_VOICES  = 8;
+constexpr uint8_t VOICE_CUSTOM_FIRST = 16;   // 16-23: Custom 1-8, shared by all scenes
+constexpr uint8_t VOICE_SCENE        = 32;   // the current scene's own voice for the layer
+
+inline bool voiceIsCustomId(uint8_t id) {
+    return id >= VOICE_CUSTOM_FIRST && id < VOICE_CUSTOM_FIRST + NUM_CUSTOM_VOICES;
+}
+
 // The wave shapes Voice Edit offers. Saw and Square are the band-limited
 // ones the presets use.
 enum class Wave : uint8_t { Sine, Triangle, Saw, Square, COUNT };

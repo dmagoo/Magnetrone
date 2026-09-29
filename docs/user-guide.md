@@ -153,9 +153,22 @@ from the next note:
 | Length  | How long each note is held, 10 to 2000 ms |
 
 A tweaked voice shows `*` in the Voice list, such as `Piano*`. Tweaks affect
-only that layer, and are not saved: choosing another voice, loading a scene,
-**Reset All** or a restart puts the stock voice back. Drums and None cannot be
-edited.
+only that layer, and are not kept on their own: choosing another voice, loading
+a scene, **Reset All** or a restart puts the voice back as it was. **Save
+Scene** does not keep them either. Drums and None cannot be edited.
+
+To keep a tweaked voice, choose **Save As...** at the bottom of the Voice Edit
+list:
+
+- **Custom 1** to **Custom 8**: shared by every scene. The layer then plays
+  it, and it appears in every Voice list. Saving over a used one asks first,
+  and changes every scene that uses it.
+- **Scene 3 Voice A** (the current scene, and the layer you are editing): kept
+  with this scene only, as its **Scene Voice**. The scene is set to play it
+  straight away, nothing else in the scene changes. Not offered in the
+  Defaults scene.
+
+Saving a scene to another slot copies its Scene Voice along.
 
 **Aux changes are not saved.** They are for playing, on top of the current
 scene. Power off, or choose **Reset All**, and the scene comes back as it was
@@ -196,7 +209,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Function    | Where  | Aux | What it does | Default |
 |-------------|--------|-----|--------------|---------|
 | Mode        | Layer  | No  | On or Off. Layer B also has Same as A: it plays exactly like Layer A. Off silences every magnet that way up. | On |
-| Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
+| Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, or a scale learned from MIDI (see [MIDI In](#midi-in)). Drums ignore it. | Major |
 | Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
@@ -234,8 +247,8 @@ Settings you choose once and leave alone.
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
 | Info            | Tools | Read-only pages, turned through with the menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
-| Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark and scenes 1 to 8. Asks first. | - |
-| Factory Reset   | Tools | Erases everything, scenes and calibration included. Asks first. | - |
+| Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices. Asks first. | - |
+| Factory Reset   | Tools | Erases everything, scenes, saved voices and calibration included. Asks first. | - |
 
 ## Voices and Drums
 
@@ -247,6 +260,9 @@ Settings you choose once and leave alone.
 | Leads   | Bright, sustained         | 4                   |
 | Drums   | Drum kit, one drum per track | 10               |
 | None    | Silent                    | -                   |
+
+Custom voices and Scene Voices (see [Voice Edit](#voice-edit)) use the MIDI
+channel of the voice they were made from.
 
 The drum kit, innermost track first:
 

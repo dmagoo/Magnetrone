@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include "layers.h"
+#include "audio/voice.h"
 #include "pitch.h"
 #include "motion/bar.h"
 #include "motion/stepper.h"
@@ -42,8 +43,8 @@ void scenesInit(SavedConfig& cfg) {
 
 static void apply(SavedConfig& cfg, uint8_t slot) {
     if (!sceneUsed(cfg, slot)) return;
+    cfg.currentScene = slot;   // first: a scene's own voices are looked up by it
     put(cfg, slot);
-    cfg.currentScene = slot;
     changed  = true;
     saveDue  = true;
     saveAtMs = millis() + SAVE_DELAY_MS;
@@ -90,7 +91,12 @@ void scenesUpdate(SavedConfig& cfg) {
 void sceneSave(SavedConfig& cfg, uint8_t slot) {
     if (slot == SCENE_DEFAULTS || slot >= NUM_SCENES) return;   // Defaults: menu only
     Scene& s = cfg.scenes[slot];
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) s.layer[l] = cfg.layer[l];
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        s.layer[l] = cfg.layer[l];
+        // A layer playing this scene's own voice takes a copy of it along.
+        if (cfg.layer[l].voice == VOICE_SCENE && slot != cfg.currentScene)
+            cfg.sceneVoices[slot][l] = cfg.sceneVoices[cfg.currentScene][l];
+    }
     s.pitch   = pitchGetOffset();
     s.balance = layerBalance();
     cfg.sceneUsed[slot] = true;

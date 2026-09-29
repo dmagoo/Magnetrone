@@ -10,7 +10,28 @@ static int8_t balance = 0;
 static const uint8_t NO_VOICE = 0xFF;
 static Voice   live[NUM_LAYERS];
 static uint8_t liveId[NUM_LAYERS]  = { NO_VOICE, NO_VOICE };
+static uint8_t liveBase[NUM_LAYERS];   // the built-in it came from, for saving
 static bool    tweaked[NUM_LAYERS] = { false, false };
+
+static const char* CUSTOM_NAMES[NUM_CUSTOM_VOICES] = {
+    "Custom 1","Custom 2","Custom 3","Custom 4","Custom 5","Custom 6","Custom 7","Custom 8"
+};
+static const char* SCENE_VOICE_NAME = "Scene Voice";
+
+const char* voiceIdName(uint8_t id) {
+    if (voiceIsCustomId(id)) return CUSTOM_NAMES[id - VOICE_CUSTOM_FIRST];
+    if (id == VOICE_SCENE)   return SCENE_VOICE_NAME;
+    return voiceGet(id).name;
+}
+
+// The saved voice a stored id refers to, or null for a built-in (or a slot
+// that is empty, which then plays Piano).
+static const VoiceSlot* slotFor(const SavedConfig& cfg, uint8_t l, uint8_t id) {
+    const VoiceSlot* s = nullptr;
+    if (voiceIsCustomId(id))  s = &cfg.customVoices[id - VOICE_CUSTOM_FIRST];
+    else if (id == VOICE_SCENE && cfg.currentScene < NUM_SCENES) s = &cfg.sceneVoices[cfg.currentScene][l];
+    return (s && s->used) ? s : nullptr;
+}
 
 // Whose voice this layer plays: Layer A's for B in Same as A.
 static uint8_t voiceSource(const SavedConfig& cfg, uint8_t layer) {
@@ -20,9 +41,40 @@ static uint8_t voiceSource(const SavedConfig& cfg, uint8_t layer) {
 static void sync(const SavedConfig& cfg, uint8_t l) {
     uint8_t id = cfg.layer[l].voice;
     if (liveId[l] == id) return;
-    live[l]    = voiceGet(id);
+    const VoiceSlot* s = slotFor(cfg, l, id);
+    if (s) {
+        live[l]           = voiceGet(s->base);
+        live[l].name      = voiceIdName(id);
+        live[l].waveform  = voiceWaveform((Wave)s->wave);
+        live[l].attackMs  = s->attackMs;
+        live[l].decayMs   = s->decayMs;
+        live[l].sustain   = (float)s->sustainPct / 100.0f;
+        live[l].releaseMs = s->releaseMs;
+        live[l].noteMs    = s->noteMs;
+        liveBase[l]       = s->base;
+    } else {
+        uint8_t base = (id < VOICE_COUNT) ? id : (uint8_t)VoiceId::Piano;
+        live[l]     = voiceGet(base);
+        liveBase[l] = base;
+    }
     liveId[l]  = id;
     tweaked[l] = false;
+}
+
+// The layer's live voice, as a saved voice.
+static VoiceSlot toSlot(const SavedConfig& cfg, uint8_t l) {
+    sync(cfg, l);
+    const Voice& v = live[l];
+    VoiceSlot s{};
+    s.used       = true;
+    s.base       = liveBase[l];
+    s.wave       = (uint8_t)voiceWave(v.waveform);
+    s.sustainPct = (uint8_t)constrain((int)lroundf(v.sustain * 100.0f), 0, 100);
+    s.attackMs   = v.attackMs;
+    s.decayMs    = v.decayMs;
+    s.releaseMs  = v.releaseMs;
+    s.noteMs     = v.noteMs;
+    return s;
 }
 
 bool layerActive(const SavedConfig& cfg, uint8_t layer) {
@@ -63,6 +115,28 @@ bool layerVoiceIsTweaked(const SavedConfig& cfg, uint8_t layer) {
 
 void layersResetVoices() {
     for (uint8_t l = 0; l < NUM_LAYERS; l++) liveId[l] = NO_VOICE;
+}
+
+void layerVoiceSaveCustom(SavedConfig& cfg, uint8_t layer, uint8_t n) {
+    if (n >= NUM_CUSTOM_VOICES) return;
+    uint8_t src = voiceSource(cfg, layer);
+    cfg.customVoices[n]   = toSlot(cfg, src);
+    cfg.layer[src].voice  = VOICE_CUSTOM_FIRST + n;
+    storageSave(cfg);
+    layersResetVoices();   // every layer playing Custom n picks up the new one
+    layersApply(cfg);
+}
+
+void layerVoiceSaveScene(SavedConfig& cfg, uint8_t layer) {
+    uint8_t sc = cfg.currentScene;
+    if (sc == SCENE_DEFAULTS || sc >= NUM_SCENES) return;
+    uint8_t src = voiceSource(cfg, layer);
+    cfg.sceneVoices[sc][src]          = toSlot(cfg, src);
+    cfg.scenes[sc].layer[src].voice   = VOICE_SCENE;
+    cfg.layer[src].voice              = VOICE_SCENE;
+    storageSave(cfg);
+    layersResetVoices();
+    layersApply(cfg);
 }
 
 uint8_t layerChannel(const SavedConfig& cfg, uint8_t layer) {

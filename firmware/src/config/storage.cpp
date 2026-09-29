@@ -49,6 +49,7 @@ struct SavedConfigV15 {
 };
 
 static_assert(sizeof(SavedConfig) <= E2END + 1, "SavedConfig does not fit the EEPROM");
+static_assert(NUM_SAVED_VOICES == NUM_CUSTOM_VOICES, "custom voice counts differ");
 
 Scene storageFactoryScene() {
     Scene s{};
@@ -121,6 +122,14 @@ SavedConfig storageDefaults() {
 
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
+    // Version 16 is a prefix of this one: only the saved voices are new.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 16) {
+        for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) cfg.customVoices[i] = VoiceSlot{};
+        for (uint8_t i = 0; i < NUM_SCENES; i++)
+            for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.sceneVoices[i][l] = VoiceSlot{};
+        cfg.version = EEPROM_VERSION;
+        storageSave(cfg);
+    }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
         if (cfg.currentScene >= NUM_SCENES || !cfg.sceneUsed[cfg.currentScene]) {
             cfg.currentScene = SCENE_DEFAULTS;

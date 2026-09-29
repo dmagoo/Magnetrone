@@ -70,6 +70,18 @@ bool   layerVoiceIsTweaked(const SavedConfig& cfg, uint8_t layer);
 // layersApply().
 void   layersResetVoices();
 
+// Save As: the layer's voice, tweaks included, into Custom `n` (0-7), which
+// the layer then plays. Only the live sound changes; scenes using Custom n
+// sound the new way from now on.
+void   layerVoiceSaveCustom(SavedConfig& cfg, uint8_t layer, uint8_t n);
+
+// Save As: the layer's voice into the current scene's own voice for this
+// layer, and the scene (saved and live) set to play it. Not for Defaults.
+void   layerVoiceSaveScene(SavedConfig& cfg, uint8_t layer);
+
+// The name a stored voice id shows in lists: "Piano", "Custom 3", "Scene Voice".
+const char* voiceIdName(uint8_t id);
+
 // Pushes voices and MIDI channels to the audio and MIDI layers. Call after
 // anything that changes a layer setting. The balance needs no apply: it is
 // read per note, in layerGain().

@@ -52,6 +52,8 @@ enum class MenuState : uint8_t {
     AuxLayerSelect, // aux knob: the same, inside Layer A > or Layer B >
     VoiceEditList,  // aux knob: the layer's voice, which setting to tweak
     VoiceEditParam, // aux knob: tweak it, live
+    VoiceSaveSelect,  // aux knob: Save As, pick the slot
+    VoiceSaveConfirm, // aux knob: overwrite a used custom slot?
     AuxParam,       // aux knob: modulate the chosen parameter, live
     SceneSaveSelect,  // aux knob: pick the scene slot to save to
     SceneSaveConfirm, // aux knob: overwrite a used slot?
@@ -109,10 +111,6 @@ static const char* OCTAVE_ITEMS[] = {
     "0","1","2","3","4","5","6","7","Back"
 };
 static const uint8_t OCTAVE_COUNT = 9;
-
-// Voice names come from voice.cpp, filled in by menuInit(); this adds Back.
-static const char* VOICE_ITEMS[VOICE_COUNT + 1];
-static const uint8_t VOICE_ITEMS_COUNT = VOICE_COUNT + 1;
 
 // --- Layer submenu --------------------------------------------------------
 // Layer A and Layer B share one submenu; editLayer says which is open.
@@ -304,12 +302,75 @@ static AuxKind auxPosKind(uint8_t pos) {
 }
 
 // --- Voice Edit -------------------------------------------------------------
-// Live tweaks to the voice a layer plays (layers.h). Not saved anywhere yet.
+// Live tweaks to the voice a layer plays (layers.h). Save As keeps them, in a
+// custom slot or as the current scene's own voice for the layer.
 static const char* VOICE_EDIT_LABELS[] = {
-    "Wave","Attack","Decay","Sustain","Release","Length","Back"
+    "Wave","Attack","Decay","Sustain","Release","Length","Save As...","Back"
 };
 enum : uint8_t { VE_WAVE, VE_ATTACK, VE_DECAY, VE_SUSTAIN, VE_RELEASE, VE_LENGTH,
-                 VE_BACK, VE_COUNT };
+                 VE_SAVE, VE_BACK, VE_COUNT };
+
+// The voices a layer can pick, as shown: the built-ins, the used custom
+// slots, then (for the Aux, outside Defaults) the scene's own voice if it
+// has one for this layer. Rebuilt before use, since slots come and go.
+static const uint8_t VOICE_CHOICE_MAX = VOICE_COUNT + NUM_CUSTOM_VOICES + 1;
+static uint8_t     voiceChoiceIds[VOICE_CHOICE_MAX];
+static const char* voiceChoiceLabels[VOICE_CHOICE_MAX + 1];   // + Back
+static char        voiceChoiceMarked[17];
+
+static uint8_t buildVoiceChoices(const SavedConfig& cfg, uint8_t layer, bool withScene) {
+    uint8_t n = 0;
+    for (uint8_t i = 0; i < VOICE_COUNT; i++) voiceChoiceIds[n++] = i;
+    for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++) {
+        if (cfg.customVoices[i].used) voiceChoiceIds[n++] = VOICE_CUSTOM_FIRST + i;
+    }
+    if (withScene && cfg.currentScene != SCENE_DEFAULTS &&
+        cfg.sceneVoices[cfg.currentScene][layer].used) {
+        voiceChoiceIds[n++] = VOICE_SCENE;
+    }
+    for (uint8_t i = 0; i < n; i++) voiceChoiceLabels[i] = voiceIdName(voiceChoiceIds[i]);
+    voiceChoiceLabels[n] = "Back";
+    return n;
+}
+
+// Where voice `id` sits in the list just built; 0 if it is not there.
+static uint8_t voiceChoicePos(uint8_t id, uint8_t n) {
+    for (uint8_t i = 0; i < n; i++) if (voiceChoiceIds[i] == id) return i;
+    return 0;
+}
+
+// Save As: Custom 1-8, then this layer's slot in the current scene (not
+// Defaults), then Back. Labels rebuilt before each draw.
+static char        VOICE_SAVE_BUF[NUM_CUSTOM_VOICES + 1][17];
+static const char* VOICE_SAVE_ITEMS[NUM_CUSTOM_VOICES + 2];
+static uint8_t     voiceSaveTarget = 0;   // the custom slot being confirmed
+
+static uint8_t buildVoiceSaveItems(const SavedConfig& cfg, uint8_t layer) {
+    uint8_t n = 0;
+    for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++, n++) {
+        snprintf(VOICE_SAVE_BUF[n], sizeof(VOICE_SAVE_BUF[n]), "Custom %u%s",
+                 (unsigned)(i + 1), cfg.customVoices[i].used ? "" : " empty");
+        VOICE_SAVE_ITEMS[n] = VOICE_SAVE_BUF[n];
+    }
+    if (cfg.currentScene != SCENE_DEFAULTS) {
+        snprintf(VOICE_SAVE_BUF[n], sizeof(VOICE_SAVE_BUF[n]), "Scene %c Voice %c",
+                 '0' + cfg.currentScene, 'A' + layer);   // scenes are 1-8 here
+        VOICE_SAVE_ITEMS[n] = VOICE_SAVE_BUF[n];
+        n++;
+    }
+    VOICE_SAVE_ITEMS[n] = "Back";
+    return n + 1;
+}
+
+// After a save: say where it went, then back to the Voice Edit list.
+static void enterState(MenuState s, uint8_t initialCursor);
+static void voiceSaved(const char* where) {
+    char msg[17];
+    snprintf(msg, sizeof(msg), "Saved %s", where);
+    menuMessage(msg, "");
+    delay(1000);
+    enterState(MenuState::VoiceEditList, VE_SAVE);
+}
 static uint8_t voiceEditParam = VE_WAVE;   // what VoiceEditParam changes
 
 // Envelope and note times, in ms. We hear these roughly in proportion to
@@ -710,9 +771,10 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
 
     switch (auxKindOf(fn)) {
         case AuxKind::Voice: {
-            int v = ((int)lc.voice + delta) % VOICE_COUNT;
-            if (v < 0) v += VOICE_COUNT;
-            lc.voice = (uint8_t)v;                             // wrap: a list
+            uint8_t n = buildVoiceChoices(cfg, l, true);
+            int v = ((int)voiceChoicePos(lc.voice, n) + delta) % n;
+            if (v < 0) v += n;
+            lc.voice = voiceChoiceIds[v];                      // wrap: a list
             layersApply(cfg);
             break;
         }
@@ -773,15 +835,13 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
     switch (kind) {
         case AuxKind::Voice: {
             // A tweaked voice is marked, "Piano*", so you know it is not stock.
-            uint8_t cur = (uint8_t)constrain(lc.voice, 0, VOICE_COUNT - 1);
-            static char marked[17];
-            const char* items[VOICE_COUNT];
-            for (uint8_t i = 0; i < VOICE_COUNT; i++) items[i] = VOICE_ITEMS[i];
+            uint8_t n   = buildVoiceChoices(cfg, l, true);
+            uint8_t cur = voiceChoicePos(lc.voice, n);
             if (layerVoiceIsTweaked(cfg, l)) {
-                snprintf(marked, sizeof(marked), "%s*", VOICE_ITEMS[cur]);
-                items[cur] = marked;
+                snprintf(voiceChoiceMarked, sizeof(voiceChoiceMarked), "%s*", voiceChoiceLabels[cur]);
+                voiceChoiceLabels[cur] = voiceChoiceMarked;
             }
-            drawList(items, VOICE_COUNT, cur);
+            drawList(voiceChoiceLabels, n, cur);
             break;
         }
         case AuxKind::Root:
@@ -1008,8 +1068,6 @@ static void playWelcomeTune(const SavedConfig& cfg) {
 void menuInit(const SavedConfig& cfg) {
     lcd.init();
 
-    for (uint8_t i = 0; i < VOICE_COUNT; i++) VOICE_ITEMS[i] = voiceGet(i).name;
-    VOICE_ITEMS[VOICE_COUNT] = "Back";
 
     CHANNEL_ITEMS[0] = "Auto";
     for (uint8_t c = 1; c <= 16; c++) {
@@ -1158,6 +1216,8 @@ void menuUpdate(SavedConfig& cfg) {
                   state == MenuState::AuxLayerSelect ||
                   state == MenuState::VoiceEditList ||
                   state == MenuState::VoiceEditParam ||
+                  state == MenuState::VoiceSaveSelect ||
+                  state == MenuState::VoiceSaveConfirm ||
                   state == MenuState::AuxParam ||
                   state == MenuState::SceneSaveSelect ||
                   state == MenuState::SceneSaveConfirm);
@@ -1274,9 +1334,53 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.auxPressed) {
                 if (cursor == VE_BACK) {
                     enterState(MenuState::AuxLayerSelect, AUX_LAYER_VOICE_EDIT);
+                } else if (cursor == VE_SAVE) {
+                    enterState(MenuState::VoiceSaveSelect, 0);
                 } else {
                     voiceEditParam = cursor;
                     enterState(MenuState::VoiceEditParam);
+                }
+            }
+            break;
+
+        // Save As: the aux knob picks a slot, the aux button saves. A used
+        // custom slot asks first; the scene's own slot does not, since
+        // saving there is how a tweak is kept with the scene.
+        case MenuState::VoiceSaveSelect: {
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            uint8_t count = buildVoiceSaveItems(cfg, auxLayer);
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + count) % count);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == count - 1) {
+                    enterState(MenuState::VoiceEditList, VE_SAVE);
+                } else if (cursor < NUM_CUSTOM_VOICES) {
+                    voiceSaveTarget = cursor;
+                    if (cfg.customVoices[cursor].used) {
+                        enterState(MenuState::VoiceSaveConfirm, 1);
+                    } else {
+                        layerVoiceSaveCustom(cfg, auxLayer, cursor);
+                        voiceSaved(voiceIdName(VOICE_CUSTOM_FIRST + cursor));
+                    }
+                } else {
+                    layerVoiceSaveScene(cfg, auxLayer);
+                    voiceSaved("Scene Voice");
+                }
+            }
+            break;
+        }
+
+        case MenuState::VoiceSaveConfirm:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
+            if (ev.auxPressed) {
+                if (cursor == 0) {
+                    layerVoiceSaveCustom(cfg, auxLayer, voiceSaveTarget);
+                    voiceSaved(voiceIdName(VOICE_CUSTOM_FIRST + voiceSaveTarget));
+                } else {
+                    enterState(MenuState::VoiceSaveSelect, voiceSaveTarget);
                 }
             }
             break;
@@ -1464,7 +1568,8 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LayerMode, (uint8_t)lc.mode); break;
                     case LAYER_ITEM_VOICE:
                         enterState(MenuState::LayerVoice,
-                                   (uint8_t)constrain(lc.voice, 0, VOICE_COUNT - 1)); break;
+                                   voiceChoicePos(lc.voice, buildVoiceChoices(cfg, editLayer, false)));
+                        break;
                     case LAYER_ITEM_CHANNEL:
                         enterState(MenuState::LayerChannel,
                                    (uint8_t)constrain(lc.channel, 0, 16)); break;
@@ -1520,18 +1625,21 @@ void menuUpdate(SavedConfig& cfg) {
             break;
         }
 
-        case MenuState::LayerVoice:
+        case MenuState::LayerVoice: {
+            uint8_t n = buildVoiceChoices(cfg, editLayer, false);
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + VOICE_ITEMS_COUNT) % VOICE_ITEMS_COUNT;
+                cursor = (cursor + ev.menuDelta + n + 1) % (n + 1);
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < VOICE_COUNT) {   // last entry is Back
-                    editDefaults(cfg, [](LayerCfg& c) { c.voice = cursor; });
+                if (cursor < n) {   // last entry is Back
+                    uint8_t id = voiceChoiceIds[cursor];
+                    editDefaults(cfg, [id](LayerCfg& c) { c.voice = id; });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_VOICE);
             }
             break;
+        }
 
         case MenuState::LayerChannel:
             if (ev.menuDelta) {
@@ -2006,9 +2114,10 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor == 0) {
                     SavedConfig d = storageDefaults();
                     if (!factory) {
-                        // Reset Settings keeps calibration, StartPos and the
-                        // saved scenes 1-8; everything else is factory, the
-                        // Defaults scene included, and Defaults now plays.
+                        // Reset Settings keeps calibration, StartPos, the
+                        // saved scenes 1-8 and the saved voices; everything
+                        // else is factory, the Defaults scene included, and
+                        // Defaults now plays.
                         d.calibrated     = cfg.calibrated;
                         d.hallThreshold  = cfg.hallThreshold;
                         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) d.hallBaseline[i] = cfg.hallBaseline[i];
@@ -2019,7 +2128,12 @@ void menuUpdate(SavedConfig& cfg) {
                         for (uint8_t i = 1; i < NUM_SCENES; i++) {
                             d.scenes[i]    = cfg.scenes[i];
                             d.sceneUsed[i] = cfg.sceneUsed[i];
+                            for (uint8_t l = 0; l < NUM_LAYERS; l++)
+                                d.sceneVoices[i][l] = cfg.sceneVoices[i][l];
                         }
+                        // Scenes 1-8 can use the custom voices: keep them.
+                        for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++)
+                            d.customVoices[i] = cfg.customVoices[i];
                     }
                     cfg = d;
                     storageSave(cfg);
@@ -2074,8 +2188,21 @@ void menuUpdate(SavedConfig& cfg) {
                 if (editLayer == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A, cursor);
                 else                      drawList(MODE_ITEMS_B, MODE_COUNT_B, cursor);
                 break;
-            case MenuState::LayerVoice:
-                drawList(VOICE_ITEMS, VOICE_ITEMS_COUNT, cursor);
+            case MenuState::LayerVoice: {
+                uint8_t n = buildVoiceChoices(cfg, editLayer, false);
+                drawList(voiceChoiceLabels, n + 1, cursor);
+                break;
+            }
+            case MenuState::VoiceSaveSelect: {
+                uint8_t count = buildVoiceSaveItems(cfg, auxLayer);
+                drawList(VOICE_SAVE_ITEMS, count, cursor);
+                break;
+            }
+            case MenuState::VoiceSaveConfirm:
+                lcdLine(0, "Overwrite?");
+                lcdLine(1, "%c Yes  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
             case MenuState::LayerChannel:
                 drawList(CHANNEL_ITEMS, CHANNEL_COUNT, cursor);

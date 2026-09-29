@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 16;
+constexpr uint8_t  EEPROM_VERSION = 17;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -60,6 +60,20 @@ struct Scene {
 constexpr uint8_t SCENE_DEFAULTS = 0;
 constexpr uint8_t NUM_SCENES     = 9;   // Defaults + 8 saved
 
+// A saved voice: what Voice Edit changes, plus the built-in voice it was made
+// from, which gives the rest (Auto MIDI channel, note source).
+struct VoiceSlot {
+    bool     used;
+    uint8_t  base;         // VoiceId
+    uint8_t  wave;         // Wave
+    uint8_t  sustainPct;   // 0-100
+    uint16_t attackMs;
+    uint16_t decayMs;
+    uint16_t releaseMs;
+    uint16_t noteMs;
+};
+constexpr uint8_t NUM_SAVED_VOICES = 8;   // = NUM_CUSTOM_VOICES in voice.h
+
 struct SavedConfig {
     uint16_t magic;
     uint8_t  version;
@@ -105,6 +119,11 @@ struct SavedConfig {
     Scene    scenes[NUM_SCENES];
     bool     sceneUsed[NUM_SCENES];   // Defaults is always used
     uint8_t  currentScene;            // last loaded or saved
+
+    // Added in version 17. Custom 1-8, shared by every scene, and each
+    // scene's own voice per layer (VOICE_SCENE). Scene 0's are never used.
+    VoiceSlot customVoices[NUM_SAVED_VOICES];
+    VoiceSlot sceneVoices[NUM_SCENES][NUM_LAYERS];
 };
 
 void storageLoad(SavedConfig& cfg);
