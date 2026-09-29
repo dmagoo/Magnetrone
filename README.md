@@ -27,10 +27,17 @@ turning physical arrangement into musical pattern.
 - Drums play a fixed GM kit (one drum per track, busiest on the outer tracks) on
   MIDI channel 10; Track Shift rotates the kit around the tracks and Low Note
   Outer flips it end to end
-- 1 revolution = 1 bar; BPM tracks RPM automatically
+- 1 revolution = 1 bar; BPM tracks RPM automatically. Beats/Rev from 1 to 32,
+  platter speed from 1 to 120 RPM
+- The platter is marked in 16 steps
 - Bar start (StartPos): a start mark on the platter, located by calibration or
   re-found later (Auto from one magnet, or Manual by jogging the platter), and
   remembered across power cycles when the platter was at rest
+- Front: where the player sits, set first in calibration and Calib. StartPos
+  (the magnet is turned to the player, by hand or with the Speed knob, before
+  the spin). Tools > Go to Front turns the mark there the shorter way round
+- Placement Mode (Tools): Speed jogs the platter (press: Go to Front), Aux snaps
+  to the next step or beat, Volume mutes and unmutes single tracks
 - Scenes: the whole sound of both layers, 8 saved slots plus a Defaults scene
   edited from the menu; loaded live on the next bar start. Aux changes are live
   only, on top of the current scene
@@ -41,7 +48,9 @@ turning physical arrangement into musical pattern.
   CC 20 octave
 - LCD menu: Sound Defaults (both layers), Play Setup, System and Tools
 - Speed and volume adjustable live at any time via dedicated encoders; touching
-  either one returns to the home screen from any menu (prompts excepted)
+  either one returns to the home screen from any menu (prompts excepted).
+  From a stop, turning Speed starts from zero in the turned direction; a
+  press resumes the last speed
 - Aux knob changes one bound function live (Pitch, A/B Balance, Load Scene,
   or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note or Wrap)
 - Menu knob opens the main menu from the home screen by turning or pressing;
@@ -55,8 +64,10 @@ turning physical arrangement into musical pattern.
 - Calibration (at 24 RPM, clear platter then one magnet on the start mark)
   measures sensor baselines, threshold, magnet pole, the belt reduction
   (e.g. "Belt 10.9:1", counted in motor steps) and the bar start
-- Tools menu: calibration, StartPos, Info and live Sensor Levels screens,
-  Reset Settings (keeps calibration and scenes 1-8) and Factory Reset
+- Tools menu: Go to StartPos, Go to Front, Placement Mode, calibration,
+  StartPos, Info (RPM, belt ratio, StartPos, threshold, motor driver) and live
+  Sensor Levels screens, Reset Settings (keeps calibration, Front and scenes
+  1-8) and Factory Reset
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1
 

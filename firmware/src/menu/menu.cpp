@@ -1405,14 +1405,21 @@ void menuUpdate(SavedConfig& cfg) {
 
     // Placement Mode takes over the speed, volume and aux knobs. Speed and
     // volume are kept from the live controls below; aux stays in ev.
+    // At the "Magnet at front" prompts the speed knob jogs instead, so the
+    // mark can be brought to the player without touching the playing speed.
     EncoderEvent place{};
     if (state == MenuState::Placement) {
         place = ev;
         ev.speedDelta  = 0;  ev.speedPressed  = false;
         ev.volumeDelta = 0;  ev.volumePressed = false;
+    } else if (state == MenuState::CalMagnetPrompt ||
+               state == MenuState::StartPosAutoPrompt) {
+        jogUpdate(ev.speedDelta);   // position counted, so Front stays exact
+        ev.speedDelta = 0;  ev.speedPressed = false;
     }
 
-    // live speed control - all states except Placement Mode
+    // live speed control - all states except Placement Mode and the
+    // "Magnet at front" prompts
     //
     // cfg.rpm is SIGNED: negative means the platter runs in reverse. Turning
     // down past the low end passes through a stop and out the other side into
@@ -2290,6 +2297,7 @@ void menuUpdate(SavedConfig& cfg) {
         case MenuState::CalMagnetPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
+                if (jogMoving) { stepperStop(); waitForRest(GO_TO_STOP_MS); jogMoving = false; }
                 if (cursor == 0) {
                     frontPos = stepperPosition();   // hand turns are not counted
                     enterState(MenuState::CalDetecting);
@@ -2348,6 +2356,7 @@ void menuUpdate(SavedConfig& cfg) {
         case MenuState::StartPosAutoPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
+                if (jogMoving) { stepperStop(); waitForRest(GO_TO_STOP_MS); jogMoving = false; }
                 if (cursor == 0) {
                     frontPos = stepperPosition();   // hand turns are not counted
                     enterState(MenuState::StartPosAuto);

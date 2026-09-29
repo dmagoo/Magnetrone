@@ -60,8 +60,8 @@ To calibrate:
 1. At **Clear platter**, remove all magnets and choose **OK**. The platter
    spins while the screen shows **Sampling...**, then stops.
 2. At **Magnet at front**, place a single magnet on the start mark, on the
-   outer track, then turn the platter by hand until the mark is in front of
-   you. That spot is **Front**. Choose **OK**. Whichever way up the magnet sits
+   outer track, then turn the platter by hand (or with the Speed knob) until
+   the mark is in front of you. That spot is **Front**. Choose **OK**. Whichever way up the magnet sits
    becomes the normal side (Layer A).
 3. **Calibrated!** means it worked. The start mark is now where each bar
    begins, and the table knows where Front is. The platter then turns the mark
@@ -83,8 +83,8 @@ without the table knowing.
 **Menu > Tools > Calib. StartPos** sets it again without a full calibration:
 
 - **Auto**: place one magnet on the start mark, with nothing else on the outer
-  track. Magnets on the other tracks can stay. Turn the platter by hand until
-  the mark is in front of you, then choose **OK**. The platter spins until it
+  track. Magnets on the other tracks can stay. Turn the platter by hand (or
+  with the Speed knob) until the mark is in front of you, then choose **OK**. The platter spins until it
   has found the mark, sets Front, and turns the mark back to you. The motor
   lets go at this step so the platter turns freely, so choosing **Back** leaves
   StartPos unknown.
