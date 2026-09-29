@@ -12,10 +12,11 @@ turning physical arrangement into musical pattern.
 - 8 analog Hall effect sensors, one per note in the current scale
 - MIDI note output on DIN connector
 - Teensy Audio Shield output (headphone/line out) with a built-in synth and drum kit
-- Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note length
+- Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note
+  length, plus None to mute a layer
 - Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B,
-  each with its own voice, MIDI channel, octave offset, level, Track Shift and
-  Low Note
+  each with its own voice, MIDI channel, root note, scale, octave, level, Track
+  Shift and Low Note
 - Per-layer Track Shift raises the run by scale degrees, with Wrap (the run
   rotates around the arm) or No Wrap (the whole run transposes)
 - Per-layer Low Note: Inner or Outer sets which end of the sensor arm plays
@@ -27,20 +28,21 @@ turning physical arrangement into musical pattern.
 - Bar start (StartPos): a start mark on the platter, located by calibration or
   re-found later (Auto from one magnet, or Manual by jogging the platter), and
   remembered across power cycles when the platter was at rest
-- Scenes: 8 saved Aux setups plus a read-only Defaults scene, loaded live on
-  the next bar start
+- Scenes: the whole sound of both layers, 8 saved slots plus a Defaults scene
+  edited from the menu; loaded live on the next bar start. Aux changes are live
+  only, on top of the current scene
 - MIDI beat clock driven by platter position, with Song Position Pointer so
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
   (Pitch, Shift, Scale Learn or Chord), the bend wheel bends the table, CC 7 volume,
   CC 20 octave
-- Root note, scale, and octave selectable from LCD menu
+- LCD menu: Sound Defaults (both layers), Play Setup, System and Tools
 - Speed and volume adjustable live at any time via dedicated encoders; touching
   either one returns to the home screen from any menu (prompts excepted)
 - Menu knob opens the main menu from the home screen by turning or pressing;
   the menu button leaves the Aux screens straight back to the home screen
 - Welcome tune plays on boot -- previews what Layer A's tracks play, hall 1 to 8
-  and back, including its octave offset, Track Shift, Wrap and Low Note; a menu
+  and back, including its key, octave, Track Shift, Wrap and Low Note; a menu
   button press skips it
 - LCD backlight timeout: configurable from always off to always on
 - Stepper motor sleeps when idle to reduce heat and power draw
@@ -48,7 +50,7 @@ turning physical arrangement into musical pattern.
   measures sensor baselines, threshold, magnet pole, the belt reduction
   (e.g. "Belt 10.9:1", counted in motor steps) and the bar start
 - Tools menu: calibration, StartPos, Info and live Sensor Levels screens,
-  Reset Settings (keeps calibration and scenes) and Factory Reset
+  Reset Settings (keeps calibration and scenes 1-8) and Factory Reset
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1
 

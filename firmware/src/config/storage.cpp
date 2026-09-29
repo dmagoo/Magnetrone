@@ -5,239 +5,151 @@
 #include "audio/voice.h"
 
 // ---------------------------------------------------------------------------
-// Committed vs live configuration
+// Saved vs live sound
 //
-// The aux knob modulates settings during performance by writing straight into
-// the live SavedConfig, which is what the sequencer reads. That drift is
-// deliberate, and it must never reach EEPROM: a session should start from what
-// was dialled in via the menu, not from wherever the knob happened to be left.
+// The table always plays cfg.layer[], the live sound. The Aux knob and MIDI in
+// write straight into it. What survives a restart is the scenes: at power-up
+// the current scene is loaded over the live sound, so Aux tweaks are gone and
+// the sound is exactly what the scene holds.
 //
-// So storage keeps its own copy of what EEPROM holds. An ordinary storageSave()
-// -- a speed change, a volume change, calibration results -- writes everything
-// EXCEPT the live-modulated fields, which keep their committed values.
-// storageCommit() is the menu's version: it first adopts the live value of the
-// one field the menu set as the new committed one.
-//
-// The alternative was to have the save routine hunt for exceptions at each call
-// site, which hides the asymmetry and silently breaks whenever a new aux target
-// is added.
+// So there is nothing to keep out of EEPROM: storageSave() writes everything,
+// the live sound included, and storageLoad() simply never trusts it.
 // ---------------------------------------------------------------------------
 
-static SavedConfig committed;
+// The version 7 to 15 layout, up to the bar start, for handing calibration
+// and the bar start over to this one. Version 16 moved everything else, so
+// the rest of an old config is not kept.
+struct LayerCfgV15 {
+    uint8_t mode, voice, channel;
+    int8_t  octaveOffset;
+    uint8_t level, shift;
+    bool    wrap, shiftSameAsA;
+    uint8_t lowNote;
+    bool    lowNoteSameAsA;
+};
 
-// The fields the aux knob can modulate. THIS IS THE ONE PLACE THAT LIST LIVES:
-// adding an aux target in menu.cpp's auxApplyDelta() means adding it here too,
-// or that target will silently start persisting.
-static void copyLiveModulatedFields(SavedConfig& dst, const SavedConfig& src) {
-    dst.root        = src.root;
-    dst.scale       = src.scale;
-    dst.octave      = src.octave;
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-        dst.layer[l].voice = src.layer[l].voice;
-        dst.layer[l].shift   = src.layer[l].shift;
-        dst.layer[l].lowNote = src.layer[l].lowNote;
-        dst.layer[l].octaveOffset = src.layer[l].octaveOffset;
-    }
-}
+struct SavedConfigV15 {
+    uint16_t    magic;
+    uint8_t     version;
+    uint8_t     root, scale, octave;
+    float       volume, rpm;
+    bool        muted;
+    int8_t      sensorShiftV9;
+    bool        calibrated;
+    uint16_t    hallThreshold;
+    uint16_t    hallBaseline[NUM_HALL_SENSORS];
+    float       rpmCorrection;
+    bool        playWelcomeTune;
+    uint8_t     lcdTimeout, beatsPerRev, auxFn, pitchStepDiv;
+    int8_t      magnetPolarity;
+    uint8_t     voiceV8;
+    LayerCfgV15 layer[NUM_LAYERS];   // version 11 onwards: the bar start follows
+    int32_t     barPhase;
+    bool        barPhaseValid;
+};
 
-// Defaults for the fields added in version 10 (Track Shift, Wrap, Low Note),
-// on their own so migration can apply them to layers that kept their older
-// settings. Layer B's shift and Low Note are bound to A's by default.
-static void setV10Defaults(LayerCfg& lc, bool sameAsA) {
-    lc.shift          = DEFAULT_TRACK_SHIFT;
-    lc.wrap           = DEFAULT_TRACK_WRAP;
-    lc.shiftSameAsA   = sameAsA;
-    lc.lowNote        = (uint8_t)(DEFAULT_LOW_NOTE_OUTER ? LowNote::Outer : LowNote::Inner);
-    lc.lowNoteSameAsA = sameAsA;
-}
+static_assert(sizeof(SavedConfig) <= E2END + 1, "SavedConfig does not fit the EEPROM");
 
-// Defaults for the fields added in version 11 (bar start).
-static void setV11Defaults(SavedConfig& c) {
-    c.barPhase      = 0;
-    c.barPhaseValid = false;
-    c.startCheck    = DEFAULT_START_CHECK;
-}
+Scene storageFactoryScene() {
+    Scene s{};
+    LayerCfg& a = s.layer[LAYER_A];
+    a.mode           = LayerMode::On;
+    a.voice          = (uint8_t)VoiceId::Piano;
+    a.channel        = LAYER_CHANNEL_AUTO;
+    a.root           = DEFAULT_ROOT;
+    a.scale          = DEFAULT_SCALE;
+    a.learned        = 0;
+    a.octave         = DEFAULT_OCTAVE;
+    a.level          = 100;
+    a.shift          = DEFAULT_TRACK_SHIFT;
+    a.wrap           = DEFAULT_TRACK_WRAP;
+    a.shiftSameAsA   = false;
+    a.lowNote        = (uint8_t)(DEFAULT_LOW_NOTE_OUTER ? LowNote::Outer : LowNote::Inner);
+    a.lowNoteSameAsA = false;
 
-// Defaults for the fields added in version 12 (scenes): all empty.
-static void setV12Defaults(SavedConfig& c) {
-    for (uint8_t i = 0; i < NUM_SCENES; i++) c.scenes[i] = SceneSlot{};
-    c.currentScene = SCENE_NONE;
-}
+    // Layer B plays its own voice out of the box, drums, with nothing bound
+    // to A: undoing Same as A by hand everywhere was clunky.
+    LayerCfg& b = s.layer[LAYER_B];
+    b        = a;
+    b.voice  = (uint8_t)VoiceId::Drums;
+    b.octave = DEFAULT_OCTAVE_B;
 
-// Defaults for the fields added in version 13 (MIDI in).
-static void setV13Defaults(SavedConfig& c) {
-    c.midiInChannel[LAYER_A] = DEFAULT_MIDI_IN_CHANNEL_A;
-    c.midiInChannel[LAYER_B] = DEFAULT_MIDI_IN_CHANNEL_B;
-    c.midiFn = DEFAULT_MIDI_FN;
-    for (uint8_t i = 0; i < NUM_SCENES; i++) c.sceneLearned[i] = 0;
-}
-
-// Defaults for the field added in version 14. Existing scenes take the
-// layers' saved octave offsets, so they sound as they did before.
-static void setV14Defaults(SavedConfig& c) {
-    for (uint8_t i = 0; i < NUM_SCENES; i++)
-        for (uint8_t l = 0; l < NUM_LAYERS; l++)
-            c.sceneLayerOctave[i][l] = c.layer[l].octaveOffset;
-}
-
-// Defaults for the field added in version 15.
-static void setV15Defaults(SavedConfig& c) {
-    c.menuTimeout = DEFAULT_MENU_TIMEOUT;
-}
-
-static void setLayerDefaults(SavedConfig& c) {
-    c.layer[LAYER_A] = { LayerMode::On,      (uint8_t)VoiceId::Piano,
-                         LAYER_CHANNEL_AUTO,  0, 100 };
-    // Same as A by default, so the table plays the same whichever way up a
-    // magnet sits. The rest applies once B is switched On.
-    c.layer[LAYER_B] = { LayerMode::SameAsA, (uint8_t)VoiceId::Bass,
-                         LAYER_CHANNEL_AUTO, -1, 100 };
-    // B's shift and Low Note follow A's by default even once B is On, so the
-    // two layers move together (Piano over Bass) until B is given its own.
-    setV10Defaults(c.layer[LAYER_A], false);
-    setV10Defaults(c.layer[LAYER_B], true);
-}
-
-// Before version 10 there was one master shift, and it ran the other way:
-// degree = sensor - shift. Now degree = sensor + shift, so the old value is
-// converted to the one that plays the same notes.
-static uint8_t migrateShift(int8_t old) {
-    int s = constrain((int)old, 0, NUM_HALL_SENSORS - 1);
-    return (uint8_t)((NUM_HALL_SENSORS - s) % NUM_HALL_SENSORS);
-}
-
-// Version 10 split the Track Shift Fn into Layer A Shift and Layer B Shift and
-// added Layer A Low and Layer B Low after them. The old Track Shift index
-// becomes Layer A Shift; everything after it moves down the list. The numbers
-// are the AuxFn order in menu.cpp.
-static uint8_t migrateAuxFn(uint8_t old) {
-    const uint8_t OLD_TRACK_SHIFT = 3, OLD_COUNT = 8, INSERTED = 3;
-    if (old >= OLD_COUNT) return DEFAULT_AUX_FN;
-    return (old > OLD_TRACK_SHIFT) ? (uint8_t)(old + INSERTED) : old;
+    s.balance = 0;
+    s.pitch   = 0.0f;
+    return s;
 }
 
 SavedConfig storageDefaults() {
-    // Written field by field rather than as an aggregate initialiser: one
-    // member is now an array, and positional init of a struct this long was
-    // already a silent-breakage risk every time a field was added.
+    // Written field by field rather than as an aggregate initialiser: positional
+    // init of a struct this long is a silent-breakage risk every time a field
+    // is added.
     SavedConfig c{};
     c.magic           = EEPROM_MAGIC;
     c.version         = EEPROM_VERSION;
-    c.root            = DEFAULT_ROOT;
-    c.scale           = DEFAULT_SCALE;
-    c.octave          = DEFAULT_OCTAVE;
-    c.volume          = DEFAULT_VOLUME;
-    c.rpm             = DEFAULT_RPM;
-    c.muted           = false;
-    c.sensorShiftV9   = 0;
     c.calibrated      = false;
     c.hallThreshold   = HALL_THRESHOLD_DEFAULT;
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         c.hallBaseline[i] = HALL_BASELINE_DEFAULT;
     }
     c.rpmCorrection   = 1.0f;
+    c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
+    c.barPhase        = 0;
+    c.barPhaseValid   = false;
+    c.volume          = DEFAULT_VOLUME;
+    c.rpm             = DEFAULT_RPM;
+    c.muted           = false;
     c.playWelcomeTune = DEFAULT_PLAY_WELCOME_TUNE;
     c.lcdTimeout      = DEFAULT_LCD_TIMEOUT;
+    c.menuTimeout     = DEFAULT_MENU_TIMEOUT;
+    c.startCheck      = DEFAULT_START_CHECK;
     c.beatsPerRev     = DEFAULT_BEATS_PER_REV;
     c.auxFn           = DEFAULT_AUX_FN;
     c.pitchStepDiv    = DEFAULT_PITCH_STEP_DIV;
-    c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
-    c.voiceV8         = 0;
-    setLayerDefaults(c);
-    setV11Defaults(c);
-    setV12Defaults(c);
-    setV13Defaults(c);
-    setV14Defaults(c);
-    setV15Defaults(c);
+    c.midiFn          = DEFAULT_MIDI_FN;
+    c.midiInChannel[LAYER_A] = DEFAULT_MIDI_IN_CHANNEL_A;
+    c.midiInChannel[LAYER_B] = DEFAULT_MIDI_IN_CHANNEL_B;
+
+    Scene f = storageFactoryScene();
+    for (uint8_t i = 0; i < NUM_SCENES; i++) {
+        c.scenes[i]    = f;
+        c.sceneUsed[i] = (i == SCENE_DEFAULTS);
+    }
+    c.currentScene = SCENE_DEFAULTS;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) c.layer[l] = f.layer[l];
     return c;
 }
 
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
-
-    // Older layouts are prefixes of this one: each version only appended
-    // fields. Keep everything they saved, calibration included, and default
-    // only what is new. Version 9 is the exception: LayerCfg grew, so its
-    // layer[] is read back with the old stride.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 7 && cfg.version <= 9) {
-        uint8_t shift = migrateShift(cfg.sensorShiftV9);
-        if (cfg.version == 9) {
-            LayerCfgV9 old[NUM_LAYERS];
-            EEPROM.get(EEPROM_ADDRESS + (int)offsetof(SavedConfig, layer), old);
-            for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-                cfg.layer[l] = { old[l].mode, old[l].voice, old[l].channel,
-                                 old[l].octaveOffset, old[l].level };
-            }
-            setV10Defaults(cfg.layer[LAYER_A], false);
-            setV10Defaults(cfg.layer[LAYER_B], true);
-        } else {
-            uint8_t oldVoice = (cfg.version == 8) ? cfg.voiceV8 : (uint8_t)VoiceId::Piano;
-            setLayerDefaults(cfg);
-            if (oldVoice < VOICE_COUNT) cfg.layer[LAYER_A].voice = oldVoice;
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
+        if (cfg.currentScene >= NUM_SCENES || !cfg.sceneUsed[cfg.currentScene]) {
+            cfg.currentScene = SCENE_DEFAULTS;
         }
-        // The old master shift goes into both layers.
-        for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.layer[l].shift = shift;
-        cfg.auxFn         = migrateAuxFn(cfg.auxFn);
-        cfg.version       = EEPROM_VERSION;
-        cfg.voiceV8       = 0;
-        cfg.sensorShiftV9 = 0;
-        setV11Defaults(cfg);
-        setV12Defaults(cfg);
-        setV13Defaults(cfg);
-        setV14Defaults(cfg);
-        setV15Defaults(cfg);
-        committed = cfg;
-        storageSave(cfg);
+        cfg.sceneUsed[SCENE_DEFAULTS] = true;
         return;
     }
 
-    // Versions 10 to 14 are straight prefixes: only the bar start (11), scene
-    // (12), MIDI in (13), scene layer octave (14) and menu timeout (15)
-    // fields are new.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 10 && cfg.version <= 14) {
-        if (cfg.version <= 10) setV11Defaults(cfg);
-        if (cfg.version <= 11) setV12Defaults(cfg);
-        if (cfg.version <= 12) setV13Defaults(cfg);
-        if (cfg.version <= 13) setV14Defaults(cfg);
-        setV15Defaults(cfg);
-        cfg.version = EEPROM_VERSION;
-        committed = cfg;
-        storageSave(cfg);
-        return;
+    // Anything else starts from factory. An older layout keeps its
+    // calibration (from version 7) and bar start (from version 11), so the
+    // table does not have to be calibrated again.
+    SavedConfigV15 old;
+    EEPROM.get(EEPROM_ADDRESS, old);
+    SavedConfig d = storageDefaults();
+    if (old.magic == EEPROM_MAGIC && old.version >= 7 && old.version <= 15) {
+        d.calibrated     = old.calibrated;
+        d.hallThreshold  = old.hallThreshold;
+        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) d.hallBaseline[i] = old.hallBaseline[i];
+        d.rpmCorrection  = old.rpmCorrection;
+        d.magnetPolarity = old.magnetPolarity;
+        if (old.version >= 11) {
+            d.barPhase      = old.barPhase;
+            d.barPhaseValid = old.barPhaseValid;
+        }
     }
-
-    if (cfg.magic != EEPROM_MAGIC || cfg.version != EEPROM_VERSION) {
-        cfg = storageDefaults();
-        committed = cfg;
-        storageSave(cfg);
-        return;
-    }
-    committed = cfg;
+    cfg = d;
+    storageSave(cfg);
 }
 
 void storageSave(const SavedConfig& cfg) {
-    SavedConfig out = cfg;
-    copyLiveModulatedFields(out, committed);   // aux drift stays out of EEPROM
-    EEPROM.put(EEPROM_ADDRESS, out);
-    committed = out;
-}
-
-void storageRevertLive(SavedConfig& cfg) {
-    copyLiveModulatedFields(cfg, committed);
-}
-
-void storageCommit(const SavedConfig& cfg, CommitField field, uint8_t layer) {
-    // Only the field the menu set deliberately; any other aux drift stays live.
-    switch (field) {
-    case CommitField::All:     copyLiveModulatedFields(committed, cfg);            break;
-    case CommitField::Root:    committed.root   = cfg.root;                        break;
-    case CommitField::Scale:   committed.scale  = cfg.scale;                       break;
-    case CommitField::Octave:  committed.octave = cfg.octave;                      break;
-    case CommitField::Voice:   committed.layer[layer].voice   = cfg.layer[layer].voice;   break;
-    case CommitField::Shift:   committed.layer[layer].shift   = cfg.layer[layer].shift;   break;
-    case CommitField::LowNote: committed.layer[layer].lowNote = cfg.layer[layer].lowNote; break;
-    case CommitField::LayerOctave:
-        committed.layer[layer].octaveOffset = cfg.layer[layer].octaveOffset;           break;
-    }
-    storageSave(cfg);
+    EEPROM.put(EEPROM_ADDRESS, cfg);
 }

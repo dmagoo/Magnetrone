@@ -36,9 +36,9 @@ C  Major  [███ ]
 ```
 
 The top line is the tempo (negative means the platter runs in reverse) and the
-current [scene](#scenes), with `*` once you have changed something since loading
-it. It is blank until a scene has been loaded or saved. The bottom line is the
-root note, the scale and the volume, or `[MUTE]`.
+current [scene](#scenes), with `*` once you have changed something with the Aux
+knob since loading it. The bottom line is Layer A's root note and scale, and the
+volume, or `[MUTE]`.
 
 ## First Run
 
@@ -87,24 +87,33 @@ parts on the outside.
 
 Each magnet plays a different layer depending on which way up it sits:
 
-- **Layer A**: the magnet the same way up as during calibration.
-- **Layer B**: the magnet flipped over.
+- **Layer A**: the magnet the same way up as during calibration. Piano by
+  default.
+- **Layer B**: the magnet flipped over. Drums by default.
 
-Each layer can have its own voice, octave, level, shift and direction, so one
+Each layer has its own voice, key, octave, level, shift and direction, so one
 set of magnets can play piano one way up and bass the other.
 
-For single-voice play, leave Layer B on **Same as A** (the default). Both
-sides then play the same, and it never matters which way up a magnet sits.
+For single-voice play, set Layer B's Mode to **Same as A**. Both sides then play
+the same, and it never matters which way up a magnet sits.
 
 ## Main Menu
 
-The main menu holds every setting, including the ones the Aux knob can change
-live. Each one is described under [Performance Functions](#performance-functions)
-or [Setup Functions](#setup-functions).
+```
+Sound Defaults   Layer A, Layer B
+Play Setup       Beats/Rev, Pitch Step, Aux Fn, MIDI Fn
+System           LCD Timeout, Menu Timeout, Welcome Tune, StartPos Check, Magnet Pole
+Tools            calibration and maintenance
+Exit
+```
 
-Choosing a value in the menu saves it.
+Each setting is described under [Performance Functions](#performance-functions)
+or [Setup Functions](#setup-functions). Choosing a value saves it.
 
-Calibration and maintenance live in **Main > Tools**.
+**Sound Defaults** edits the Defaults scene (see [Scenes](#scenes)), and you
+hear each change as you make it. If another scene is playing, it first asks
+**Load Defaults?**. A layer that has no effect says so in these menus: `(=A)`
+when Layer B is on Same as A, `(off)` when the layer is off.
 
 ## Aux Knob
 
@@ -121,91 +130,92 @@ The function list:
 
 | Entry | |
 |-------|-|
-| Octave, Root Note, Scale, Pitch | Shared by both layers. |
-| Layer A >, Layer B > | Open that layer's own functions: Voice, Octave, Shift, Low Note. |
+| Pitch | Moves both layers together. |
+| Layer A >, Layer B > | Open that layer's own functions: Voice, Root Note, Scale, Octave, Shift, Low Note. |
 | A/B Balance, Load Scene | See the tables below and [Scenes](#scenes). |
-| Save Scene | Saves the current setup as a [scene](#scenes). |
+| Save Scene | Saves the current sound as a [scene](#scenes). |
 | Reset All | Undoes every Aux change. |
 | Exit | Back to the home screen. |
 
-**Aux changes are not saved.** They are for playing. Power off, or choose
-**Reset All** at the bottom of the Aux function list, and everything returns to
-the saved settings. To keep a value, set it in the main menu, or save the whole
-setup as a scene.
+**Aux changes are not saved.** They are for playing, on top of the current
+scene. Power off, or choose **Reset All**, and the scene comes back as it was
+saved. To keep the changes, save them as a scene.
 
 The function the knob controls is saved, so it is still selected next time.
-You can also set it from **Main > Aux Fn**.
+You can also set it from **Main > Play Setup > Aux Fn**.
 
 ## Scenes
 
-A scene saves everything the Aux knob can change, so a setup you like can be
-brought back mid-song. There are 8, plus a fixed **Defaults** scene that holds
-the factory settings.
+A scene is the whole sound of the table: both layers (mode, voice, key, octave,
+level, shift, wrap, low note, channel), Pitch and A/B Balance. The table always
+plays one scene, shown on the home screen, with any Aux changes on top.
+
+- **0: Defaults** is what **Sound Defaults** in the main menu edits. It is
+  always there. Until you change it, it holds the factory sound.
+- **1 to 8** change only when you save to them.
+
+Using them:
 
 - **Save Scene** (in the Aux function list): turn the Aux knob to pick a slot
-  and press. Saving over a used slot asks first.
-- **Load Scene** (an Aux function): turn the Aux knob to step through the saved
+  and press. The current sound, Aux changes included, goes into that slot.
+  Saving over a used slot asks first.
+- **Load Scene** (an Aux function): turn the Aux knob to step through the
   scenes. The one you land on loads at the start of the next bar, when the
   start mark passes the arm, so you can pick it any time and it lands on the
   downbeat. With the platter stopped it loads at once.
 
-Each slot shows its root and scale, such as `2: D Minor`, or `3: (empty)`.
-**0: Defaults** comes first in the Load Scene list. It can be loaded but not
-saved over, and shows as `Scene 0` on the home screen.
+Each slot shows Layer A's root and scale, such as `2: D Minor`, or `3: (empty)`.
 
-Loading or saving a scene also saves its settings, as if you had picked them in
-the main menu. At power-up the table plays the last scene, plus any main menu
-changes made since. **Reset All** in the Aux list goes back to it.
+At power-up the table plays the last scene loaded or saved, without Aux changes.
 
 ## Performance Functions
 
-Functions meant to be changed while playing. "Layer" means the setting is in the
-**Layer A** and **Layer B** submenus.
+Functions meant to be changed while playing. "Layer" means the setting is in
+**Sound Defaults > Layer A** and **Layer B**, and each layer has its own.
 
-| Function    | Where  | Aux | What it does | With two layers |
-|-------------|--------|-----|--------------|-----------------|
-| Root Note   | Main   | Yes | Key of the scale. | Shared. Drums ignore it. |
-| Scale       | Main   | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian. | Shared. Drums ignore it. |
-| Octave      | Main   | Yes | Base octave, 0 to 7. | Shared. Each layer can offset it. Drums ignore it. |
-| Pitch       | Aux only | Yes | Moves root and octave together, so turning up always raises the pitch. Step size is set by Pitch Step. | Shared. Drums ignore it. |
-| Voice       | Layer  | Yes | Piano, Strings, Leads, Bass or Drums. | Per layer. |
-| Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. | Per layer. Layer B follows A's shift by default; set a number to unbind it. |
-| Wrap        | Layer  | No  | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. | Follows Shift: if B follows A's shift, it uses A's Wrap. Drums always wrap. |
-| Low Note    | Layer  | Yes | Which end of the arm plays the lowest note: Inner or Outer. | Per layer. Layer B follows A by default. On Drums it flips the kit end to end. |
-| Octave (layer) | Layer | Yes | Offset from the main Octave, -3 to +3. | Per layer. Drums ignore it. |
-| Level       | Layer  | No  | Layer volume, 0 to 100%. Also sets MIDI velocity. | Per layer. |
-| A/B Balance | Aux only | Yes | Crossfades between the layers. Centre is both at full level. | Needs both layers on. |
-| Load Scene  | Aux only | Yes | Loads a saved scene at the next bar. See [Scenes](#scenes). | Covers both layers. |
-| Mode        | Layer  | No  | On or Off. Layer B also has Same as A. | Off silences every magnet that way up. |
+| Function    | Where  | Aux | What it does | Default |
+|-------------|--------|-----|--------------|---------|
+| Mode        | Layer  | No  | On or Off. Layer B also has Same as A: it plays exactly like Layer A. Off silences every magnet that way up. | On |
+| Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
+| Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
+| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, or a scale learned from MIDI (see [MIDI In](#midi-in)). Drums ignore it. | Major |
+| Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
+| Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. On Layer B, Same as A follows A's shift. On Drums it moves each drum to another track. | 0 |
+| Wrap        | Layer  | No  | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
+| Low Note    | Layer  | Yes | Which end of the arm plays the lowest note: Inner or Outer. On Layer B, Same as A follows A. On Drums it flips the kit end to end. | Inner |
+| Level       | Layer  | No  | Layer volume, 0 to 100%. Also sets MIDI velocity. | 100% |
+| Pitch       | Aux only | Yes | Moves both layers together, root and octave as one, so turning up always raises the pitch. Step size is set by Pitch Step. Drums ignore it. | 0 |
+| A/B Balance | Aux only | Yes | Crossfades between the layers. Centre is both at full level. | Centre |
+| Load Scene  | Aux only | Yes | Loads a scene at the next bar. See [Scenes](#scenes). | - |
 
-When Layer B is on **Same as A**, it plays exactly like Layer A, and the Aux
-knob shows **Layer B is Same as A** instead of changing B's settings.
+When Layer B is on **Same as A**, the Aux knob shows **Layer B is Same as A**
+instead of changing B's settings.
 
 ## Setup Functions
 
 Settings you choose once and leave alone.
 
-| Function     | Where | Aux | What it does | With two layers |
-|--------------|-------|-----|--------------|-----------------|
-| Channel      | Layer | No  | MIDI channel. Auto follows the voice (see [Voices and Drums](#voices-and-drums)), or pick 1 to 16. | Per layer. |
-| Beats/Rev    | Main  | No  | Beats per revolution (1, 2, 3, 4, 6 or 8). Sets the BPM shown and the MIDI clock. Default 4. | Shared. |
-| Welcome Tune | Main  | No  | Plays each track's Layer A note at power-up. Press the menu button to skip it. Turning it on plays it once as a preview. | Layer A only. |
-| LCD Timeout  | Main  | No  | How long the backlight stays on after you touch a knob, from Always Off to Always On. | - |
-| Menu Timeout | Main  | No  | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. Default 30 s. | - |
-| Aux Fn       | Main  | No  | Which function the Aux knob controls. | - |
-| Pitch Step   | Main  | No  | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | - |
-| Go to StartPos  | Tools | No | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
-| Full Calibrate  | Tools | No | See [First Run](#first-run). | - |
-| Reset Calib.    | Tools | No | Clears calibration only, including the start mark. | - |
-| Calib. StartPos | Tools | No | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
-| Magnet Pole     | Tools | No | Swaps which way up is Layer A. Calibration sets it. | Swaps the layers. |
-| StartPos Check  | Tools | No | On: at power-up, offers to find the start mark if it was lost. Off: never asks. Default On. | - |
-| Info            | Tools | No | Read-only pages, turned through with the menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
-| Sensor Levels   | Tools | No | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
-| Reset Settings  | Tools | No | Returns every setting to factory defaults, keeping calibration, the start mark and your scenes. Asks first. | - |
-| Factory Reset   | Tools | No | Erases everything, scenes and calibration included. Asks first. | - |
-| MIDI Fn         | Main  | No | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). Default Off. | - |
-| MIDI In         | Layer | No | The MIDI channel this layer listens on, or Off. Default: Layer A 1, Layer B 2. | Per layer. |
+| Function     | Where | What it does | Default |
+|--------------|-------|--------------|---------|
+| Channel      | Layer | MIDI channel. Auto follows the voice (see [Voices and Drums](#voices-and-drums)), or pick 1 to 16. Saved in scenes. | Auto |
+| MIDI In      | Layer | The MIDI channel this layer listens on, or Off. Not part of scenes. | A: 1, B: 2 |
+| Beats/Rev    | Play Setup | Beats per revolution (1, 2, 3, 4, 6 or 8). Sets the BPM shown and the MIDI clock. | 4 |
+| Pitch Step   | Play Setup | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | 1 semitone |
+| Aux Fn       | Play Setup | Which function the Aux knob controls. | Pitch |
+| MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
+| LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 5 s |
+| Menu Timeout | System | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. | 30 s |
+| Welcome Tune | System | Plays each track's Layer A note at power-up. Press the menu button to skip it. Turning it on plays it once as a preview. | On |
+| StartPos Check | System | On: at power-up, offers to find the start mark if it was lost. Off: never asks. | On |
+| Magnet Pole  | System | Swaps which way up is Layer A. Calibration sets it. | Set by calibration |
+| Go to StartPos  | Tools | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
+| Full Calibrate  | Tools | See [First Run](#first-run). | - |
+| Reset Calib.    | Tools | Clears calibration only, including the start mark. | - |
+| Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
+| Info            | Tools | Read-only pages, turned through with the menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
+| Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
+| Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark and scenes 1 to 8. Asks first. | - |
+| Factory Reset   | Tools | Erases everything, scenes and calibration included. Asks first. | - |
 
 ## Voices and Drums
 
@@ -216,6 +226,7 @@ Settings you choose once and leave alone.
 | Strings | Slow swell, long notes    | 3                   |
 | Leads   | Bright, sustained         | 4                   |
 | Drums   | Drum kit, one drum per track | 10               |
+| None    | Silent                    | -                   |
 
 The drum kit, innermost track first:
 
@@ -247,11 +258,11 @@ MIDI IN only controls the table; incoming notes never play its sound.
 
 Each layer listens on its own channel (**Layer > MIDI In**). A message on a
 layer's channel applies to that layer, and with both layers on one channel it
-applies to both. Shared settings (root, scale, octave, pitch, volume) respond
-on either layer's channel.
+applies to both. Pitch bend and volume respond on either layer's channel. Layer
+B on Same as A does not listen, since it plays Layer A's settings.
 
-- **Keys** drive the **MIDI Fn** (**Main > MIDI Fn**), much as the Aux knob
-  drives its function.
+- **Keys** drive the **MIDI Fn** (**Main > Play Setup > MIDI Fn**), much as the
+  Aux knob drives its function.
 - **Pitch bend wheel** bends the whole table up to 2 semitones either way and
   springs back.
 - **CC 7** sets the volume. **CC 20** sets the octave. (A CC is the message a
@@ -267,7 +278,7 @@ on either layer's channel.
 | Chord       | Single-finger chords, as on arranger keyboards. The highest key sets root and octave; extra keys to its left pick the scale: none = Major, a black key = Minor, a white key = Mixolydian (7th), both = Dorian (minor 7th). Keys pressed together count as one chord. |
 
 Like Aux changes, all of this is live and not saved, except the volume. Save a
-scene to keep a learned scale.
+scene to keep it, a learned scale included.
 
 Not yet: following an external clock.
 
@@ -292,6 +303,6 @@ unit. Do not connect USB while the 24 V supply is plugged in.
 device or DAW is probably echoing the table's MIDI OUT back to its input. Turn
 off MIDI thru (echo) on that device.
 
-**No sound, or the wrong layer plays.** Check **Main > Tools > Magnet Pole**, and check
-that the layer's Mode is On. If some tracks play once and then stop,
-recalibrate.
+**No sound, or the wrong layer plays.** Check **Main > System > Magnet Pole**,
+and check that the layer's Mode is On and its Voice is not None. If some tracks
+play once and then stop, recalibrate.

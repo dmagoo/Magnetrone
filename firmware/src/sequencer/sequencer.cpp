@@ -48,6 +48,7 @@ void sequencerUpdate(const SavedConfig& cfg) {
         if (!layerActive(cfg, l)) continue;
 
         const LayerCfg& layer = layerEffective(cfg, l);
+        if (voiceIsSilent(layerVoice(cfg, l))) continue;   // voice None
         float gain = layerGain(cfg, l);
         if (gain <= 0.0f) continue;
 
@@ -70,8 +71,8 @@ void sequencerUpdate(const SavedConfig& cfg) {
             // whatever the layer's Wrap setting: one drum per sensor.
             notes[l][i].note = midiDrumOn(channel, degree, velocity);
         } else {
-            int octave = constrain((int)cfg.octave + layer.octaveOffset, 0, 9);
-            uint8_t note = scaleNote(cfg.root, cfg.scale, degree, (uint8_t)octave);
+            uint8_t note = scaleNote(layer.root, layer.scale, layer.learned, degree,
+                                     (uint8_t)constrain(layer.octave, 0, 9));
             notes[l][i].note = midiNoteOn(l, channel, note, velocity);
         }
         notes[l][i].kit     = kit;

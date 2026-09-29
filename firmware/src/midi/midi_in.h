@@ -8,8 +8,8 @@
 //
 // Each layer listens on its own channel (cfg.midiInChannel). A message on a
 // layer's channel applies to that layer; with both on one channel it applies
-// to both. Shared settings (root, scale, octave, pitch, volume) take a
-// message from either layer's channel.
+// to both. Shared settings (pitch, volume) take a message from either
+// layer's channel. Layer B in Same as A does not listen: it plays A's.
 //
 //   Keys           the MIDI Fn: Pitch, Shift, Scale Learn or Chord (or Off)
 //   Pitch bend     always a temporary pitch offset, +/-MIDI_BEND_IN_RANGE
@@ -17,7 +17,8 @@
 //   CC 20          octave
 //
 // Everything here is live, like the Aux knob: nothing is saved except the
-// volume (as the volume knob does) and, through scenes, a learned scale.
+// volume (as the volume knob does). Save Scene keeps the rest, a learned
+// scale included.
 //
 // If the other end echoes the table's MIDI out back to its input, the table's
 // own notes arrive here as control. Echo (MIDI thru) must be off there.

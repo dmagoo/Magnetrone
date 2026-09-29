@@ -14,10 +14,11 @@ constexpr uint8_t   LCD_I2C_ADDRESS      = 0x27;
 // -------------------------------------------------------------------------
 constexpr RootNote  DEFAULT_ROOT         = RootNote::C;
 constexpr Scale     DEFAULT_SCALE        = Scale::Major;
-constexpr uint8_t   DEFAULT_OCTAVE       = 4;       // middle C
+constexpr uint8_t   DEFAULT_OCTAVE       = 4;       // Layer A: middle C
+constexpr uint8_t   DEFAULT_OCTAVE_B     = 3;       // Layer B: an octave below A
 constexpr uint8_t   NUM_HALL_SENSORS     = 8;
 constexpr uint8_t   DEFAULT_TRACK_SHIFT  = 0;   // per layer: scale degrees added to each sensor's degree
-constexpr bool      DEFAULT_TRACK_WRAP   = true;   // per layer: the shifted degree wraps around the arm
+constexpr bool      DEFAULT_TRACK_WRAP   = false;  // per layer: No Wrap, the shifted run carries into the next octave
 constexpr bool      DEFAULT_LOW_NOTE_OUTER = false;  // per layer: Low Note Inner, hall 1 plays the low end
 
 // -------------------------------------------------------------------------
@@ -26,7 +27,7 @@ constexpr bool      DEFAULT_LOW_NOTE_OUTER = false;  // per layer: Low Note Inne
 // Which parameter the aux knob modulates. Index into the Fn list in menu.cpp.
 // This binding is saved; the VALUES it modulates are live performance state and
 // deliberately are not.
-constexpr uint8_t   DEFAULT_AUX_FN       = 0;   // Octave
+constexpr uint8_t   DEFAULT_AUX_FN       = 0;   // Pitch
 
 // Pitch step size, stored as a divisor of one semitone: 1 = a half step,
 // 2 = a quarter tone, and so on. Anything above 1 is microtonal -- exact on the

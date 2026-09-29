@@ -13,6 +13,7 @@ static const Voice VOICES[VOICE_COUNT] = {
     { "Leads",   WAVEFORM_BANDLIMIT_SQUARE,     5, 100, 0.7f, 150, 200,  4, NoteSource::Scale },
     { "Bass",    WAVEFORM_BANDLIMIT_SAWTOOTH,   5, 150, 0.5f, 100, 250,  2, NoteSource::Scale },
     { "Drums",   WAVEFORM_SINE,                 0,   0, 0.0f,   0,  50, 10, NoteSource::Kit   },
+    { "None",    WAVEFORM_SINE,                 0,   0, 0.0f,   0,   0,  1, NoteSource::Silent },
 };
 
 const Voice& voiceGet(uint8_t id) {

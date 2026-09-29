@@ -84,8 +84,10 @@ void layersApply(const SavedConfig& cfg) {
         audioSetVoice(l, layerVoice(cfg, l));
     }
     // Kit layers are left out: bend on a drum channel would retune the drums.
+    // A silent layer sends nothing, so it needs no bend either.
     auto bendChannel = [&](uint8_t l) -> uint8_t {
-        if (!layerActive(cfg, l) || voiceIsKit(layerVoice(cfg, l))) return 0;
+        const Voice& v = layerVoice(cfg, l);
+        if (!layerActive(cfg, l) || voiceIsKit(v) || voiceIsSilent(v)) return 0;
         return layerChannel(cfg, l);
     };
     midiSetLayerChannels(bendChannel(LAYER_A), bendChannel(LAYER_B));

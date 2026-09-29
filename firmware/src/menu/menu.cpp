@@ -23,13 +23,16 @@ static LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
 enum class MenuState : uint8_t {
     Status,
     MainMenu,
-    RootNote,
-    Scale,
-    Octave,
+    SoundDefaults,    // Layer A / Layer B: edits the Defaults scene
+    SoundGatePrompt,  // another scene is playing: load Defaults first?
+    PlaySetup,
+    System,
     LayerMenu,      // one layer's submenu; which one is editLayer
     LayerMode,
     LayerVoice,
     LayerChannel,
+    LayerRoot,
+    LayerScale,
     LayerOctave,
     LayerLevel,
     LayerShift,
@@ -87,14 +90,15 @@ static const char* ROOT_ITEMS[] = {
 };
 static const uint8_t ROOT_COUNT = 13;
 
+// A layer's scale, from the menu. No Learned: it can only be learned, from
+// MIDI keys.
 static const char* SCALE_ITEMS[] = {
     "Major","Minor","PMajor","PMinor","Blues","Chromat","Dorian","Mixolyd","Back"
 };
 static const uint8_t SCALE_COUNT = 9;
 
 // Every scale's name, Learned included, for the live display, scenes and the
-// Aux Scale Fn. The main menu list above has no Learned: it can only be
-// learned, from MIDI keys.
+// Aux Scale Fns.
 static const char* SCALE_NAMES[] = {
     "Major","Minor","PMajor","PMinor","Blues","Chromat","Dorian","Mixolyd","Learned"
 };
@@ -113,13 +117,19 @@ static const uint8_t VOICE_ITEMS_COUNT = VOICE_COUNT + 1;
 static uint8_t editLayer = LAYER_A;
 
 static const char* LAYER_ITEMS[] = {
-    "Mode","Voice","Channel","Octave","Level","Shift","Wrap","Low Note","MIDI In","Back"
+    "Mode","Voice","Channel","Root Note","Scale","Octave","Level","Shift","Wrap",
+    "Low Note","MIDI In","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 10;
+static const uint8_t LAYER_ITEMS_COUNT = 12;
 enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
-                 LAYER_ITEM_OCTAVE, LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT,
-                 LAYER_ITEM_WRAP, LAYER_ITEM_LOW_NOTE, LAYER_ITEM_MIDI_IN,
-                 LAYER_ITEM_BACK };
+                 LAYER_ITEM_ROOT, LAYER_ITEM_SCALE, LAYER_ITEM_OCTAVE,
+                 LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT, LAYER_ITEM_WRAP,
+                 LAYER_ITEM_LOW_NOTE, LAYER_ITEM_MIDI_IN, LAYER_ITEM_BACK };
+
+// The layer submenu as drawn: each entry with the layer's cue, if any (see
+// layerCue()). Rebuilt before each draw.
+static char        LAYER_LABEL_BUF[LAYER_ITEMS_COUNT][17];
+static const char* LAYER_LABELS[LAYER_ITEMS_COUNT];
 
 // A layer's MIDI in channel: Off, then channels 1-16, then Back. Index ==
 // stored value. Filled in by menuInit().
@@ -137,11 +147,6 @@ static const uint8_t MODE_COUNT_B = 4;
 static char        CHANNEL_LABEL_BUF[16][6];
 static const char* CHANNEL_ITEMS[18];
 static const uint8_t CHANNEL_COUNT = 18;
-
-// Octave offset -3..+3; index = offset + LAYER_OCTAVE_RANGE.
-static const int8_t  LAYER_OCTAVE_RANGE = 3;
-static const char*   LAYER_OCTAVE_ITEMS[] = { "-3","-2","-1","0","+1","+2","+3","Back" };
-static const uint8_t LAYER_OCTAVE_COUNT = 8;
 
 // Level in 10% steps; index = level / 10.
 static const char*   LEVEL_ITEMS[] = {
@@ -171,15 +176,31 @@ static const uint8_t LOW_NOTE_VALUES  = 2;
 static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
 
 static const char* MAIN_ITEMS[] = {
-    "Root Note","Scale","Octave","Layer A","Layer B","Welcome Tune",
-    "LCD Timeout","Menu Timeout","Beats/Rev","Aux Fn","Pitch Step","MIDI Fn",
-    "Tools","Exit"
+    "Sound Defaults","Play Setup","System","Tools","Exit"
 };  // Exit returns to the live display; submenus keep "Back"
-static const uint8_t MAIN_COUNT = 14;
-enum : uint8_t { MAIN_ITEM_ROOT, MAIN_ITEM_SCALE, MAIN_ITEM_OCTAVE, MAIN_ITEM_LAYER_A,
-                 MAIN_ITEM_LAYER_B, MAIN_ITEM_WELCOME, MAIN_ITEM_LCD_TIMEOUT,
-                 MAIN_ITEM_MENU_TIMEOUT, MAIN_ITEM_BEATS, MAIN_ITEM_AUX_FN,
-                 MAIN_ITEM_PITCH_STEP, MAIN_ITEM_MIDI_FN, MAIN_ITEM_TOOLS, MAIN_ITEM_EXIT };
+static const uint8_t MAIN_COUNT = 5;
+enum : uint8_t { MAIN_ITEM_SOUND, MAIN_ITEM_PLAY, MAIN_ITEM_SYSTEM, MAIN_ITEM_TOOLS,
+                 MAIN_ITEM_EXIT };
+
+// Sound Defaults: the two layers of the Defaults scene. Drawn with each
+// layer's cue, so built before each draw.
+static char        SOUND_LABEL_BUF[NUM_LAYERS][17];
+static const char* SOUND_ITEMS[NUM_LAYERS + 1];
+static const uint8_t SOUND_COUNT = NUM_LAYERS + 1;   // + Back
+
+// Play Setup: how the controls and MIDI in behave while playing.
+static const char* PLAY_ITEMS[] = { "Beats/Rev","Pitch Step","Aux Fn","MIDI Fn","Back" };
+static const uint8_t PLAY_COUNT = 5;
+enum : uint8_t { PLAY_ITEM_BEATS, PLAY_ITEM_PITCH_STEP, PLAY_ITEM_AUX_FN,
+                 PLAY_ITEM_MIDI_FN, PLAY_ITEM_BACK };
+
+// System: set once and forgotten, nothing to do with the performance.
+static const char* SYSTEM_ITEMS[] = {
+    "LCD Timeout","Menu Timeout","Welcome Tune","StartPos Check","Magnet Pole","Back"
+};
+static const uint8_t SYSTEM_COUNT = 6;
+enum : uint8_t { SYS_ITEM_LCD_TIMEOUT, SYS_ITEM_MENU_TIMEOUT, SYS_ITEM_WELCOME,
+                 SYS_ITEM_START_CHECK, SYS_ITEM_MAGNET_POLE, SYS_ITEM_BACK };
 
 // Menu timeout choices in seconds, as LCD Timeout offers its own.
 static const uint8_t MENU_TIMEOUT_VALUES[] = { 5, 10, 30, 60, MENU_TIMEOUT_NEVER };
@@ -194,14 +215,12 @@ static const uint8_t MIDI_FN_COUNT = 6;
 // bar start: where the start mark on the platter passes the arm.
 static const char* TOOLS_ITEMS[] = {
     "Go to StartPos","Full Calibrate","Reset Calib.","Calib. StartPos",
-    "Magnet Pole","StartPos Check","Info","Sensor Levels","Reset Settings",
-    "Factory Reset","Back"
+    "Info","Sensor Levels","Reset Settings","Factory Reset","Back"
 };
-static const uint8_t TOOLS_COUNT = 11;
+static const uint8_t TOOLS_COUNT = 9;
 enum : uint8_t { TOOL_GO_TO_START, TOOL_FULL_CAL, TOOL_RESET_CAL,
-                 TOOL_CALIB_START, TOOL_MAGNET_POLE, TOOL_START_CHECK,
-                 TOOL_INFO, TOOL_SENSOR_LEVELS, TOOL_RESET_SETTINGS,
-                 TOOL_FACTORY_RESET, TOOL_BACK };
+                 TOOL_CALIB_START, TOOL_INFO, TOOL_SENSOR_LEVELS,
+                 TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
 
 // Info: one page per value, turned through with the menu knob.
 enum : uint8_t { INFO_BELT, INFO_START_POS, INFO_THRESHOLD, INFO_DRIVER,
@@ -231,62 +250,66 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 // -------------------------------------------------------------------------
 // Aux function knob
 // -------------------------------------------------------------------------
-// What the aux knob can be bound to. The stored cfg.auxFn is this number, so
-// new Fns go at the END; the order on screen is set by the lists below.
-// Storage migration (migrateAuxFn() in storage.cpp) knows this order too.
-enum class AuxFn : uint8_t { Octave, RootNote, ScaleFn, ShiftA, ShiftB,
-                             LowNoteA, LowNoteB, Pitch,
-                             Balance, VoiceA, VoiceB, LoadScene,
-                             OctaveA, OctaveB, COUNT };
+// What the aux knob can be bound to. The stored cfg.auxFn is this number;
+// the order on screen is set by the lists below. The per-layer Fns come in
+// A/B pairs, in AuxKind order, from VoiceA on.
+enum class AuxFn : uint8_t { Pitch, Balance, LoadScene,
+                             VoiceA, VoiceB, RootA, RootB, ScaleA, ScaleB,
+                             OctaveA, OctaveB, ShiftA, ShiftB, LowNoteA, LowNoteB,
+                             COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
-// The Aux list, as shown: the shared Fns, a submenu per layer, the scene Fn,
+// What a per-layer Fn changes. The layer comes from the A/B pair.
+enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, COUNT };
+static const uint8_t AUX_KIND_COUNT = (uint8_t)AuxKind::COUNT;
+
+static bool    auxIsLayerFn(AuxFn fn) { return fn >= AuxFn::VoiceA && fn < AuxFn::COUNT; }
+static AuxKind auxKindOf(AuxFn fn)   { return (AuxKind)(((uint8_t)fn - (uint8_t)AuxFn::VoiceA) / NUM_LAYERS); }
+static uint8_t auxLayerOf(AuxFn fn)  { return ((uint8_t)fn - (uint8_t)AuxFn::VoiceA) % NUM_LAYERS; }
+static AuxFn   auxLayerFn(AuxKind k, uint8_t layer) {
+    return (AuxFn)((uint8_t)AuxFn::VoiceA + (uint8_t)k * NUM_LAYERS + layer);
+}
+
+// The Aux list, as shown: Pitch, a submenu per layer, Balance, the scene Fn,
 // then three actions. Layer entries open the per-layer list below.
 static const char* AUX_TOP_LABELS[] = {
-    "Octave","Root Note","Scale","Pitch","Layer A >","Layer B >",
-    "A/B Balance","Load Scene","Save Scene","Reset All","Exit"
+    "Pitch","Layer A >","Layer B >","A/B Balance","Load Scene","Save Scene",
+    "Reset All","Exit"
 };
-enum : uint8_t { AUXT_OCTAVE, AUXT_ROOT, AUXT_SCALE, AUXT_PITCH,
-                 AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE, AUXT_LOAD_SCENE,
-                 AUXT_SAVE_SCENE, AUXT_RESET, AUXT_EXIT, AUXT_COUNT };
+enum : uint8_t { AUXT_PITCH, AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE,
+                 AUXT_LOAD_SCENE, AUXT_SAVE_SCENE, AUXT_RESET, AUXT_EXIT, AUXT_COUNT };
 // The Fn behind each top entry; COUNT where the entry is not a Fn.
 static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
-    AuxFn::Octave, AuxFn::RootNote, AuxFn::ScaleFn, AuxFn::Pitch,
-    AuxFn::COUNT, AuxFn::COUNT, AuxFn::Balance, AuxFn::LoadScene,
+    AuxFn::Pitch, AuxFn::COUNT, AuxFn::COUNT, AuxFn::Balance, AuxFn::LoadScene,
     AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
 };
 
-// Inside Layer A > / Layer B >, in the layer submenu's order.
-static const char* AUX_LAYER_LABELS[] = { "Voice","Octave","Shift","Low Note","Back" };
-static const uint8_t AUX_LAYER_COUNT = 5;   // 4 Fns + Back
-static const AuxFn AUX_LAYER_FN[NUM_LAYERS][AUX_LAYER_COUNT - 1] = {
-    { AuxFn::VoiceA, AuxFn::OctaveA, AuxFn::ShiftA, AuxFn::LowNoteA },
-    { AuxFn::VoiceB, AuxFn::OctaveB, AuxFn::ShiftB, AuxFn::LowNoteB },
+// Inside Layer A > / Layer B >, in AuxKind order.
+static const char* AUX_LAYER_LABELS[] = {
+    "Voice","Root Note","Scale","Octave","Shift","Low Note","Back"
 };
+static const uint8_t AUX_LAYER_COUNT = AUX_KIND_COUNT + 1;   // + Back
 static uint8_t auxLayer = LAYER_A;   // which layer's list is open
 
-// Main > Aux Fn, which sets the binding ahead of time, stays one flat list.
-// Order matches AuxFn.
+// Play Setup > Aux Fn, which sets the binding ahead of time, stays one flat
+// list. Order matches AuxFn.
 static const char* AUX_FN_MENU_LABELS[] = {
-    "Octave","Root Note","Scale","Layer A Shift","Layer B Shift",
-    "Layer A Low","Layer B Low","Pitch",
-    "A/B Balance","Layer A Voice","Layer B Voice","Load Scene",
-    "Layer A Octave","Layer B Octave","Back"
+    "Pitch","A/B Balance","Load Scene",
+    "Layer A Voice","Layer B Voice","Layer A Root","Layer B Root",
+    "Layer A Scale","Layer B Scale","Layer A Octave","Layer B Octave",
+    "Layer A Shift","Layer B Shift","Layer A Low","Layer B Low","Back"
 };
 static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
 
-// Scene list entries: "2: D Minor", or "3: (empty)". Rebuilt before each
-// draw, since the root and scale names come from the slots. The save list
-// adds Back.
+// Scene list entries: "0: Defaults", "2: D Minor" (Layer A's key), or
+// "3: (empty)". Rebuilt before each draw, since the names come from the
+// slots. Load lists every scene, index == slot. Save lists 1-8, then Back:
+// Defaults changes only from the Sound Defaults menu.
 static char        SCENE_LABEL_BUF[NUM_SCENES][16];
-static const char* SCENE_ITEMS[NUM_SCENES + 1];
-
-// The Load Scene list: Defaults first, then the 8 slots.
-static const char*   LOAD_ITEMS[NUM_SCENES + 1];
-static const uint8_t LOAD_COUNT = NUM_SCENES + 1;
-static uint8_t loadPosToSlot(uint8_t p) { return p == 0 ? SCENE_DEFAULTS : (uint8_t)(p - 1); }
-static uint8_t loadSlotToPos(uint8_t s) { return s == SCENE_DEFAULTS ? 0 : (uint8_t)(s + 1); }
-static const uint8_t SCENE_SAVE_COUNT = NUM_SCENES + 1;
+static const char* LOAD_ITEMS[NUM_SCENES];
+static const uint8_t LOAD_COUNT = NUM_SCENES;
+static const char* SAVE_ITEMS[NUM_SCENES];
+static const uint8_t SAVE_COUNT = NUM_SCENES;   // 8 slots + Back
 
 // How far one aux step moves Pitch, as a divisor of a semitone.
 static const uint8_t PITCH_STEP_VALUES[] = { 1, 2, 3, 4, 8 };
@@ -305,18 +328,15 @@ static bool auxEnteredFromLive = false;
 // per-layer Fn, else the top list.
 static void enterState(MenuState s, uint8_t initialCursor = 0);
 static void openAuxSelect(const SavedConfig& cfg) {
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-        for (uint8_t i = 0; i < AUX_LAYER_COUNT - 1; i++) {
-            if ((uint8_t)AUX_LAYER_FN[l][i] == cfg.auxFn) {
-                auxLayer = l;
-                enterState(MenuState::AuxLayerSelect, i);
-                return;
-            }
-        }
+    AuxFn fn = (AuxFn)cfg.auxFn;
+    if (auxIsLayerFn(fn)) {
+        auxLayer = auxLayerOf(fn);
+        enterState(MenuState::AuxLayerSelect, (uint8_t)auxKindOf(fn));
+        return;
     }
     uint8_t top = 0;
     for (uint8_t i = 0; i < AUXT_COUNT; i++) {
-        if ((uint8_t)AUX_TOP_FN[i] == cfg.auxFn) { top = i; break; }
+        if (AUX_TOP_FN[i] == fn) { top = i; break; }
     }
     enterState(MenuState::AuxFnSelect, top);
 }
@@ -375,10 +395,22 @@ static uint8_t saveSlot = 0;
 static void saveScene(SavedConfig& cfg, uint8_t slot) {
     sceneSave(cfg, slot);
     char msg[17];
-    snprintf(msg, sizeof(msg), "Saved Scene %u", (unsigned)(slot + 1));
+    snprintf(msg, sizeof(msg), "Saved Scene %u", (unsigned)slot);
     menuMessage(msg, "");
     delay(1000);
     enterState(MenuState::Status);
+}
+
+// A Sound Defaults edit: `set` changes one field of the open layer, in the
+// Defaults scene and in the live sound alike, so it is heard at once. Only
+// that field: other Aux tweaks in play stay live, unsaved. The menu is only
+// open with Defaults playing (see MAIN_ITEM_SOUND).
+template <typename F>
+static void editDefaults(SavedConfig& cfg, F set) {
+    set(cfg.scenes[SCENE_DEFAULTS].layer[editLayer]);
+    set(cfg.layer[editLayer]);
+    storageSave(cfg);
+    layersApply(cfg);
 }
 
 // Ends a calibration or StartPos flow: back to the live display if it began
@@ -459,39 +491,67 @@ static void buildVolBar(char* out, float vol, bool muted) {
 
 static void drawStatus(const SavedConfig& cfg) {
     // BPM carries the platter's direction in its sign, as cfg.rpm does. The
-    // right half names the current scene, with * once the live settings
-    // differ from it; blank until a scene has been loaded or saved.
+    // right half names the current scene, with * once the live sound differs
+    // from it. The key shown is Layer A's.
     int bpm = (int)lroundf(cfg.rpm * cfg.beatsPerRev);
-    char scene[16] = "";   // "Scene 2*"; sized for any %u
-    if (sceneUsed(cfg, cfg.currentScene)) {
-        // Defaults is scene 0, as in the Load Scene list.
-        unsigned n = (cfg.currentScene == SCENE_DEFAULTS) ? 0 : cfg.currentScene + 1;
-        snprintf(scene, sizeof(scene), "Scene %u%c", n, sceneModified(cfg) ? '*' : ' ');
-    }
-    lcdLine(0, "BPM:%-4d%s", bpm, scene);
+    lcdLine(0, "BPM:%-4dScene %u%c", bpm, (unsigned)cfg.currentScene,
+            sceneModified(cfg) ? '*' : ' ');
+    const LayerCfg& a = layerEffective(cfg, LAYER_A);
     char vb[7];
     buildVolBar(vb, cfg.volume, cfg.muted);
     lcdLine(1, "%-2s %-7s%s",
-        ROOT_ITEMS[static_cast<uint8_t>(cfg.root)],
-        SCALE_NAMES[static_cast<uint8_t>(cfg.scale)],
+        ROOT_ITEMS[static_cast<uint8_t>(a.root) % 12],
+        SCALE_NAMES[static_cast<uint8_t>(a.scale) % (uint8_t)Scale::COUNT],
         vb);
 }
 
 static void buildSceneLabels(const SavedConfig& cfg) {
     for (uint8_t i = 0; i < NUM_SCENES; i++) {
-        const SceneSlot& s = cfg.scenes[i];
-        if (s.used) {
-            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: %s %s", i + 1,
-                     ROOT_ITEMS[(uint8_t)s.root], SCALE_NAMES[(uint8_t)s.scale]);
+        const LayerCfg& a = cfg.scenes[i].layer[LAYER_A];
+        if (i == SCENE_DEFAULTS) {
+            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "0: Defaults");
+        } else if (cfg.sceneUsed[i]) {
+            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: %s %s", i,
+                     ROOT_ITEMS[(uint8_t)a.root % 12],
+                     SCALE_NAMES[(uint8_t)a.scale % (uint8_t)Scale::COUNT]);
         } else {
-            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: (empty)", i + 1);
+            snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: (empty)", i);
         }
-        SCENE_ITEMS[i] = SCENE_LABEL_BUF[i];
+        LOAD_ITEMS[i] = SCENE_LABEL_BUF[i];
     }
-    SCENE_ITEMS[NUM_SCENES] = "Back";
+    for (uint8_t i = 1; i < NUM_SCENES; i++) SAVE_ITEMS[i - 1] = SCENE_LABEL_BUF[i];
+    SAVE_ITEMS[SAVE_COUNT - 1] = "Back";
+}
 
-    LOAD_ITEMS[0] = "0: Defaults";
-    for (uint8_t i = 0; i < NUM_SCENES; i++) LOAD_ITEMS[i + 1] = SCENE_LABEL_BUF[i];
+// Layer mode cues: a layer whose settings have no effect says so, in the
+// Sound Defaults list and on its submenu entries. "(=A)": Layer B in Same as
+// A plays A's settings. "(off)": the layer is Off. Read from the Defaults
+// scene, which is what these menus edit.
+static const char* layerCue(const SavedConfig& cfg, uint8_t layer) {
+    LayerMode m = cfg.scenes[SCENE_DEFAULTS].layer[layer].mode;
+    if (layer == LAYER_B && m == LayerMode::SameAsA) return " (=A)";
+    if (m == LayerMode::Off) return " (off)";
+    return "";
+}
+
+static void buildSoundLabels(const SavedConfig& cfg) {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        snprintf(SOUND_LABEL_BUF[l], sizeof(SOUND_LABEL_BUF[l]), "Layer %c%s",
+                 'A' + l, layerCue(cfg, l));
+        SOUND_ITEMS[l] = SOUND_LABEL_BUF[l];
+    }
+    SOUND_ITEMS[NUM_LAYERS] = "Back";
+}
+
+// Mode is what the cue is about, and Back is not a setting: neither is tagged.
+static void buildLayerLabels(const SavedConfig& cfg) {
+    const char* cue = layerCue(cfg, editLayer);
+    for (uint8_t i = 0; i < LAYER_ITEMS_COUNT; i++) {
+        bool tag = (i != LAYER_ITEM_MODE && i != LAYER_ITEM_BACK);
+        snprintf(LAYER_LABEL_BUF[i], sizeof(LAYER_LABEL_BUF[i]), "%s%s",
+                 LAYER_ITEMS[i], tag ? cue : "");
+        LAYER_LABELS[i] = LAYER_LABEL_BUF[i];
+    }
 }
 
 static void drawList(const char** items, uint8_t count, uint8_t cur) {
@@ -553,14 +613,9 @@ static void drawSensorLevels() {
 
 // Apply one aux knob step to whatever the knob is bound to.
 //
-// RAM ONLY. These are live performance moves, not configuration: the saved
-// value is the one dialled in from the main menu, so a session always starts
-// from a known place instead of wherever the knob was left.
-//
-// This function writing straight into cfg is safe because storage.cpp keeps a
-// separate committed copy of exactly these fields and never lets the live ones
-// reach EEPROM. If you add a target here, add its field to
-// copyLiveModulatedFields() in storage.cpp or it will start persisting.
+// LIVE ONLY. These are performance moves on top of the current scene, not
+// configuration: power-up and Aux Reset All go back to the scene as saved,
+// and only Save Scene keeps them. Nothing here writes EEPROM.
 //
 // Wrap vs clamp follows the shape of the value: wrap anything cyclic, clamp
 // anything that is a magnitude. Octave is a magnitude, and wrapping 7 back to
@@ -569,93 +624,139 @@ static void drawSensorLevels() {
 // the whole run, and 7 to 0 would drop every sensor an octave at once. Low
 // Note clamps too, right = Outer as listed, so a stray click cannot flip it.
 static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
-    switch ((AuxFn)cfg.auxFn) {
-        case AuxFn::Octave: {
-            int v = (int)cfg.octave + delta;
-            cfg.octave = (uint8_t)constrain(v, 0, 7);          // clamp: a range
+    AuxFn fn = (AuxFn)cfg.auxFn;
+    switch (fn) {
+        case AuxFn::Pitch: {
+            // One offset for the whole table, so both layers move together
+            // and the interval between them holds.
+            uint8_t div = cfg.pitchStepDiv ? cfg.pitchStepDiv : 1;
+            pitchAdjust((float)delta / (float)div);
+            return;
+        }
+        case AuxFn::Balance:
+            layerSetBalance(layerBalance() + delta);           // clamp: a range
+            return;
+        case AuxFn::LoadScene: {
+            // Steps through the used scenes, wrapping, and queues the one
+            // landed on to load at the next bar start. Defaults is always
+            // there, so the loop always finds one.
+            int step = (delta > 0) ? 1 : -1;
+            int pos  = sceneSelected(cfg);
+            for (int n = abs(delta); n > 0; n--) {
+                do { pos = (pos + step + LOAD_COUNT) % LOAD_COUNT; }
+                while (!sceneUsed(cfg, (uint8_t)pos));
+            }
+            sceneQueue(cfg, (uint8_t)pos);
+            return;
+        }
+        default:
+            break;
+    }
+    if (!auxIsLayerFn(fn)) return;
+
+    uint8_t l = auxLayerOf(fn);
+    // B in Same as A plays A's settings, so turning B's would do nothing
+    // audible; leave it alone rather than change a hidden setting.
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) return;
+    LayerCfg& lc = cfg.layer[l];
+
+    switch (auxKindOf(fn)) {
+        case AuxKind::Voice: {
+            int v = ((int)lc.voice + delta) % VOICE_COUNT;
+            if (v < 0) v += VOICE_COUNT;
+            lc.voice = (uint8_t)v;                             // wrap: a list
+            layersApply(cfg);
             break;
         }
-        case AuxFn::RootNote: {
-            int v = ((int)cfg.root + delta) % 12;
+        case AuxKind::Root: {
+            int v = ((int)lc.root + delta) % 12;
             if (v < 0) v += 12;
-            cfg.root = (RootNote)v;                            // wrap: a circle
+            lc.root = (RootNote)v;                             // wrap: a circle
             break;
         }
-        case AuxFn::ScaleFn: {
-            int n = scaleHasLearned() ? (int)Scale::COUNT : (int)SCALE_BUILTIN_COUNT;
-            int v = ((int)cfg.scale + delta) % n;
+        case AuxKind::Scale: {
+            // Learned is in the list only once this layer has learned one.
+            int n = lc.learned ? (int)Scale::COUNT : (int)SCALE_BUILTIN_COUNT;
+            int v = ((int)lc.scale + delta) % n;
             if (v < 0) v += n;
-            cfg.scale = (Scale)v;                              // wrap: a list
+            lc.scale = (Scale)v;                               // wrap: a list
             break;
         }
-        case AuxFn::ShiftA:
-        case AuxFn::ShiftB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::ShiftA) ? LAYER_A : LAYER_B;
+        case AuxKind::Octave: {
+            int v = (int)lc.octave + delta;
+            lc.octave = (uint8_t)constrain(v, 0, 7);           // clamp: a range
+            break;
+        }
+        case AuxKind::Shift: {
             // B playing A's shift: turning B's would change a hidden setting.
             if (layerShiftSource(cfg, l) != l) break;
-            int v = (int)cfg.layer[l].shift + delta;
+            int v = (int)lc.shift + delta;
             if (layerWraps(cfg, l)) {                          // kits always wrap
                 v %= NUM_HALL_SENSORS;
                 if (v < 0) v += NUM_HALL_SENSORS;              // wrap: a rotation
             } else {
                 v = constrain(v, 0, NUM_HALL_SENSORS - 1);     // clamp: a transpose
             }
-            cfg.layer[l].shift = (uint8_t)v;
+            lc.shift = (uint8_t)v;
             break;
         }
-        case AuxFn::LowNoteA:
-        case AuxFn::LowNoteB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::LowNoteA) ? LAYER_A : LAYER_B;
+        case AuxKind::LowNote: {
             if (layerLowNoteSource(cfg, l) != l) break;        // playing A's
-            int v = (int)cfg.layer[l].lowNote + delta;
-            cfg.layer[l].lowNote = (uint8_t)constrain(v, 0, LOW_NOTE_VALUES - 1);
+            int v = (int)lc.lowNote + delta;
+            lc.lowNote = (uint8_t)constrain(v, 0, LOW_NOTE_VALUES - 1);
             break;
         }
-        case AuxFn::Pitch: {
-            uint8_t div = cfg.pitchStepDiv ? cfg.pitchStepDiv : 1;
-            pitchAdjust((float)delta / (float)div);
+        default:
+            break;
+    }
+}
+
+// A per-layer Fn's parameter screen. Layer B in Same as A says so instead,
+// as do B's Shift and Low Note while bound to A's.
+static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+        lcdLine(0, "Layer B is");
+        lcdLine(1, "Same as A");
+        return;
+    }
+    const LayerCfg& lc = cfg.layer[l];
+    // Explicit counts: these lists carry a trailing "Back" for menu use that
+    // has no meaning here, where the button is already back.
+    switch (kind) {
+        case AuxKind::Voice:
+            drawList(VOICE_ITEMS, VOICE_COUNT, (uint8_t)constrain(lc.voice, 0, VOICE_COUNT - 1));
+            break;
+        case AuxKind::Root:
+            drawList(ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
+            break;
+        case AuxKind::Scale: {
+            uint8_t n = lc.learned ? (uint8_t)Scale::COUNT : SCALE_BUILTIN_COUNT;
+            drawList(SCALE_NAMES, n, (uint8_t)constrain((uint8_t)lc.scale, 0, n - 1));
             break;
         }
-        case AuxFn::Balance:
-            layerSetBalance(layerBalance() + delta);           // clamp: a range
+        case AuxKind::Octave:
+            drawList(OCTAVE_ITEMS, 8, (uint8_t)constrain(lc.octave, 0, 7));
             break;
-        case AuxFn::VoiceA:
-        case AuxFn::VoiceB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::VoiceA) ? LAYER_A : LAYER_B;
-            // B in Same as A plays A's voice, so turning B's would do nothing
-            // audible; leave it alone rather than change a hidden setting.
-            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) break;
-            int v = ((int)cfg.layer[l].voice + delta) % VOICE_COUNT;
-            if (v < 0) v += VOICE_COUNT;
-            cfg.layer[l].voice = (uint8_t)v;                   // wrap: a list
-            layersApply(cfg);
-            break;
-        }
-        case AuxFn::OctaveA:
-        case AuxFn::OctaveB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::OctaveA) ? LAYER_A : LAYER_B;
-            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) break;
-            int v = (int)cfg.layer[l].octaveOffset + delta;
-            cfg.layer[l].octaveOffset =                        // clamp: a range
-                (int8_t)constrain(v, -LAYER_OCTAVE_RANGE, LAYER_OCTAVE_RANGE);
-            break;
-        }
-        case AuxFn::LoadScene: {
-            // Steps through Defaults and the saved scenes, wrapping, and
-            // queues the one landed on to load at the next bar start.
-            // Defaults is always there, so the loop always finds one.
-            uint8_t sel  = sceneSelected(cfg);
-            int     step = (delta > 0) ? 1 : -1;
-            int     pos  = (sel == SCENE_NONE) ? (step > 0 ? -1 : LOAD_COUNT)
-                                               : loadSlotToPos(sel);
-            for (int n = abs(delta); n > 0; n--) {
-                do { pos = (pos + step + LOAD_COUNT) % LOAD_COUNT; }
-                while (!sceneUsed(cfg, loadPosToSlot((uint8_t)pos)));
+        case AuxKind::Shift:
+            if (l == LAYER_B && lc.shiftSameAsA) {
+                lcdLine(0, "B Shift is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(SHIFT_ITEMS_A, NUM_HALL_SENSORS,
+                         (uint8_t)constrain(lc.shift, 0, NUM_HALL_SENSORS - 1));
             }
-            sceneQueue(cfg, loadPosToSlot((uint8_t)pos));
             break;
-        }
-        default: break;
+        case AuxKind::LowNote:
+            if (l == LAYER_B && lc.lowNoteSameAsA) {
+                lcdLine(0, "B Low Note is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_VALUES,
+                         (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
+            }
+            break;
+        default:
+            break;
     }
 }
 
@@ -669,50 +770,12 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
 // Pitch is continuous rather than a list, so it shows its offset and the step
 // size currently in force.
 static void drawAuxParam(const SavedConfig& cfg) {
-    switch ((AuxFn)cfg.auxFn) {
-        case AuxFn::Octave:
-            // Explicit counts: these lists carry a trailing "Back" for menu use
-            // that has no meaning here, where the button is already back.
-            drawList(OCTAVE_ITEMS, 8, cfg.octave);
-            break;
-        case AuxFn::RootNote:
-            drawList(ROOT_ITEMS, 12, (uint8_t)cfg.root);
-            break;
-        case AuxFn::ScaleFn:
-            // Learned is in the list only once something has been learned.
-            drawList(SCALE_NAMES, scaleHasLearned() ? (uint8_t)Scale::COUNT : SCALE_BUILTIN_COUNT,
-                     (uint8_t)cfg.scale);
-            break;
-        case AuxFn::ShiftA:
-        case AuxFn::ShiftB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::ShiftA) ? LAYER_A : LAYER_B;
-            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
-                lcdLine(0, "Layer B is");
-                lcdLine(1, "Same as A");
-            } else if (l == LAYER_B && cfg.layer[LAYER_B].shiftSameAsA) {
-                lcdLine(0, "B Shift is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(SHIFT_ITEMS_A, NUM_HALL_SENSORS,
-                         (uint8_t)constrain(cfg.layer[l].shift, 0, NUM_HALL_SENSORS - 1));
-            }
-            break;
-        }
-        case AuxFn::LowNoteA:
-        case AuxFn::LowNoteB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::LowNoteA) ? LAYER_A : LAYER_B;
-            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
-                lcdLine(0, "Layer B is");
-                lcdLine(1, "Same as A");
-            } else if (l == LAYER_B && cfg.layer[LAYER_B].lowNoteSameAsA) {
-                lcdLine(0, "B Low Note is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_VALUES,
-                         (uint8_t)constrain(cfg.layer[l].lowNote, 0, LOW_NOTE_VALUES - 1));
-            }
-            break;
-        }
+    AuxFn fn = (AuxFn)cfg.auxFn;
+    if (auxIsLayerFn(fn)) {
+        drawAuxLayerParam(cfg, auxKindOf(fn), auxLayerOf(fn));
+        return;
+    }
+    switch (fn) {
         case AuxFn::Pitch: {
             // Cents rather than semitones so fractional steps read sensibly,
             // and so nothing here depends on %f in snprintf.
@@ -743,36 +806,10 @@ static void drawAuxParam(const SavedConfig& cfg) {
             lcdLine(1, "%s", bar);
             break;
         }
-        case AuxFn::VoiceA:
-        case AuxFn::VoiceB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::VoiceA) ? LAYER_A : LAYER_B;
-            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
-                lcdLine(0, "Layer B is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(VOICE_ITEMS, VOICE_COUNT, cfg.layer[l].voice);
-            }
-            break;
-        }
-        case AuxFn::OctaveA:
-        case AuxFn::OctaveB: {
-            uint8_t l = ((AuxFn)cfg.auxFn == AuxFn::OctaveA) ? LAYER_A : LAYER_B;
-            if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
-                lcdLine(0, "Layer B is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(LAYER_OCTAVE_ITEMS, LAYER_OCTAVE_COUNT - 1,   // no Back
-                         (uint8_t)(constrain(cfg.layer[l].octaveOffset, -LAYER_OCTAVE_RANGE,
-                                             LAYER_OCTAVE_RANGE) + LAYER_OCTAVE_RANGE));
-            }
-            break;
-        }
-        case AuxFn::LoadScene: {
+        case AuxFn::LoadScene:
             buildSceneLabels(cfg);
-            uint8_t sel = sceneSelected(cfg);
-            drawList(LOAD_ITEMS, LOAD_COUNT, sel == SCENE_NONE ? 0 : loadSlotToPos(sel));
+            drawList(LOAD_ITEMS, LOAD_COUNT, sceneSelected(cfg));
             break;
-        }
         default:
             lcdLine(0, "");
             lcdLine(1, "");
@@ -810,24 +847,28 @@ static void playWelcomeTune(const SavedConfig& cfg) {
     uint32_t noteMs  = min((uint32_t)layerVoice(cfg, LAYER_A).noteMs, beatMs);
     uint8_t  channel = layerChannel(cfg, LAYER_A);
     bool     kit     = voiceIsKit(layerVoice(cfg, LAYER_A));
-    int      octave  = constrain((int)cfg.octave + layerEffective(cfg, LAYER_A).octaveOffset, 0, 9);
+    bool     silent  = voiceIsSilent(layerVoice(cfg, LAYER_A));
+    const LayerCfg& a = layerEffective(cfg, LAYER_A);
+    uint8_t  octave  = (uint8_t)constrain(a.octave, 0, 9);
 
     lcdLine(0, "  Music  Table  ");
     lcdLine(1, "~~~~~~~~~~~~~~~~");
 
-    // Each step is what that sensor plays on Layer A, Track Shift, Wrap, Low
-    // Note and octave offset included, so the tune previews the table. A kit
-    // voice plays its drums. Returns true if cancelled; the note is still
+    // Each step is what that sensor plays on Layer A, key, octave, Track
+    // Shift, Wrap and Low Note included, so the tune previews the table. A
+    // kit voice plays its drums; voice None keeps time in silence. Returns true if cancelled; the note is still
     // turned off, so a cancel never leaves one hanging.
     auto step = [&](uint8_t i) -> bool {
         uint8_t degree = layerDegree(cfg, LAYER_A, i);
         bool cancelled;
-        if (kit) {
+        if (silent) {
+            cancelled = tuneWait(noteMs);
+        } else if (kit) {
             uint8_t sounded = midiDrumOn(channel, degree, 100);
             cancelled = tuneWait(noteMs);
             midiDrumOff(channel, sounded);
         } else {
-            uint8_t note = scaleNote(cfg.root, cfg.scale, degree, (uint8_t)octave);
+            uint8_t note = scaleNote(a.root, a.scale, a.learned, degree, octave);
             uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
             cancelled = tuneWait(noteMs);
             midiNoteOff(LAYER_A, channel, sounded);
@@ -1069,13 +1110,13 @@ void menuUpdate(SavedConfig& cfg) {
                     auxLayer = (cursor == AUXT_LAYER_A) ? LAYER_A : LAYER_B;
                     enterState(MenuState::AuxLayerSelect, 0);
                 } else if (cursor == AUXT_SAVE_SCENE) {
+                    // The list is slots 1-8: cursor on the current one.
                     uint8_t cur = cfg.currentScene;
-                    enterState(MenuState::SceneSaveSelect, cur < NUM_SCENES ? cur : 0);
+                    enterState(MenuState::SceneSaveSelect, cur != SCENE_DEFAULTS ? cur - 1 : 0);
                 } else if (cursor == AUXT_RESET) {
-                    // Throw away every live modulation at once and drop back to
-                    // the live display, where the restored values are visible on
-                    // the status line: the saved settings, with the current
-                    // scene's pitch and balance. Nothing is written.
+                    // Throw away every live tweak at once and drop back to the
+                    // live display: the current scene, as saved. Nothing is
+                    // written.
                     sceneRevertLive(cfg);
                     enterState(MenuState::Status);
                 } else {
@@ -1098,7 +1139,7 @@ void menuUpdate(SavedConfig& cfg) {
                     enterState(MenuState::AuxFnSelect,
                                auxLayer == LAYER_A ? AUXT_LAYER_A : AUXT_LAYER_B);
                 } else {
-                    auxBind(cfg, AUX_LAYER_FN[auxLayer][cursor]);
+                    auxBind(cfg, auxLayerFn((AuxKind)cursor, auxLayer));
                 }
             }
             break;
@@ -1108,13 +1149,14 @@ void menuUpdate(SavedConfig& cfg) {
         case MenuState::SceneSaveSelect:
             if (ev.menuPressed) { enterState(MenuState::Status); break; }
             if (ev.auxDelta) {
-                cursor = (uint8_t)((cursor + ev.auxDelta + SCENE_SAVE_COUNT) % SCENE_SAVE_COUNT);
+                cursor = (uint8_t)((cursor + ev.auxDelta + SAVE_COUNT) % SAVE_COUNT);
                 needsRedraw = true;
             }
             if (ev.auxPressed) {
-                if (cursor >= NUM_SCENES)            enterState(MenuState::AuxFnSelect, AUXT_SAVE_SCENE);
-                else if (sceneUsed(cfg, cursor)) {   saveSlot = cursor; enterState(MenuState::SceneSaveConfirm, 1); }
-                else                                 saveScene(cfg, cursor);
+                uint8_t slot = cursor + 1;           // the list starts at scene 1
+                if (cursor >= SAVE_COUNT - 1)      enterState(MenuState::AuxFnSelect, AUXT_SAVE_SCENE);
+                else if (sceneUsed(cfg, slot)) {   saveSlot = slot; enterState(MenuState::SceneSaveConfirm, 1); }
+                else                               saveScene(cfg, slot);
             }
             break;
 
@@ -1123,7 +1165,7 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.auxDelta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
             if (ev.auxPressed) {
                 if (cursor == 0) saveScene(cfg, saveSlot);
-                else             enterState(MenuState::SceneSaveSelect, saveSlot);
+                else             enterState(MenuState::SceneSaveSelect, saveSlot - 1);
             }
             break;
 
@@ -1150,25 +1192,52 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 switch (cursor) {
-                    case MAIN_ITEM_ROOT: enterState(MenuState::RootNote,
-                                static_cast<uint8_t>(cfg.root)); break;
-                    case MAIN_ITEM_SCALE: enterState(MenuState::Scale,
-                                static_cast<uint8_t>(cfg.scale)); break;
-                    case MAIN_ITEM_OCTAVE: enterState(MenuState::Octave, cfg.octave); break;
-                    case MAIN_ITEM_LAYER_A: editLayer = LAYER_A; enterState(MenuState::LayerMenu); break;
-                    case MAIN_ITEM_LAYER_B: editLayer = LAYER_B; enterState(MenuState::LayerMenu); break;
-                    case MAIN_ITEM_WELCOME: enterState(MenuState::WelcomeTune,
-                                cfg.playWelcomeTune ? 0 : 1); break;
-                    case MAIN_ITEM_LCD_TIMEOUT: {
-                        // Find current timeout value in the options list.
-                        uint8_t idx = 1; // default to 5s if not found
-                        for (uint8_t i = 0; i < 7; i++) {
-                            if (LCD_TIMEOUT_VALUES[i] == cfg.lcdTimeout) { idx = i; break; }
-                        }
-                        enterState(MenuState::LcdTimeout, idx);
+                    case MAIN_ITEM_SOUND:
+                        // Sound Defaults edits the Defaults scene, and you hear
+                        // each change as you make it, so Defaults has to be the
+                        // scene playing (and not about to be replaced).
+                        if (sceneSelected(cfg) != SCENE_DEFAULTS) enterState(MenuState::SoundGatePrompt);
+                        else                                      enterState(MenuState::SoundDefaults);
                         break;
-                    }
-                    case MAIN_ITEM_BEATS: {
+                    case MAIN_ITEM_PLAY:   enterState(MenuState::PlaySetup); break;
+                    case MAIN_ITEM_SYSTEM: enterState(MenuState::System);    break;
+                    case MAIN_ITEM_TOOLS:  enterState(MenuState::Tools);     break;
+                    default:               enterState(MenuState::Status);    break;
+                }
+            }
+            break;
+
+        case MenuState::SoundGatePrompt:
+            if (ev.menuDelta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
+            if (ev.menuPressed) {
+                if (cursor == 0) {
+                    sceneLoadNow(cfg, SCENE_DEFAULTS);
+                    enterState(MenuState::SoundDefaults);
+                } else {
+                    enterState(MenuState::MainMenu, MAIN_ITEM_SOUND);
+                }
+            }
+            break;
+
+        case MenuState::SoundDefaults:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + SOUND_COUNT) % SOUND_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < NUM_LAYERS) { editLayer = cursor; enterState(MenuState::LayerMenu); }
+                else                     enterState(MenuState::MainMenu, MAIN_ITEM_SOUND);
+            }
+            break;
+
+        case MenuState::PlaySetup:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + PLAY_COUNT) % PLAY_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                switch (cursor) {
+                    case PLAY_ITEM_BEATS: {
                         // Land the cursor on the stored value, not the top.
                         uint8_t idx = 3;  // default to 4 beats if not found
                         for (uint8_t i = 0; i < 6; i++) {
@@ -1177,9 +1246,7 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::BeatsPerRev, idx);
                         break;
                     }
-                    case MAIN_ITEM_AUX_FN: enterState(MenuState::AuxFnDefault,
-                                (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1)); break;
-                    case MAIN_ITEM_PITCH_STEP: {
+                    case PLAY_ITEM_PITCH_STEP: {
                         uint8_t idx = 0;
                         for (uint8_t i = 0; i < PITCH_STEP_COUNT - 1; i++) {
                             if (PITCH_STEP_VALUES[i] == cfg.pitchStepDiv) { idx = i; break; }
@@ -1187,7 +1254,36 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::PitchStep, idx);
                         break;
                     }
-                    case MAIN_ITEM_MENU_TIMEOUT: {
+                    case PLAY_ITEM_AUX_FN:
+                        enterState(MenuState::AuxFnDefault,
+                                   (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1));
+                        break;
+                    case PLAY_ITEM_MIDI_FN:
+                        enterState(MenuState::MidiFnSetting,
+                                   (uint8_t)constrain(cfg.midiFn, 0, (int)MidiFn::COUNT - 1));
+                        break;
+                    default: enterState(MenuState::MainMenu, MAIN_ITEM_PLAY); break;
+                }
+            }
+            break;
+
+        case MenuState::System:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + SYSTEM_COUNT) % SYSTEM_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                switch (cursor) {
+                    case SYS_ITEM_LCD_TIMEOUT: {
+                        // Find current timeout value in the options list.
+                        uint8_t idx = 1; // default to 5s if not found
+                        for (uint8_t i = 0; i < 7; i++) {
+                            if (LCD_TIMEOUT_VALUES[i] == cfg.lcdTimeout) { idx = i; break; }
+                        }
+                        enterState(MenuState::LcdTimeout, idx);
+                        break;
+                    }
+                    case SYS_ITEM_MENU_TIMEOUT: {
                         uint8_t idx = 2;   // 30 sec if not found
                         for (uint8_t i = 0; i < MENU_TIMEOUT_COUNT - 1; i++) {
                             if (MENU_TIMEOUT_VALUES[i] == cfg.menuTimeout) { idx = i; break; }
@@ -1195,46 +1291,14 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::MenuTimeout, idx);
                         break;
                     }
-                    case MAIN_ITEM_MIDI_FN:
-                        enterState(MenuState::MidiFnSetting,
-                                   (uint8_t)constrain(cfg.midiFn, 0, (int)MidiFn::COUNT - 1));
-                        break;
-                    case MAIN_ITEM_TOOLS: enterState(MenuState::Tools); break;
-                    case MAIN_ITEM_EXIT:  enterState(MenuState::Status); break;
+                    case SYS_ITEM_WELCOME:
+                        enterState(MenuState::WelcomeTune, cfg.playWelcomeTune ? 0 : 1); break;
+                    case SYS_ITEM_START_CHECK:
+                        enterState(MenuState::StartCheck, cfg.startCheck ? 0 : 1); break;
+                    case SYS_ITEM_MAGNET_POLE:
+                        enterState(MenuState::MagnetPole, cfg.magnetPolarity < 0 ? 1 : 0); break;
+                    default: enterState(MenuState::MainMenu, MAIN_ITEM_SYSTEM); break;
                 }
-            }
-            break;
-
-        case MenuState::RootNote:
-            if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + ROOT_COUNT) % ROOT_COUNT;
-                needsRedraw = true;
-            }
-            if (ev.menuPressed) {
-                if (cursor < 12) { cfg.root = static_cast<RootNote>(cursor); storageCommit(cfg, CommitField::Root); }
-                enterState(MenuState::MainMenu, MAIN_ITEM_ROOT);
-            }
-            break;
-
-        case MenuState::Scale:
-            if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + SCALE_COUNT) % SCALE_COUNT;
-                needsRedraw = true;
-            }
-            if (ev.menuPressed) {
-                if (cursor < 8) { cfg.scale = static_cast<Scale>(cursor); storageCommit(cfg, CommitField::Scale); }
-                enterState(MenuState::MainMenu, MAIN_ITEM_SCALE);
-            }
-            break;
-
-        case MenuState::Octave:
-            if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + OCTAVE_COUNT) % OCTAVE_COUNT;
-                needsRedraw = true;
-            }
-            if (ev.menuPressed) {
-                if (cursor < 8) { cfg.octave = cursor; storageCommit(cfg, CommitField::Octave); }
-                enterState(MenuState::MainMenu, MAIN_ITEM_OCTAVE);
             }
             break;
 
@@ -1244,7 +1308,9 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                const LayerCfg& lc = cfg.layer[editLayer];
+                // The cursor lands on the Defaults scene's value: that is what
+                // this menu edits.
+                const LayerCfg& lc = cfg.scenes[SCENE_DEFAULTS].layer[editLayer];
                 switch (cursor) {
                     case LAYER_ITEM_MODE:
                         enterState(MenuState::LayerMode, (uint8_t)lc.mode); break;
@@ -1254,10 +1320,16 @@ void menuUpdate(SavedConfig& cfg) {
                     case LAYER_ITEM_CHANNEL:
                         enterState(MenuState::LayerChannel,
                                    (uint8_t)constrain(lc.channel, 0, 16)); break;
+                    case LAYER_ITEM_ROOT:
+                        enterState(MenuState::LayerRoot, (uint8_t)lc.root % 12); break;
+                    case LAYER_ITEM_SCALE:
+                        // A learned scale is not in the menu list: land on Back.
+                        enterState(MenuState::LayerScale,
+                                   (uint8_t)lc.scale < SCALE_BUILTIN_COUNT ? (uint8_t)lc.scale
+                                                                           : SCALE_COUNT - 1);
+                        break;
                     case LAYER_ITEM_OCTAVE:
-                        enterState(MenuState::LayerOctave,
-                                   (uint8_t)(constrain(lc.octaveOffset, -LAYER_OCTAVE_RANGE,
-                                                       LAYER_OCTAVE_RANGE) + LAYER_OCTAVE_RANGE)); break;
+                        enterState(MenuState::LayerOctave, (uint8_t)constrain(lc.octave, 0, 7)); break;
                     case LAYER_ITEM_LEVEL:
                         enterState(MenuState::LayerLevel,
                                    (uint8_t)(constrain(lc.level, 0, 100) / 10)); break;
@@ -1280,7 +1352,7 @@ void menuUpdate(SavedConfig& cfg) {
                                    (uint8_t)constrain(cfg.midiInChannel[editLayer], 0, 16));
                         break;
                     default:
-                        enterState(MenuState::MainMenu, editLayer == LAYER_A ? MAIN_ITEM_LAYER_A : MAIN_ITEM_LAYER_B); break;
+                        enterState(MenuState::SoundDefaults, editLayer); break;
                 }
             }
             break;
@@ -1293,9 +1365,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < count - 1) {   // last entry is Back
-                    cfg.layer[editLayer].mode = (LayerMode)cursor;
-                    storageSave(cfg);
-                    layersApply(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.mode = (LayerMode)cursor; });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_MODE);
             }
@@ -1309,9 +1379,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < VOICE_COUNT) {   // last entry is Back
-                    cfg.layer[editLayer].voice = cursor;
-                    storageCommit(cfg, CommitField::Voice, editLayer);
-                    layersApply(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.voice = cursor; });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_VOICE);
             }
@@ -1324,24 +1392,41 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < CHANNEL_COUNT - 1) {   // last entry is Back
-                    cfg.layer[editLayer].channel = cursor;   // 0 = Auto
-                    storageSave(cfg);
-                    layersApply(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.channel = cursor; });   // 0 = Auto
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_CHANNEL);
             }
             break;
 
-        case MenuState::LayerOctave:
+        case MenuState::LayerRoot:
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + LAYER_OCTAVE_COUNT) % LAYER_OCTAVE_COUNT;
+                cursor = (cursor + ev.menuDelta + ROOT_COUNT) % ROOT_COUNT;
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < LAYER_OCTAVE_COUNT - 1) {   // last entry is Back
-                    cfg.layer[editLayer].octaveOffset = (int8_t)cursor - LAYER_OCTAVE_RANGE;
-                    storageCommit(cfg, CommitField::LayerOctave, editLayer);   // also an aux target
-                }
+                if (cursor < 12) editDefaults(cfg, [](LayerCfg& c) { c.root = (RootNote)cursor; });
+                enterState(MenuState::LayerMenu, LAYER_ITEM_ROOT);
+            }
+            break;
+
+        case MenuState::LayerScale:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + SCALE_COUNT) % SCALE_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < SCALE_COUNT - 1) editDefaults(cfg, [](LayerCfg& c) { c.scale = (Scale)cursor; });
+                enterState(MenuState::LayerMenu, LAYER_ITEM_SCALE);
+            }
+            break;
+
+        case MenuState::LayerOctave:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + OCTAVE_COUNT) % OCTAVE_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < OCTAVE_COUNT - 1) editDefaults(cfg, [](LayerCfg& c) { c.octave = cursor; });
                 enterState(MenuState::LayerMenu, LAYER_ITEM_OCTAVE);
             }
             break;
@@ -1353,8 +1438,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < LEVEL_COUNT - 1) {   // last entry is Back
-                    cfg.layer[editLayer].level = cursor * 10;
-                    storageSave(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.level = cursor * 10; });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_LEVEL);
             }
@@ -1369,12 +1453,9 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < NUM_HALL_SENSORS) {
                     // Picking a value also unbinds B's shift from A's.
-                    cfg.layer[editLayer].shift = cursor;
-                    cfg.layer[editLayer].shiftSameAsA = false;
-                    storageCommit(cfg, CommitField::Shift, editLayer);
+                    editDefaults(cfg, [](LayerCfg& c) { c.shift = cursor; c.shiftSameAsA = false; });
                 } else if (editLayer == LAYER_B && cursor == SHIFT_ITEM_SAME_AS_A) {
-                    cfg.layer[LAYER_B].shiftSameAsA = true;
-                    storageSave(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.shiftSameAsA = true; });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_SHIFT);
             }
@@ -1390,8 +1471,7 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor < WRAP_COUNT - 1) {   // last entry is Back
                     // With B's shift bound this is B's own value, ignored
                     // until unbound, as B's other settings are under Same as A.
-                    cfg.layer[editLayer].wrap = (cursor == 0);
-                    storageSave(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.wrap = (cursor == 0); });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_WRAP);
             }
@@ -1406,12 +1486,9 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < LOW_NOTE_VALUES) {
                     // Picking a value also unbinds B's Low Note from A's.
-                    cfg.layer[editLayer].lowNote = cursor;
-                    cfg.layer[editLayer].lowNoteSameAsA = false;
-                    storageCommit(cfg, CommitField::LowNote, editLayer);
+                    editDefaults(cfg, [](LayerCfg& c) { c.lowNote = cursor; c.lowNoteSameAsA = false; });
                 } else if (editLayer == LAYER_B && cursor == LOW_NOTE_ITEM_SAME_AS_A) {
-                    cfg.layer[LAYER_B].lowNoteSameAsA = true;
-                    storageSave(cfg);
+                    editDefaults(cfg, [](LayerCfg& c) { c.lowNoteSameAsA = true; });
                 }
                 enterState(MenuState::LayerMenu, LAYER_ITEM_LOW_NOTE);
             }
@@ -1425,6 +1502,8 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < MIDI_IN_COUNT - 1) {   // last entry is Back
+                    // Not part of the sound, so not in the scene: where the
+                    // keyboard is plugged in does not change with the scene.
                     cfg.midiInChannel[editLayer] = cursor;   // 0 = Off
                     storageSave(cfg);
                 }
@@ -1443,7 +1522,7 @@ void menuUpdate(SavedConfig& cfg) {
                     midiInReset();   // a half-learned scale belongs to the old Fn
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, MAIN_ITEM_MIDI_FN);
+                enterState(MenuState::PlaySetup, PLAY_ITEM_MIDI_FN);
             }
             break;
 
@@ -1460,7 +1539,7 @@ void menuUpdate(SavedConfig& cfg) {
                     playWelcomeTune(cfg);
                 }
                 if (cursor == 1) { cfg.playWelcomeTune = false; storageSave(cfg); }
-                enterState(MenuState::MainMenu, MAIN_ITEM_WELCOME);
+                enterState(MenuState::System, SYS_ITEM_WELCOME);
             }
             break;
 
@@ -1483,7 +1562,7 @@ void menuUpdate(SavedConfig& cfg) {
                         lastInteraction = millis();
                     }
                 }
-                enterState(MenuState::MainMenu, MAIN_ITEM_LCD_TIMEOUT);
+                enterState(MenuState::System, SYS_ITEM_LCD_TIMEOUT);
             }
             break;
 
@@ -1497,7 +1576,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.menuTimeout = MENU_TIMEOUT_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, MAIN_ITEM_MENU_TIMEOUT);
+                enterState(MenuState::System, SYS_ITEM_MENU_TIMEOUT);
             }
             break;
 
@@ -1511,7 +1590,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.beatsPerRev = BEATS_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, MAIN_ITEM_BEATS);
+                enterState(MenuState::PlaySetup, PLAY_ITEM_BEATS);
             }
             break;
 
@@ -1525,7 +1604,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.auxFn = cursor;
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, MAIN_ITEM_AUX_FN);
+                enterState(MenuState::PlaySetup, PLAY_ITEM_AUX_FN);
             }
             break;
 
@@ -1539,7 +1618,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.pitchStepDiv = PITCH_STEP_VALUES[cursor];
                     storageSave(cfg);
                 }
-                enterState(MenuState::MainMenu, MAIN_ITEM_PITCH_STEP);
+                enterState(MenuState::PlaySetup, PLAY_ITEM_PITCH_STEP);
             }
             break;
 
@@ -1558,10 +1637,6 @@ void menuUpdate(SavedConfig& cfg) {
                     case TOOL_FULL_CAL:    enterState(MenuState::CalClearPrompt); break;
                     case TOOL_RESET_CAL:   enterState(MenuState::ResetCalPrompt); break;
                     case TOOL_CALIB_START: enterState(MenuState::StartPosMode); break;
-                    case TOOL_MAGNET_POLE:
-                        enterState(MenuState::MagnetPole, cfg.magnetPolarity < 0 ? 1 : 0); break;
-                    case TOOL_START_CHECK:
-                        enterState(MenuState::StartCheck, cfg.startCheck ? 0 : 1); break;
                     case TOOL_INFO:
                         driverVersion = stepperDriverVersion();   // UART, so once
                         enterState(MenuState::Info);
@@ -1585,7 +1660,7 @@ void menuUpdate(SavedConfig& cfg) {
                     storageSave(cfg);
                     hallSetPolarity(cfg.magnetPolarity);
                 }
-                enterState(MenuState::Tools, TOOL_MAGNET_POLE);
+                enterState(MenuState::System, SYS_ITEM_MAGNET_POLE);
             }
             break;
 
@@ -1747,7 +1822,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.startCheck = (cursor == 0);
                     storageSave(cfg);
                 }
-                enterState(MenuState::Tools, TOOL_START_CHECK);
+                enterState(MenuState::System, SYS_ITEM_START_CHECK);
             }
             break;
 
@@ -1784,8 +1859,8 @@ void menuUpdate(SavedConfig& cfg) {
                     SavedConfig d = storageDefaults();
                     if (!factory) {
                         // Reset Settings keeps calibration, StartPos and the
-                        // scenes; everything else is factory. The settings
-                        // are now the Defaults scene.
+                        // saved scenes 1-8; everything else is factory, the
+                        // Defaults scene included, and Defaults now plays.
                         d.calibrated     = cfg.calibrated;
                         d.hallThreshold  = cfg.hallThreshold;
                         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) d.hallBaseline[i] = cfg.hallBaseline[i];
@@ -1793,26 +1868,21 @@ void menuUpdate(SavedConfig& cfg) {
                         d.magnetPolarity = cfg.magnetPolarity;
                         d.barPhase       = cfg.barPhase;
                         d.barPhaseValid  = cfg.barPhaseValid;
-                        for (uint8_t i = 0; i < NUM_SCENES; i++) {
-                            d.scenes[i]       = cfg.scenes[i];
-                            d.sceneLearned[i] = cfg.sceneLearned[i];
-                            for (uint8_t l = 0; l < NUM_LAYERS; l++)
-                                d.sceneLayerOctave[i][l] = cfg.sceneLayerOctave[i][l];
+                        for (uint8_t i = 1; i < NUM_SCENES; i++) {
+                            d.scenes[i]    = cfg.scenes[i];
+                            d.sceneUsed[i] = cfg.sceneUsed[i];
                         }
-                        d.currentScene = SCENE_DEFAULTS;
                     }
                     cfg = d;
-                    storageCommit(cfg, CommitField::All);
+                    storageSave(cfg);
                     hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
                     if (factory) barInit(cfg);     // defaults: start unknown
                     audioSetVolume(cfg.volume);
                     cfg.muted ? audioMute() : audioUnmute();
-                    pitchSetOffset(0.0f);
-                    layerSetBalance(0);
                     midiInReset();
-                    layersApply(cfg);
+                    sceneLoadNow(cfg, SCENE_DEFAULTS);
                     menuMessage(factory ? "Factory reset" : "Settings reset", "");
                     delay(1500);
                 }
@@ -1832,17 +1902,25 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::MainMenu:
                 drawList(MAIN_ITEMS, MAIN_COUNT, cursor);
                 break;
-            case MenuState::RootNote:
-                drawList(ROOT_ITEMS, ROOT_COUNT, cursor);
+            case MenuState::SoundDefaults:
+                buildSoundLabels(cfg);
+                drawList(SOUND_ITEMS, SOUND_COUNT, cursor);
                 break;
-            case MenuState::Scale:
-                drawList(SCALE_ITEMS, SCALE_COUNT, cursor);
+            case MenuState::SoundGatePrompt:
+                lcdLine(0, "Load Defaults?");
+                lcdLine(1, "%c Yes  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
-            case MenuState::Octave:
-                drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);
+            case MenuState::PlaySetup:
+                drawList(PLAY_ITEMS, PLAY_COUNT, cursor);
+                break;
+            case MenuState::System:
+                drawList(SYSTEM_ITEMS, SYSTEM_COUNT, cursor);
                 break;
             case MenuState::LayerMenu:
-                drawList(LAYER_ITEMS, LAYER_ITEMS_COUNT, cursor);
+                buildLayerLabels(cfg);
+                drawList(LAYER_LABELS, LAYER_ITEMS_COUNT, cursor);
                 break;
             case MenuState::LayerMode:
                 if (editLayer == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A, cursor);
@@ -1854,8 +1932,14 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::LayerChannel:
                 drawList(CHANNEL_ITEMS, CHANNEL_COUNT, cursor);
                 break;
+            case MenuState::LayerRoot:
+                drawList(ROOT_ITEMS, ROOT_COUNT, cursor);
+                break;
+            case MenuState::LayerScale:
+                drawList(SCALE_ITEMS, SCALE_COUNT, cursor);
+                break;
             case MenuState::LayerOctave:
-                drawList(LAYER_OCTAVE_ITEMS, LAYER_OCTAVE_COUNT, cursor);
+                drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);
                 break;
             case MenuState::LayerLevel:
                 drawList(LEVEL_ITEMS, LEVEL_COUNT, cursor);
@@ -1909,10 +1993,10 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::SceneSaveSelect:
                 buildSceneLabels(cfg);
-                drawList(SCENE_ITEMS, SCENE_SAVE_COUNT, cursor);
+                drawList(SAVE_ITEMS, SAVE_COUNT, cursor);
                 break;
             case MenuState::SceneSaveConfirm:
-                lcdLine(0, "Overwrite %u?", (unsigned)(saveSlot + 1));
+                lcdLine(0, "Overwrite %u?", (unsigned)saveSlot);
                 lcdLine(1, "%c Yes  %c Back",
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');

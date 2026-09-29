@@ -3,8 +3,8 @@
 #include "config/storage.h"
 #include "audio/voice.h"
 
-// Resolves the two magnet layers into what actually plays. The saved settings
-// live in cfg.layer[]; this is where "Same as A" and "Auto" channel are turned
+// Resolves the two magnet layers into what actually plays. The live sound
+// is in cfg.layer[]; this is where "Same as A" and "Auto" channel are turned
 // into concrete values, so nothing else has to know about either.
 
 // Is this layer making sound? Layer B in Same as A follows Layer A's On/Off.

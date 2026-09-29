@@ -207,9 +207,9 @@ void audioInit(float volume, bool muted) {
 
 void audioSetVoice(uint8_t layer, const Voice& voice) {
     if (layer >= NUM_LAYERS) return;
-    // A kit voice plays the shared drum bank; this layer's synth bank sits
-    // idle, so leave it as it was.
-    if (voiceIsKit(voice)) return;
+    // A kit voice plays the shared drum bank and a silent one plays nothing;
+    // either way this layer's synth bank sits idle, so leave it as it was.
+    if (voiceIsKit(voice) || voiceIsSilent(voice)) return;
     for (int i = layer * VOICES_PER_LAYER; i < (layer + 1) * VOICES_PER_LAYER; i++) {
         osc[i].begin(voice.waveform);
         env[i].attack(voice.attackMs);

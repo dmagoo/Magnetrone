@@ -39,8 +39,9 @@ static uint8_t  learnCount = 0;
 
 // Chord: the keys of the chord being collected, and when it closes.
 static uint8_t  chordKeys[CHORD_MAX_KEYS];
-static uint8_t  chordCount = 0;
-static uint32_t chordAtMs  = 0;
+static uint8_t  chordCount  = 0;
+static uint32_t chordAtMs   = 0;
+static uint8_t  chordLayers = 0;   // the layers its keys arrived for
 
 void midiInReset() {
     learnCount = 0;
@@ -53,23 +54,29 @@ bool midiInTakeChanged() {
     return c;
 }
 
-// Which layers listen on `ch`: bit 0 = A, bit 1 = B.
+// Which layers listen on `ch`: bit 0 = A, bit 1 = B. Layer B in Same as A
+// plays A's settings, so a message for B alone would change hidden ones; it
+// is left out, as the Aux Fns leave it alone.
 static uint8_t listeners(const SavedConfig& cfg, uint8_t ch) {
     uint8_t m = 0;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) continue;
         if (cfg.midiInChannel[l] && cfg.midiInChannel[l] == ch) m |= (1u << l);
     }
     return m;
 }
 
 // --- MIDI Fn: Pitch ----------------------------------------------------------
-// The key becomes the root and octave: play a G3 and the table's root is G in
+// The key becomes the layer's root and octave: play a G3 and its root is G in
 // octave 3. Whole semitones of the Pitch offset are dropped so the root plays
 // the key itself; a microtonal remainder is kept.
-static void keyPitch(SavedConfig& cfg, uint8_t note) {
-    cfg.root   = (RootNote)(note % 12);
-    cfg.octave = (uint8_t)constrain((int)note / 12 - 1, 0, 7);   // C4 = 60
-    float off  = pitchGetOffset();
+static void keyPitch(SavedConfig& cfg, uint8_t layers, uint8_t note) {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if (!(layers & (1u << l))) continue;
+        cfg.layer[l].root   = (RootNote)(note % 12);
+        cfg.layer[l].octave = (uint8_t)constrain((int)note / 12 - 1, 0, 7);   // C4 = 60
+    }
+    float off = pitchGetOffset();
     pitchSetOffset(off - roundf(off));
     changed = true;
 }
@@ -82,16 +89,16 @@ static void keyShift(SavedConfig& cfg, uint8_t layers, uint8_t note) {
     uint8_t want = note % 12;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         if (!(layers & (1u << l))) continue;
-        // Same rules as the Aux Shift Fns: B playing A's shift, or B in Same
-        // as A, leaves a hidden setting alone. Drums have no pitch to match.
-        if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) continue;
+        // Same rules as the Aux Shift Fns: B playing A's shift leaves a hidden
+        // setting alone. Drums have no pitch to match.
         if (layerShiftSource(cfg, l) != l) continue;
         if (voiceIsKit(layerVoice(cfg, l))) continue;
 
+        const LayerCfg& lc = cfg.layer[l];
         uint8_t best = 0, bestDist = 12;
         for (uint8_t s = 0; s < NUM_HALL_SENSORS; s++) {
             // Degree s is what the low track plays at shift s.
-            uint8_t pc   = scaleNote(cfg.root, cfg.scale, s, 0) % 12;
+            uint8_t pc   = scaleNote(lc.root, lc.scale, lc.learned, s, 0) % 12;
             uint8_t d    = (uint8_t)((pc + 12 - want) % 12);
             uint8_t dist = min(d, (uint8_t)(12 - d));
             if (dist < bestDist) { bestDist = dist; best = s; }
@@ -107,7 +114,7 @@ static void keyShift(SavedConfig& cfg, uint8_t layers, uint8_t note) {
 // seven, each new key replaces the oldest, so any seven keys in a row define
 // the scale. The root is the lowest key actually played among the seven.
 // Until seven have been collected, the current scale keeps playing.
-static void keyLearn(SavedConfig& cfg, uint8_t note) {
+static void keyLearn(SavedConfig& cfg, uint8_t layers, uint8_t note) {
     uint8_t pc = note % 12;
     for (uint8_t i = 0; i < learnCount; i++) if (learnPc[i] == pc) return;
 
@@ -129,9 +136,12 @@ static void keyLearn(SavedConfig& cfg, uint8_t note) {
 
     uint16_t mask = 0;
     for (uint8_t i = 0; i < LEARN_NOTES; i++) mask |= (uint16_t)(1u << ((learnPc[i] + 12 - root) % 12));
-    scaleSetLearned(mask);
-    cfg.root  = (RootNote)root;
-    cfg.scale = Scale::Learned;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if (!(layers & (1u << l))) continue;
+        cfg.layer[l].learned = scaleMaskClean(mask);
+        cfg.layer[l].root    = (RootNote)root;
+        cfg.layer[l].scale   = Scale::Learned;
+    }
     changed = true;
 }
 
@@ -143,8 +153,9 @@ static void keyLearn(SavedConfig& cfg, uint8_t note) {
 //   + a white key to its left       Mixolydian (a 7th chord)
 //   + a black and a white key       Dorian (a minor 7th)
 // The root key also sets the octave, as the Pitch Fn does.
-static void keyChord(uint8_t note) {
-    if (chordCount == 0) chordAtMs = millis() + CHORD_WINDOW_MS;
+static void keyChord(uint8_t layers, uint8_t note) {
+    if (chordCount == 0) { chordAtMs = millis() + CHORD_WINDOW_MS; chordLayers = 0; }
+    chordLayers |= layers;
     if (chordCount < CHORD_MAX_KEYS) chordKeys[chordCount++] = note;
 }
 
@@ -164,11 +175,14 @@ static void chordClose(SavedConfig& cfg) {
     }
     chordCount = 0;
 
-    keyPitch(cfg, root);
-    if (black && white) cfg.scale = Scale::Dorian;
-    else if (black)     cfg.scale = Scale::Minor;
-    else if (white)     cfg.scale = Scale::Mixolydian;
-    else                cfg.scale = Scale::Major;
+    Scale scale = (black && white) ? Scale::Dorian
+                : black            ? Scale::Minor
+                : white            ? Scale::Mixolydian
+                :                    Scale::Major;
+    keyPitch(cfg, chordLayers, root);
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if (chordLayers & (1u << l)) cfg.layer[l].scale = scale;
+    }
     changed = true;
 }
 
@@ -182,10 +196,10 @@ static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8
         case 0x90:
             if (d1 == 0) break;   // velocity 0 is a Note Off; keys act on press only
             switch ((MidiFn)cfg.midiFn) {
-                case MidiFn::Pitch:      keyPitch(cfg, d0);          break;
+                case MidiFn::Pitch:      keyPitch(cfg, layers, d0);  break;
                 case MidiFn::Shift:      keyShift(cfg, layers, d0);  break;
-                case MidiFn::ScaleLearn: keyLearn(cfg, d0);          break;
-                case MidiFn::Chord:      keyChord(d0);               break;
+                case MidiFn::ScaleLearn: keyLearn(cfg, layers, d0);  break;
+                case MidiFn::Chord:      keyChord(layers, d0);       break;
                 default: break;
             }
             break;
@@ -198,7 +212,10 @@ static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8
                 volumeAtMs  = millis();
                 changed = true;
             } else if (d0 == MIDI_CC_OCTAVE) {
-                cfg.octave = (uint8_t)((uint16_t)d1 * 8 / 128);   // 0-127 onto 0-7
+                for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+                    if (layers & (1u << l))
+                        cfg.layer[l].octave = (uint8_t)((uint16_t)d1 * 8 / 128);   // 0-127 onto 0-7
+                }
                 changed = true;
             }
             break;
