@@ -1,10 +1,11 @@
 #pragma once
 #include <stdint.h>
 #include "sequencer/scale.h"
+#include "audio/voice.h"
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 19;
+constexpr uint8_t  EEPROM_VERSION = 20;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -29,6 +30,38 @@ enum class LowNote : uint8_t {
     Outer,
 };
 
+// --- Layer effects -----------------------------------------------------------
+// Each layer's mix runs through a fixed chain: Tone, Chorus, Delay, Reverb.
+// There is no On/Off: the setting that silences an effect reads "Off" at its
+// end of the range. Tone is off at Cutoff 100%, the others at Mix 0%. All
+// values are percentages except the Delay's mode and times.
+enum class FxId : uint8_t { Tone, Chorus, Delay, Reverb, COUNT };
+constexpr uint8_t FX_COUNT = (uint8_t)FxId::COUNT;
+
+// Sync: the delay time is a fraction of a beat. Free: it is in milliseconds.
+enum class DelayMode : uint8_t { Sync, Free, COUNT };
+
+constexpr uint8_t FX_CUTOFF_OFF = 100;
+constexpr uint8_t FX_FEEDBACK_MAX = 90;   // below 100%, so echoes always die out
+
+struct LayerFx {
+    uint8_t  cutoff;         // Tone; FX_CUTOFF_OFF bypasses the filter
+    uint8_t  resonance;      // Tone; ignored while the cutoff is Off
+    uint8_t  chorusRate;
+    uint8_t  chorusDepth;    // 0 is not Off: a fixed delayed copy still colours the sound
+    uint8_t  chorusMix;      // 0 = Off
+    uint8_t  delayMode;      // DelayMode
+    uint8_t  delaySync;      // position in the Sync time list (layers.h), so add times at the end
+    uint16_t delayMs;        // the Free time
+    // delayFeedback runs 0 to FX_FEEDBACK_MAX.
+    uint8_t  delayFeedback;
+    uint8_t  delayMix;       // 0 = Off
+    uint8_t  roomSize;       // Reverb
+    uint8_t  damping;
+    uint8_t  reverbMix;      // 0 = Off
+    uint8_t  sameAsA;        // Layer B only: bit (1 << FxId) set plays A's settings for that effect
+};
+
 // Everything one layer plays with. Scenes hold two of these.
 struct LayerCfg {
     LayerMode mode;
@@ -47,6 +80,7 @@ struct LayerCfg {
     bool      shiftSameAsA;   // Layer B only: play A's shift and Wrap
     uint8_t   lowNote;        // LowNote
     bool      lowNoteSameAsA; // Layer B only: play A's Low Note
+    LayerFx   fx;             // added in version 20
 };
 
 // A scene: the whole sound of the table, both layers plus the Pitch offset
@@ -79,6 +113,7 @@ struct VoiceSlot {
     uint16_t releaseMs;
     uint16_t noteMs;
     uint8_t  harmonics[NUM_SLOT_HARMONICS];   // percent, for Wave::Harmonic (added in version 18)
+    VoiceFilter filter;                        // added in version 20
 };
 constexpr uint8_t NUM_SAVED_VOICES = 8;   // = NUM_CUSTOM_VOICES in voice.h
 
@@ -139,6 +174,11 @@ struct SavedConfig {
     // so it does not depend on the start mark and Reset Cal keeps it.
     uint32_t frontPhase;
     bool     frontKnown;
+
+    // Added in version 20. Play Setup > MIDI CC: whether incoming CCs change
+    // the effects. Off by default, so settings dialed in are not changed
+    // unexpectedly.
+    bool     midiCc;
 };
 
 void storageLoad(SavedConfig& cfg);
@@ -151,3 +191,6 @@ SavedConfig storageDefaults();
 
 // The factory sound: what the Defaults scene holds until the menu changes it.
 Scene storageFactoryScene();
+
+// The factory effects of a layer: every effect Off.
+LayerFx storageFactoryFx();

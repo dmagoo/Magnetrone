@@ -15,6 +15,11 @@
 //   Pitch bend     always a temporary pitch offset, +/-MIDI_BEND_IN_RANGE
 //   CC 7           volume
 //   CC 20          octave
+//   CC 74, 71      Tone Cutoff, Resonance    } only with Play Setup > MIDI CC
+//   CC 93          Chorus Mix                } On; 0-127 onto 0-100%, so
+//   CC 91          Reverb Mix                } 127 is Cutoff Off
+//   CC 94          Delay Mix                 }
+//   CC 12          Delay Feedback            } 0-127 onto 0-90%, the cap
 //
 // Everything here is live, like the Aux knob: nothing is saved except the
 // volume (as the volume knob does). Save Scene keeps the rest, a learned

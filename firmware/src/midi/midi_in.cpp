@@ -186,6 +186,30 @@ static void chordClose(SavedConfig& cfg) {
     changed = true;
 }
 
+// An effects CC, on each listening layer. Layer B with that effect set to
+// Same as A plays A's, so its own is left alone rather than changed unheard.
+static bool fxCc(SavedConfig& cfg, uint8_t layers, uint8_t cc, uint8_t value) {
+    FxId fx;
+    uint8_t LayerFx::* field;
+    uint8_t top = 100;   // what CC 127 sets, so the whole knob does something
+    switch (cc) {
+        case MIDI_CC_CUTOFF:    fx = FxId::Tone;   field = &LayerFx::cutoff;    break;
+        case MIDI_CC_RESONANCE: fx = FxId::Tone;   field = &LayerFx::resonance; break;
+        case MIDI_CC_CHORUS:    fx = FxId::Chorus; field = &LayerFx::chorusMix; break;
+        case MIDI_CC_DELAY:     fx = FxId::Delay;  field = &LayerFx::delayMix;  break;
+        case MIDI_CC_DELAY_FEEDBACK:
+            fx = FxId::Delay; field = &LayerFx::delayFeedback; top = FX_FEEDBACK_MAX; break;
+        case MIDI_CC_REVERB:    fx = FxId::Reverb; field = &LayerFx::reverbMix; break;
+        default: return false;
+    }
+    uint8_t pct = (uint8_t)(((uint16_t)value * top + 63) / 127);
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if ((layers & (1u << l)) && layerFxSource(cfg, l, fx) == l) cfg.layer[l].fx.*field = pct;
+    }
+    layersApplyEffects(cfg);
+    return true;
+}
+
 // -----------------------------------------------------------------------------
 
 static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8_t d1) {
@@ -216,6 +240,8 @@ static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8
                     if (layers & (1u << l))
                         cfg.layer[l].octave = (uint8_t)((uint16_t)d1 * 8 / 128);   // 0-127 onto 0-7
                 }
+                changed = true;
+            } else if (cfg.midiCc && fxCc(cfg, layers, d0, d1)) {
                 changed = true;
             }
             break;

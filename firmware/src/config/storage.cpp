@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <stddef.h>
+#include <string.h>
 #include "audio/voice.h"
 
 // ---------------------------------------------------------------------------
@@ -52,9 +53,82 @@ static_assert(sizeof(SavedConfig) <= E2END + 1, "SavedConfig does not fit the EE
 static_assert(NUM_SAVED_VOICES == NUM_CUSTOM_VOICES, "custom voice counts differ");
 static_assert(NUM_SLOT_HARMONICS == NUM_HARMONICS, "harmonic counts differ");
 
-// The version 17 saved voice, before the harmonics. The saved voices come
-// last in both layouts and everything before them is unchanged, so version
-// 17's sit at the same address as this version's.
+LayerFx storageFactoryFx() {
+    LayerFx f{};
+    f.cutoff        = FX_CUTOFF_OFF;
+    f.resonance     = 0;
+    f.chorusRate    = 30;
+    f.chorusDepth   = 50;
+    f.chorusMix     = 0;
+    f.delayMode     = (uint8_t)DelayMode::Sync;
+    f.delaySync     = 1;     // 1/2 beat
+    f.delayMs       = 300;
+    f.delayFeedback = 30;
+    f.delayMix      = 0;
+    f.roomSize      = 50;
+    f.damping       = 50;
+    f.reverbMix     = 0;
+    f.sameAsA       = 0;
+    return f;
+}
+
+// The version 16 to 19 layout: no effects in the layers, no filter in the
+// saved voices, no MIDI CC. Kept whole, since the effects moved everything
+// after the live layers.
+struct LayerCfgV19 {
+    LayerMode mode;
+    uint8_t   voice, channel;
+    RootNote  root;
+    Scale     scale;
+    uint16_t  learned;
+    uint8_t   octave, level, shift;
+    bool      wrap, shiftSameAsA;
+    uint8_t   lowNote;
+    bool      lowNoteSameAsA;
+};
+struct SceneV19 {
+    LayerCfgV19 layer[NUM_LAYERS];
+    int8_t      balance;
+    float       pitch;
+};
+struct VoiceSlotV19 {
+    bool     used;
+    uint8_t  base, wave, sustainPct;
+    uint16_t attackMs, decayMs, releaseMs, noteMs;
+    uint8_t  harmonics[NUM_SLOT_HARMONICS];   // version 18 on
+};
+struct SavedConfigV19 {
+    uint16_t magic;
+    uint8_t  version;
+    bool     calibrated;
+    uint16_t hallThreshold;
+    uint16_t hallBaseline[NUM_HALL_SENSORS];
+    float    rpmCorrection;
+    int8_t   magnetPolarity;
+    int32_t  barPhase;
+    bool     barPhaseValid;
+    float    volume, rpm;
+    bool     muted;
+    bool     playWelcomeTune;
+    uint8_t  lcdTimeout, menuTimeout;
+    bool     startCheck;
+    uint8_t  beatsPerRev, auxFn, pitchStepDiv, midiFn;
+    uint8_t  midiInChannel[NUM_LAYERS];
+    LayerCfgV19  layer[NUM_LAYERS];
+    SceneV19     scenes[NUM_SCENES];
+    bool         sceneUsed[NUM_SCENES];
+    uint8_t      currentScene;
+    VoiceSlotV19 customVoices[NUM_SAVED_VOICES];          // version 17 on
+    VoiceSlotV19 sceneVoices[NUM_SCENES][NUM_LAYERS];
+    uint32_t     frontPhase;                              // version 19
+    bool         frontKnown;
+};
+
+static_assert(offsetof(SavedConfigV19, layer) == offsetof(SavedConfig, layer),
+              "the version 20 header no longer matches version 19");
+
+// The version 17 saved voice, before the harmonics. The saved voices came
+// last in versions 17 and 18, so version 17's sit where version 18's do.
 struct VoiceSlotV17 {
     bool     used;
     uint8_t  base, wave, sustainPct;
@@ -65,8 +139,8 @@ struct SavedVoicesV17 {
     VoiceSlotV17 scene[NUM_SCENES][NUM_LAYERS];
 };
 
-static VoiceSlot fromV17(const VoiceSlotV17& o) {
-    VoiceSlot s{};
+static VoiceSlotV19 fromV17(const VoiceSlotV17& o) {
+    VoiceSlotV19 s{};
     s.used       = o.used;
     s.base       = o.base;
     s.wave       = o.wave;
@@ -76,6 +150,42 @@ static VoiceSlot fromV17(const VoiceSlotV17& o) {
     s.releaseMs  = o.releaseMs;
     s.noteMs     = o.noteMs;
     return s;
+}
+
+// An old saved voice gets the filter its built-in has: Off.
+static VoiceSlot fromV19(const VoiceSlotV19& o) {
+    VoiceSlot s{};
+    s.used       = o.used;
+    s.base       = o.base;
+    s.wave       = o.wave;
+    s.sustainPct = o.sustainPct;
+    s.attackMs   = o.attackMs;
+    s.decayMs    = o.decayMs;
+    s.releaseMs  = o.releaseMs;
+    s.noteMs     = o.noteMs;
+    memcpy(s.harmonics, o.harmonics, NUM_SLOT_HARMONICS);
+    s.filter     = voiceGet(o.base).filter;
+    return s;
+}
+
+// An old layer gets the factory effects: all Off.
+static LayerCfg fromV19(const LayerCfgV19& o) {
+    LayerCfg l{};
+    l.mode           = o.mode;
+    l.voice          = o.voice;
+    l.channel        = o.channel;
+    l.root           = o.root;
+    l.scale          = o.scale;
+    l.learned        = o.learned;
+    l.octave         = o.octave;
+    l.level          = o.level;
+    l.shift          = o.shift;
+    l.wrap           = o.wrap;
+    l.shiftSameAsA   = o.shiftSameAsA;
+    l.lowNote        = o.lowNote;
+    l.lowNoteSameAsA = o.lowNoteSameAsA;
+    l.fx             = storageFactoryFx();
+    return l;
 }
 
 Scene storageFactoryScene() {
@@ -94,6 +204,7 @@ Scene storageFactoryScene() {
     a.shiftSameAsA   = false;
     a.lowNote        = (uint8_t)(DEFAULT_LOW_NOTE_OUTER ? LowNote::Outer : LowNote::Inner);
     a.lowNoteSameAsA = false;
+    a.fx             = storageFactoryFx();
 
     // Layer B plays its own voice out of the box, drums, with nothing bound
     // to A: undoing Same as A by hand everywhere was clunky.
@@ -138,6 +249,7 @@ SavedConfig storageDefaults() {
     c.midiFn          = DEFAULT_MIDI_FN;
     c.midiInChannel[LAYER_A] = DEFAULT_MIDI_IN_CHANNEL_A;
     c.midiInChannel[LAYER_B] = DEFAULT_MIDI_IN_CHANNEL_B;
+    c.midiCc          = DEFAULT_MIDI_CC;
 
     Scene f = storageFactoryScene();
     for (uint8_t i = 0; i < NUM_SCENES; i++) {
@@ -149,23 +261,68 @@ SavedConfig storageDefaults() {
     return c;
 }
 
+// Versions 16 to 19 keep everything. Version 16 has no saved voices,
+// version 17's lack the harmonics, 18 has no Front, and none of them has the
+// effects, the voice filter or MIDI CC.
+static void fromV16to19(SavedConfig& cfg) {
+    SavedConfigV19 old;
+    EEPROM.get(EEPROM_ADDRESS, old);
+    if (old.version <= 17) {
+        SavedVoicesV17 v{};
+        if (old.version == 17) EEPROM.get(EEPROM_ADDRESS + offsetof(SavedConfigV19, customVoices), v);
+        for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) old.customVoices[i] = fromV17(v.custom[i]);
+        for (uint8_t i = 0; i < NUM_SCENES; i++)
+            for (uint8_t l = 0; l < NUM_LAYERS; l++) old.sceneVoices[i][l] = fromV17(v.scene[i][l]);
+    }
+    if (old.version <= 18) {
+        old.frontPhase = 0;
+        old.frontKnown = false;
+    }
+
+    SavedConfig c = storageDefaults();
+    c.calibrated      = old.calibrated;
+    c.hallThreshold   = old.hallThreshold;
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) c.hallBaseline[i] = old.hallBaseline[i];
+    c.rpmCorrection   = old.rpmCorrection;
+    c.magnetPolarity  = old.magnetPolarity;
+    c.barPhase        = old.barPhase;
+    c.barPhaseValid   = old.barPhaseValid;
+    c.volume          = old.volume;
+    c.rpm             = old.rpm;
+    c.muted           = old.muted;
+    c.playWelcomeTune = old.playWelcomeTune;
+    c.lcdTimeout      = old.lcdTimeout;
+    c.menuTimeout     = old.menuTimeout;
+    c.startCheck      = old.startCheck;
+    c.beatsPerRev     = old.beatsPerRev;
+    c.auxFn           = old.auxFn;
+    c.pitchStepDiv    = old.pitchStepDiv;
+    c.midiFn          = old.midiFn;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        c.midiInChannel[l] = old.midiInChannel[l];
+        c.layer[l]         = fromV19(old.layer[l]);
+    }
+    for (uint8_t i = 0; i < NUM_SCENES; i++) {
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+            c.scenes[i].layer[l] = fromV19(old.scenes[i].layer[l]);
+            c.sceneVoices[i][l]  = fromV19(old.sceneVoices[i][l]);
+        }
+        c.scenes[i].balance = old.scenes[i].balance;
+        c.scenes[i].pitch   = old.scenes[i].pitch;
+        c.sceneUsed[i]      = old.sceneUsed[i];
+    }
+    c.currentScene = old.currentScene;
+    for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) c.customVoices[i] = fromV19(old.customVoices[i]);
+    c.frontPhase = old.frontPhase;
+    c.frontKnown = old.frontKnown;
+    cfg = c;
+    storageSave(cfg);
+}
+
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
-    // Versions 16 to 18 match this one up to the saved voices (16, 17) or the
-    // Front (18). Version 16 has no saved voices; version 17's lack the
-    // harmonics. None of them has a Front.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 16 && cfg.version <= 18) {
-        if (cfg.version <= 17) {
-            SavedVoicesV17 old{};
-            if (cfg.version == 17) EEPROM.get(EEPROM_ADDRESS + offsetof(SavedConfig, customVoices), old);
-            for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) cfg.customVoices[i] = fromV17(old.custom[i]);
-            for (uint8_t i = 0; i < NUM_SCENES; i++)
-                for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.sceneVoices[i][l] = fromV17(old.scene[i][l]);
-        }
-        cfg.frontPhase = 0;
-        cfg.frontKnown = false;
-        cfg.version = EEPROM_VERSION;
-        storageSave(cfg);
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 16 && cfg.version <= 19) {
+        fromV16to19(cfg);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
         if (cfg.currentScene >= NUM_SCENES || !cfg.sceneUsed[cfg.currentScene]) {

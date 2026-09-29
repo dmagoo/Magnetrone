@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "voice.h"
+#include "config/storage.h"
 
 void audioInit(float volume, bool muted);
 void audioSetVolume(float volume);  // 0.0 - 1.0
@@ -26,6 +27,20 @@ void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz);
 // as well as the note keeps the two banks independent: the same note number
 // playing on both is two different notes.
 void audioNoteOff(uint8_t layer, uint8_t note);
+
+// Sets a layer's effects chain: Tone, Chorus, Delay, Reverb. Pass the
+// settings the layer plays with, Same as A already resolved (layerFx()).
+void audioSetEffects(uint8_t layer, const LayerFx& fx);
+
+// The longest delay each layer's buffer holds.
+constexpr uint16_t DELAY_MAX_MS = 2400;
+
+// The layer's delay time, in ms. Separate from audioSetEffects(), since a
+// Sync time follows the platter speed.
+void audioSetDelayTime(uint8_t layer, float ms);
+
+// Which layer's effects the shared drum kit goes through.
+void audioSetDrumLayer(uint8_t layer);
 
 // Fires one drum of the shared kit (slot = DrumSlot, see kit.h). Drums are
 // one-shots with no matching off. A closed hat chokes the open hat.

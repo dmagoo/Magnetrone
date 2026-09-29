@@ -15,12 +15,17 @@ turning physical arrangement into musical pattern.
 - Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note
   length, plus None to mute a layer
 - Voice Edit (Aux): live tweaks to a layer's wave, envelope and note length,
-  and its first 16 harmonics; Save As keeps them in Custom 1-8 (shared by all
+  its first 16 harmonics, and its own filter with a filter envelope; Save As keeps them in Custom 1-8 (shared by all
   scenes) or as the current scene's own Scene Voice
 - Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B
   (or both, with Layer B's Mode on Stack),
   each with its own voice, MIDI channel, root note, scale, octave, level, Track
   Shift, Wrap and Low Note
+- Per-layer effects, in a fixed chain: Tone (low-pass Cutoff and Resonance),
+  Chorus (Rate, Depth, Mix), Delay (Sync to the beat or Free in ms, up to
+  2.4 s, Feedback up to 90%, Mix) and Reverb (Room Size, Damping, Mix). Saved
+  in scenes, all off by default; Layer B can follow A's per effect. Tone
+  Cutoff, Delay Mix, Delay Feedback and Reverb Mix are also Aux Fns
 - Per-layer Track Shift raises the run by scale degrees, with Wrap (the run
   rotates around the arm) or No Wrap (the whole run transposes)
 - Per-layer Low Note: Inner or Outer sets which end of the sensor arm plays
@@ -46,14 +51,16 @@ turning physical arrangement into musical pattern.
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
   (Pitch, Shift, Scale Learn or Chord), the bend wheel bends the table, CC 7 volume,
-  CC 20 octave
+  CC 20 octave; with Play Setup > MIDI CC on, CCs 74, 71, 93, 94, 12 and 91
+  set the effects
 - LCD menu: Sound Defaults (both layers), Play Setup, System and Tools
 - Speed and volume adjustable live at any time via dedicated encoders; touching
   either one returns to the home screen from any menu (prompts excepted).
   From a stop, turning Speed starts from zero in the turned direction; a
   press resumes the last speed
 - Aux knob changes one bound function live (Pitch, A/B Balance, Load Scene,
-  or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note, Wrap or Mode)
+  or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode,
+  Tone Cutoff, Delay Mix, Delay Feedback or Reverb Mix)
 - Menu knob opens the main menu from the home screen by turning or pressing;
   the Menu button leaves the Aux screens straight back to the home screen, and
   the Aux button leaves the main menu (prompts excepted)

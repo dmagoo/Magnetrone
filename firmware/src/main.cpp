@@ -40,6 +40,7 @@ void loop() {
     midiInUpdate(cfg);
     barUpdate(cfg);
     scenesUpdate(cfg);
+    layersUpdate(cfg);   // Sync delay times follow the speed
 
     // Beat clock follows the platter's position, so it tracks the real speed.
     transportUpdate(cfg.beatsPerRev);

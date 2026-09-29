@@ -41,7 +41,11 @@ enum class MenuState : uint8_t {
     LayerWrap,
     LayerLowNote,
     LayerMidiIn,
+    FxEffectList,   // Sound Defaults > Layer > Effects: which effect
+    FxParamList,    //   that effect's settings
+    FxParamEdit,    //   one setting's value
     MidiFnSetting,
+    MidiCcSetting,
     WelcomeTune,
     LcdTimeout,
     MenuTimeout,
@@ -49,13 +53,17 @@ enum class MenuState : uint8_t {
     MagnetPole,
     FirstBootPrompt,   // shown once on a fresh EEPROM: calibrate now or skip
     AuxFnDefault,
+    AuxFnDefaultFx, // Play Setup > Aux Fn > Effects
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
     AuxLayerSelect, // aux knob: the same, inside Layer A or Layer B
+    AuxFxSelect,    // aux knob: Layer A/B > Effects, the effect Fns
     VoiceEditList,  // aux knob: the layer's voice, which setting to tweak
     VoiceEditParam, // aux knob: tweak it, live
     HarmonicList,   // aux knob: Voice Edit > Harmonics, which harmonic
     HarmonicParam,  // aux knob: its level, live
+    FilterList,     // aux knob: Voice Edit > Filter, which setting
+    FilterParam,    // aux knob: its value, live
     VoiceSaveSelect,  // aux knob: Save As, pick the slot
     VoiceSaveConfirm, // aux knob: overwrite a used custom slot?
     AuxParam,       // aux knob: modulate the chosen parameter, live
@@ -125,13 +133,14 @@ static uint8_t editLayer = LAYER_A;
 
 static const char* LAYER_ITEMS[] = {
     "Mode","Voice","Channel","Root Note","Scale","Octave","Level","Shift","Wrap",
-    "Low Note","MIDI In","Back"
+    "Low Note","Effects","MIDI In","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 12;
+static const uint8_t LAYER_ITEMS_COUNT = 13;
 enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
                  LAYER_ITEM_ROOT, LAYER_ITEM_SCALE, LAYER_ITEM_OCTAVE,
                  LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT, LAYER_ITEM_WRAP,
-                 LAYER_ITEM_LOW_NOTE, LAYER_ITEM_MIDI_IN, LAYER_ITEM_BACK };
+                 LAYER_ITEM_LOW_NOTE, LAYER_ITEM_EFFECTS, LAYER_ITEM_MIDI_IN,
+                 LAYER_ITEM_BACK };
 
 // The layer submenu as drawn: each entry with the layer's cue, if any (see
 // layerCue()). Rebuilt before each draw.
@@ -182,6 +191,109 @@ static const uint8_t LOW_NOTE_COUNT_B = 4;
 static const uint8_t LOW_NOTE_VALUES  = 2;
 static const uint8_t LOW_NOTE_ITEM_SAME_AS_A = LOW_NOTE_VALUES;
 
+// --- Effects ----------------------------------------------------------------
+// Every effect setting, grouped by effect in chain order. Most are a percent
+// in 10% steps, stored in one LayerFx field, up to `maxPct`; `offAt` is the
+// value that reads "Off" (the effect is out of the sound there), or
+// FX_NO_OFF. The Delay's Mode and Time are lists instead.
+static const uint8_t FX_NO_OFF = 0xFF;
+enum FxParam : uint8_t { FXP_CUTOFF, FXP_RESONANCE,
+                         FXP_CHORUS_RATE, FXP_CHORUS_DEPTH, FXP_CHORUS_MIX,
+                         FXP_DELAY_MODE, FXP_DELAY_TIME, FXP_DELAY_FEEDBACK, FXP_DELAY_MIX,
+                         FXP_ROOM_SIZE, FXP_DAMPING, FXP_REVERB_MIX, FXP_COUNT };
+enum class FxKind : uint8_t { Pct, Mode, Time };
+struct FxParamInfo {
+    const char* name; FxId fx; FxKind kind; uint8_t LayerFx::* field; uint8_t offAt; uint8_t maxPct;
+};
+static const FxParamInfo FX_PARAMS[FXP_COUNT] = {
+    { "Cutoff",    FxId::Tone,   FxKind::Pct,  &LayerFx::cutoff,        FX_CUTOFF_OFF, 100 },
+    { "Resonance", FxId::Tone,   FxKind::Pct,  &LayerFx::resonance,     FX_NO_OFF,     100 },
+    { "Rate",      FxId::Chorus, FxKind::Pct,  &LayerFx::chorusRate,    FX_NO_OFF,     100 },
+    { "Depth",     FxId::Chorus, FxKind::Pct,  &LayerFx::chorusDepth,   FX_NO_OFF,     100 },   // 0% is not Off
+    { "Mix",       FxId::Chorus, FxKind::Pct,  &LayerFx::chorusMix,     0,             100 },
+    { "Mode",      FxId::Delay,  FxKind::Mode, &LayerFx::delayMode,     FX_NO_OFF,     0 },
+    { "Time",      FxId::Delay,  FxKind::Time, nullptr,                 FX_NO_OFF,     0 },
+    { "Feedback",  FxId::Delay,  FxKind::Pct,  &LayerFx::delayFeedback, FX_NO_OFF,     FX_FEEDBACK_MAX },
+    { "Mix",       FxId::Delay,  FxKind::Pct,  &LayerFx::delayMix,      0,             100 },
+    { "Room Size", FxId::Reverb, FxKind::Pct,  &LayerFx::roomSize,      FX_NO_OFF,     100 },
+    { "Damping",   FxId::Reverb, FxKind::Pct,  &LayerFx::damping,       FX_NO_OFF,     100 },
+    { "Mix",       FxId::Reverb, FxKind::Pct,  &LayerFx::reverbMix,     0,             100 },
+};
+
+static const char* FX_NAMES[FX_COUNT] = { "Tone", "Chorus", "Delay", "Reverb" };
+static const char* DELAY_MODE_ITEMS[] = { "Sync", "Free" };
+
+// The effects in the Effects menu, in chain order.
+static const FxId  FX_MENU[] = { FxId::Tone, FxId::Chorus, FxId::Delay, FxId::Reverb };
+static const uint8_t FX_MENU_COUNT = sizeof(FX_MENU) / sizeof(FX_MENU[0]);
+
+// The Free times as shown, "10 ms" to "2400 ms". Filled in by menuInit().
+static char FREE_TIME_BUF[DELAY_FREE_COUNT][12];
+
+// The value list for one setting, and where the setting sits in it. The
+// percentages run "0%" to their top, the Off end reading "Off"; the Delay's
+// Time lists Sync fractions or Free times, whichever its Mode is. With
+// `back`, a Back entry follows. Returns the count, Back included.
+static const uint8_t FX_VALUE_MAX = DELAY_FREE_COUNT;
+static const char* fxValueLabels[FX_VALUE_MAX + 1];
+static uint8_t buildFxValueLabels(uint8_t p, const LayerFx& fx, bool back) {
+    const FxParamInfo& fp = FX_PARAMS[p];
+    uint8_t n = 0;
+    switch (fp.kind) {
+        case FxKind::Pct:
+            for (uint8_t v = 0; v <= fp.maxPct; v += 10, n++) {
+                fxValueLabels[n] = (v == fp.offAt) ? "Off" : LEVEL_ITEMS[v / 10];
+            }
+            break;
+        case FxKind::Mode:
+            for (; n < (uint8_t)DelayMode::COUNT; n++) fxValueLabels[n] = DELAY_MODE_ITEMS[n];
+            break;
+        case FxKind::Time:
+            if (fx.delayMode == (uint8_t)DelayMode::Free) {
+                for (; n < DELAY_FREE_COUNT; n++) fxValueLabels[n] = FREE_TIME_BUF[n];
+            } else {
+                for (; n < DELAY_SYNC_COUNT; n++) fxValueLabels[n] = delaySyncName(n);
+            }
+            break;
+    }
+    fxValueLabels[n] = "Back";
+    return back ? n + 1 : n;
+}
+
+static uint8_t fxValueIndex(uint8_t p, const LayerFx& fx) {
+    const FxParamInfo& fp = FX_PARAMS[p];
+    switch (fp.kind) {
+        case FxKind::Mode: return fx.delayMode < (uint8_t)DelayMode::COUNT ? fx.delayMode : 0;
+        case FxKind::Time:
+            if (fx.delayMode == (uint8_t)DelayMode::Free) return delayFreeIndex(fx.delayMs);
+            return fx.delaySync < DELAY_SYNC_COUNT ? fx.delaySync : 0;
+        default:           return (uint8_t)(min(fx.*fp.field, fp.maxPct) / 10);
+    }
+}
+
+static void fxSetIndex(uint8_t p, LayerFx& fx, uint8_t i) {
+    const FxParamInfo& fp = FX_PARAMS[p];
+    switch (fp.kind) {
+        case FxKind::Mode: fx.delayMode = i; break;
+        case FxKind::Time:
+            if (fx.delayMode == (uint8_t)DelayMode::Free) fx.delayMs = delayFreeMs(i);
+            else                                          fx.delaySync = i;
+            break;
+        default:           fx.*fp.field = (uint8_t)min(i * 10, (int)fp.maxPct); break;
+    }
+}
+
+// The Effects menu is for editLayer; these say which effect and setting are open.
+static FxId    fxMenuEffect = FxId::Tone;
+static uint8_t fxMenuParam  = FXP_CUTOFF;
+
+// One effect's settings, as listed: its FxParams in order.
+static uint8_t fxParamsOf(FxId fx, uint8_t out[FXP_COUNT]) {
+    uint8_t n = 0;
+    for (uint8_t i = 0; i < FXP_COUNT; i++) if (FX_PARAMS[i].fx == fx) out[n++] = i;
+    return n;
+}
+
 static const char* MAIN_ITEMS[] = {
     "Sound Defaults","Play Setup","System","Tools","Exit"
 };  // Exit returns to the live display; submenus keep "Back"
@@ -196,10 +308,10 @@ static const char* SOUND_ITEMS[NUM_LAYERS + 1];
 static const uint8_t SOUND_COUNT = NUM_LAYERS + 1;   // + Back
 
 // Play Setup: how the controls and MIDI in behave while playing.
-static const char* PLAY_ITEMS[] = { "Beats/Rev","Pitch Step","Aux Fn","MIDI Fn","Back" };
-static const uint8_t PLAY_COUNT = 5;
+static const char* PLAY_ITEMS[] = { "Beats/Rev","Pitch Step","Aux Fn","MIDI Fn","MIDI CC","Back" };
+static const uint8_t PLAY_COUNT = 6;
 enum : uint8_t { PLAY_ITEM_BEATS, PLAY_ITEM_PITCH_STEP, PLAY_ITEM_AUX_FN,
-                 PLAY_ITEM_MIDI_FN, PLAY_ITEM_BACK };
+                 PLAY_ITEM_MIDI_FN, PLAY_ITEM_MIDI_CC, PLAY_ITEM_BACK };
 
 // System: set once and forgotten, nothing to do with the performance.
 static const char* SYSTEM_ITEMS[] = {
@@ -268,12 +380,18 @@ enum class AuxFn : uint8_t { Pitch, Balance, LoadScene,
                              OctaveA, OctaveB, ShiftA, ShiftB, LowNoteA, LowNoteB,
                              WrapA, WrapB,   // appended, so saved bindings keep their numbers
                              ModeA, ModeB,
+                             CutoffA, CutoffB, ReverbMixA, ReverbMixB,
+                             DelayMixA, DelayMixB, DelayFeedbackA, DelayFeedbackB,
                              COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
 // What a per-layer Fn changes. The layer comes from the A/B pair.
-enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, Wrap, Mode, COUNT };
-static const uint8_t AUX_KIND_COUNT = (uint8_t)AuxKind::COUNT;
+// The effect kinds (Cutoff on) live in the layer's Effects list, not its
+// main one.
+enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, Wrap, Mode,
+                               Cutoff, ReverbMix, DelayMix, DelayFeedback, COUNT };
+static const uint8_t AUX_LAYER_KIND_COUNT = (uint8_t)AuxKind::Cutoff;
+static bool auxKindIsFx(AuxKind k) { return k >= AuxKind::Cutoff && k < AuxKind::COUNT; }
 
 static bool    auxIsLayerFn(AuxFn fn) { return fn >= AuxFn::VoiceA && fn < AuxFn::COUNT; }
 static AuxKind auxKindOf(AuxFn fn)   { return (AuxKind)(((uint8_t)fn - (uint8_t)AuxFn::VoiceA) / NUM_LAYERS); }
@@ -297,17 +415,42 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
 };
 
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
-// Voice Edit after Voice, then Back.
+// Voice Edit after Voice, then Effects and Back.
 static const char* AUX_LAYER_LABELS[] = {
     "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Wrap","Mode",
-    "Back"
+    "Effects","Back"
 };
-static const uint8_t AUX_LAYER_COUNT      = AUX_KIND_COUNT + 2;   // + Voice Edit, Back
+static const uint8_t AUX_LAYER_COUNT      = AUX_LAYER_KIND_COUNT + 3;   // + Voice Edit, Effects, Back
 static const uint8_t AUX_LAYER_VOICE_EDIT = 1;
+static const uint8_t AUX_LAYER_EFFECTS    = AUX_LAYER_KIND_COUNT + 1;
+
+// Inside Layer A/B > Effects: the effect Fns, in chain order, then Back.
+// Each is one effect setting, from FX_PARAMS.
+static const AuxKind AUX_FX_KINDS[]  = { AuxKind::Cutoff, AuxKind::DelayMix,
+                                         AuxKind::DelayFeedback, AuxKind::ReverbMix };
+static const char*   AUX_FX_LABELS[] = { "Tone Cutoff", "Delay Mix", "Delay Feedback",
+                                         "Reverb Mix", "Back" };
+static const uint8_t AUX_FX_COUNT    = sizeof(AUX_FX_KINDS) / sizeof(AUX_FX_KINDS[0]) + 1;   // + Back
+
+static uint8_t auxFxParam(AuxKind k) {
+    switch (k) {
+        case AuxKind::Cutoff:        return FXP_CUTOFF;
+        case AuxKind::ReverbMix:     return FXP_REVERB_MIX;
+        case AuxKind::DelayMix:      return FXP_DELAY_MIX;
+        case AuxKind::DelayFeedback: return FXP_DELAY_FEEDBACK;
+        default:                     return FXP_CUTOFF;
+    }
+}
+static uint8_t auxFxPos(AuxKind k) {
+    for (uint8_t i = 0; i < AUX_FX_COUNT - 1; i++) if (AUX_FX_KINDS[i] == k) return i;
+    return 0;
+}
 static uint8_t auxLayer = LAYER_A;   // which layer's list is open
 
-// Where each AuxKind sits in that list, and back.
+// Where each AuxKind sits in that list, and back. The effect kinds sit
+// under Effects.
 static uint8_t auxKindPos(AuxKind k) {
+    if (auxKindIsFx(k)) return AUX_LAYER_EFFECTS;
     return (k == AuxKind::Voice) ? 0 : (uint8_t)k + 1;
 }
 static AuxKind auxPosKind(uint8_t pos) {
@@ -318,10 +461,20 @@ static AuxKind auxPosKind(uint8_t pos) {
 // Live tweaks to the voice a layer plays (layers.h). Save As keeps them, in a
 // custom slot or as the current scene's own voice for the layer.
 static const char* VOICE_EDIT_LABELS[] = {
-    "Wave","Harmonics","Attack","Decay","Sustain","Release","Length","Save As...","Back"
+    "Wave","Harmonics","Attack","Decay","Sustain","Release","Length","Filter",
+    "Save As...","Back"
 };
 enum : uint8_t { VE_WAVE, VE_HARMONICS, VE_ATTACK, VE_DECAY, VE_SUSTAIN, VE_RELEASE,
-                 VE_LENGTH, VE_SAVE, VE_BACK, VE_COUNT };
+                 VE_LENGTH, VE_FILTER, VE_SAVE, VE_BACK, VE_COUNT };
+
+// Voice Edit > Filter: the voice's own filter and its envelope. Cutoff 100%
+// reads Off (the filter is left out); Amount 0% leaves it fixed, not off.
+static const char* FILTER_LABELS[] = {
+    "Cutoff","Resonance","Amount","Attack","Decay","Sustain","Release","Back"
+};
+enum : uint8_t { VF_CUTOFF, VF_RESONANCE, VF_AMOUNT, VF_ATTACK, VF_DECAY, VF_SUSTAIN,
+                 VF_RELEASE, VF_BACK, VF_COUNT };
+static uint8_t filterParam = VF_CUTOFF;   // what FilterParam changes
 
 // The Voice Edit list as shown: "Harmonics*" once they are edited, the same
 // mark a tweaked voice gets in the Voice list.
@@ -462,16 +615,34 @@ static bool voiceEditable(const SavedConfig& cfg, uint8_t l) {
     return !voiceIsKit(v) && !voiceIsSilent(v);
 }
 
-// Play Setup > Aux Fn, which sets the binding ahead of time, stays one flat
-// list. Order matches AuxFn.
+// Play Setup > Aux Fn, which sets the binding ahead of time: one list, with
+// the effect Fns in an Effects group so it stays manageable. Order matches
+// AuxFn up to the effects.
 static const char* AUX_FN_MENU_LABELS[] = {
     "Pitch","A/B Balance","Load Scene",
     "Layer A Voice","Layer B Voice","Layer A Root","Layer B Root",
     "Layer A Scale","Layer B Scale","Layer A Octave","Layer B Octave",
     "Layer A Shift","Layer B Shift","Layer A Low","Layer B Low",
-    "Layer A Wrap","Layer B Wrap","Layer A Mode","Layer B Mode","Back"
+    "Layer A Wrap","Layer B Wrap","Layer A Mode","Layer B Mode","Effects","Back"
 };
-static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
+static const uint8_t AUX_FN_MENU_PLAIN   = (uint8_t)AuxFn::CutoffA;   // Fns listed directly
+static const uint8_t AUX_FN_MENU_EFFECTS = AUX_FN_MENU_PLAIN;
+static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_MENU_PLAIN + 2;     // + Effects, Back
+
+// Its Effects group: the effect Fns, A then B for each, in chain order.
+static const AuxFn   AUX_FN_FX[] = {
+    AuxFn::CutoffA, AuxFn::CutoffB, AuxFn::DelayMixA, AuxFn::DelayMixB,
+    AuxFn::DelayFeedbackA, AuxFn::DelayFeedbackB, AuxFn::ReverbMixA, AuxFn::ReverbMixB
+};
+static const char*   AUX_FN_FX_LABELS[] = {
+    "Layer A Cutoff","Layer B Cutoff","Layer A Dly Mix","Layer B Dly Mix",
+    "Layer A Dly Fb","Layer B Dly Fb","Layer A Rev Mix","Layer B Rev Mix","Back"
+};
+static const uint8_t AUX_FN_FX_COUNT = sizeof(AUX_FN_FX) / sizeof(AUX_FN_FX[0]) + 1;   // + Back
+static uint8_t auxFnFxPos(AuxFn fn) {
+    for (uint8_t i = 0; i < AUX_FN_FX_COUNT - 1; i++) if (AUX_FN_FX[i] == fn) return i;
+    return 0;
+}
 
 // Scene list entries: "0: Defaults", "2: D Minor" (Layer A's key), or
 // "3: (empty)". Rebuilt before each draw, since the names come from the
@@ -504,7 +675,8 @@ static void openAuxSelect(const SavedConfig& cfg) {
     AuxFn fn = (AuxFn)cfg.auxFn;
     if (auxIsLayerFn(fn)) {
         auxLayer = auxLayerOf(fn);
-        enterState(MenuState::AuxLayerSelect, auxKindPos(auxKindOf(fn)));
+        if (auxKindIsFx(auxKindOf(fn))) enterState(MenuState::AuxFxSelect, auxFxPos(auxKindOf(fn)));
+        else                            enterState(MenuState::AuxLayerSelect, auxKindPos(auxKindOf(fn)));
         return;
     }
     uint8_t top = 0;
@@ -887,6 +1059,48 @@ static void buildLayerLabels(const SavedConfig& cfg) {
     }
 }
 
+// The Effects menu as drawn: each effect, and on Layer B each setting,
+// tagged "(=A)" while it plays A's (Layer B in Same as A, or that effect set
+// to Same as A). Layer B's settings list ends with the Same as A switch.
+static const uint8_t FX_LIST_MAX = FXP_COUNT + 2;   // + Same as A, Back
+static char        FX_LABEL_BUF[FX_LIST_MAX][17];
+static const char* FX_LABELS[FX_LIST_MAX];
+
+static const char* fxCue(const SavedConfig& cfg, FxId fx) {
+    const char* cue = layerCue(cfg, editLayer);
+    if (*cue) return cue;
+    const LayerCfg& lc = cfg.scenes[SCENE_DEFAULTS].layer[editLayer];
+    if (editLayer == LAYER_B && (lc.fx.sameAsA & (1u << (uint8_t)fx))) return " (=A)";
+    return "";
+}
+
+static void buildFxEffectLabels(const SavedConfig& cfg) {
+    for (uint8_t i = 0; i < FX_MENU_COUNT; i++) {
+        snprintf(FX_LABEL_BUF[i], sizeof(FX_LABEL_BUF[i]), "%s%s",
+                 FX_NAMES[(uint8_t)FX_MENU[i]], fxCue(cfg, FX_MENU[i]));
+        FX_LABELS[i] = FX_LABEL_BUF[i];
+    }
+    FX_LABELS[FX_MENU_COUNT] = "Back";
+}
+
+// Returns the count, Same as A and Back included; `params` gets the FxParams.
+static uint8_t buildFxParamLabels(const SavedConfig& cfg, uint8_t params[FXP_COUNT]) {
+    uint8_t n = fxParamsOf(fxMenuEffect, params);
+    const char* cue = fxCue(cfg, fxMenuEffect);
+    for (uint8_t i = 0; i < n; i++) {
+        snprintf(FX_LABEL_BUF[i], sizeof(FX_LABEL_BUF[i]), "%s%s", FX_PARAMS[params[i]].name, cue);
+        FX_LABELS[i] = FX_LABEL_BUF[i];
+    }
+    if (editLayer == LAYER_B) {
+        bool bound = cfg.scenes[SCENE_DEFAULTS].layer[LAYER_B].fx.sameAsA & (1u << (uint8_t)fxMenuEffect);
+        snprintf(FX_LABEL_BUF[n], sizeof(FX_LABEL_BUF[n]), "Same as A: %s", bound ? "Yes" : "No");
+        FX_LABELS[n] = FX_LABEL_BUF[n];
+        n++;
+    }
+    FX_LABELS[n++] = "Back";
+    return n;
+}
+
 static void drawList(const char** items, uint8_t count, uint8_t cur) {
     if (cur == 0) {
         lcdLine(0, "%c%-15s", LCD_ARROW_RIGHT, items[0]);
@@ -1062,6 +1276,19 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             layersApply(cfg);   // Same as A changes which voice B plays
             break;
         }
+        case AuxKind::Cutoff:
+        case AuxKind::ReverbMix:
+        case AuxKind::DelayMix:
+        case AuxKind::DelayFeedback: {
+            // B playing A's effect: turning B's would change a hidden setting.
+            uint8_t p = auxFxParam(auxKindOf(fn));
+            if (layerFxSource(cfg, l, FX_PARAMS[p].fx) != l) break;
+            int n = buildFxValueLabels(p, lc.fx, false);
+            int v = (int)fxValueIndex(p, lc.fx) + delta;
+            fxSetIndex(p, lc.fx, (uint8_t)constrain(v, 0, n - 1));   // clamp: a magnitude
+            layersApplyEffects(cfg);
+            break;
+        }
         default:
             break;
     }
@@ -1135,6 +1362,20 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
             if (l == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A - 1, (uint8_t)lc.mode);
             else              drawList(MODE_ITEMS_B, MODE_COUNT_B - 1, (uint8_t)lc.mode);
             break;
+        case AuxKind::Cutoff:
+        case AuxKind::ReverbMix:
+        case AuxKind::DelayMix:
+        case AuxKind::DelayFeedback: {
+            uint8_t p = auxFxParam(kind);
+            FxId    fx = FX_PARAMS[p].fx;
+            if (layerFxSource(cfg, l, fx) != l) {
+                lcdLine(0, "B %s is", FX_NAMES[(uint8_t)fx]);
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(fxValueLabels, buildFxValueLabels(p, lc.fx, false), fxValueIndex(p, lc.fx));
+            }
+            break;
+        }
         default:
             break;
     }
@@ -1225,6 +1466,46 @@ static void voiceEditApply(SavedConfig& cfg, int8_t delta) {
             v.sustain = (float)constrain(pct, 0, 100) / 100.0f;
             break;
         }
+        default: return;
+    }
+    layerVoiceTweaked(cfg, auxLayer);
+}
+
+// One filter setting: its name on top, the value below.
+static void drawFilterParam(const SavedConfig& cfg) {
+    const VoiceFilter& f = layerVoice(cfg, auxLayer).filter;
+    lcdLine(0, "Filter %s", FILTER_LABELS[filterParam]);
+    switch (filterParam) {
+        case VF_CUTOFF:
+            if (f.cutoff >= VOICE_FILTER_OFF) lcdLine(1, "Off");
+            else                              lcdLine(1, "%u%%", (unsigned)f.cutoff);
+            break;
+        case VF_RESONANCE: lcdLine(1, "%u%%", (unsigned)f.resonance);   break;
+        case VF_AMOUNT:    lcdLine(1, "%u%%", (unsigned)f.amount);      break;
+        case VF_ATTACK:    lcdLine(1, "%u ms", (unsigned)f.attackMs);   break;
+        case VF_DECAY:     lcdLine(1, "%u ms", (unsigned)f.decayMs);    break;
+        case VF_SUSTAIN:   lcdLine(1, "%u%%", (unsigned)f.sustainPct);  break;
+        case VF_RELEASE:   lcdLine(1, "%u ms", (unsigned)f.releaseMs);  break;
+        default:           lcdLine(1, "");                              break;
+    }
+}
+
+// One filter step, heard from the next note. All clamp (magnitudes). The
+// percentages move in 10% steps, as the layer's Tone; Sustain in 5%, as the
+// voice's own; the times as the envelope's.
+static void filterEditApply(SavedConfig& cfg, int8_t delta) {
+    VoiceFilter& f = layerVoiceEdit(cfg, auxLayer).filter;
+    auto pct10 = [delta](uint8_t v) { return (uint8_t)constrain(((int)v + 5) / 10 * 10 + delta * 10, 0, 100); };
+    switch (filterParam) {
+        case VF_CUTOFF:    f.cutoff    = pct10(f.cutoff);    break;
+        case VF_RESONANCE: f.resonance = pct10(f.resonance); break;
+        case VF_AMOUNT:    f.amount    = pct10(f.amount);    break;
+        case VF_ATTACK:    f.attackMs  = timeStep(f.attackMs,  delta, 0, 2000); break;
+        case VF_DECAY:     f.decayMs   = timeStep(f.decayMs,   delta, 0, 2000); break;
+        case VF_RELEASE:   f.releaseMs = timeStep(f.releaseMs, delta, 0, 3000); break;
+        case VF_SUSTAIN:
+            f.sustainPct = (uint8_t)constrain(((int)f.sustainPct + 2) / 5 * 5 + delta * 5, 0, 100);
+            break;
         default: return;
     }
     layerVoiceTweaked(cfg, auxLayer);
@@ -1366,6 +1647,10 @@ void menuInit(const SavedConfig& cfg) {
         CHANNEL_ITEMS[c] = CHANNEL_LABEL_BUF[c - 1];
     }
     CHANNEL_ITEMS[17] = "Back";
+
+    for (uint8_t i = 0; i < DELAY_FREE_COUNT; i++) {
+        snprintf(FREE_TIME_BUF[i], sizeof(FREE_TIME_BUF[i]), "%u ms", (unsigned)delayFreeMs(i));
+    }
 
     MIDI_IN_ITEMS[0] = "Off";
     for (uint8_t c = 1; c <= 16; c++) MIDI_IN_ITEMS[c] = CHANNEL_ITEMS[c];
@@ -1528,10 +1813,13 @@ void menuUpdate(SavedConfig& cfg) {
     // the way out.
     bool isAux = (state == MenuState::AuxFnSelect ||
                   state == MenuState::AuxLayerSelect ||
+                  state == MenuState::AuxFxSelect ||
                   state == MenuState::VoiceEditList ||
                   state == MenuState::VoiceEditParam ||
                   state == MenuState::HarmonicList ||
                   state == MenuState::HarmonicParam ||
+                  state == MenuState::FilterList ||
+                  state == MenuState::FilterParam ||
                   state == MenuState::VoiceSaveSelect ||
                   state == MenuState::VoiceSaveConfirm ||
                   state == MenuState::AuxParam ||
@@ -1637,9 +1925,23 @@ void menuUpdate(SavedConfig& cfg) {
                                auxLayer == LAYER_A ? AUXT_LAYER_A : AUXT_LAYER_B);
                 } else if (cursor == AUX_LAYER_VOICE_EDIT) {
                     enterState(MenuState::VoiceEditList, 0);
+                } else if (cursor == AUX_LAYER_EFFECTS) {
+                    enterState(MenuState::AuxFxSelect, 0);
                 } else {
                     auxBind(cfg, auxLayerFn(auxPosKind(cursor), auxLayer));
                 }
+            }
+            break;
+
+        case MenuState::AuxFxSelect:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + AUX_FX_COUNT) % AUX_FX_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == AUX_FX_COUNT - 1) enterState(MenuState::AuxLayerSelect, AUX_LAYER_EFFECTS);
+                else                            auxBind(cfg, auxLayerFn(AUX_FX_KINDS[cursor], auxLayer));
             }
             break;
 
@@ -1663,6 +1965,8 @@ void menuUpdate(SavedConfig& cfg) {
                     enterState(MenuState::VoiceSaveSelect, 0);
                 } else if (cursor == VE_HARMONICS) {
                     enterState(MenuState::HarmonicList, 0);
+                } else if (cursor == VE_FILTER) {
+                    enterState(MenuState::FilterList, 0);
                 } else {
                     voiceEditParam = cursor;
                     enterState(MenuState::VoiceEditParam);
@@ -1697,6 +2001,28 @@ void menuUpdate(SavedConfig& cfg) {
                     enterState(MenuState::HarmonicParam);
                 }
             }
+            break;
+
+        // Filter: as Harmonics, the aux knob picks a setting and the aux
+        // button opens it.
+        case MenuState::FilterList:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (!voiceEditable(cfg, auxLayer)) { enterState(MenuState::VoiceEditList, VE_FILTER); break; }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + VF_COUNT) % VF_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == VF_BACK) enterState(MenuState::VoiceEditList, VE_FILTER);
+                else { filterParam = cursor; enterState(MenuState::FilterParam); }
+            }
+            break;
+
+        case MenuState::FilterParam:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (!voiceEditable(cfg, auxLayer)) { enterState(MenuState::VoiceEditList, VE_FILTER); break; }
+            if (ev.auxDelta) { filterEditApply(cfg, ev.auxDelta); needsRedraw = true; }
+            if (ev.auxPressed) enterState(MenuState::FilterList, filterParam);
             break;
 
         case MenuState::HarmonicParam:
@@ -1871,11 +2197,14 @@ void menuUpdate(SavedConfig& cfg) {
                     }
                     case PLAY_ITEM_AUX_FN:
                         enterState(MenuState::AuxFnDefault,
-                                   (uint8_t)constrain(cfg.auxFn, 0, AUX_FN_COUNT - 1));
+                                   cfg.auxFn < AUX_FN_MENU_PLAIN ? cfg.auxFn : AUX_FN_MENU_EFFECTS);
                         break;
                     case PLAY_ITEM_MIDI_FN:
                         enterState(MenuState::MidiFnSetting,
                                    (uint8_t)constrain(cfg.midiFn, 0, (int)MidiFn::COUNT - 1));
+                        break;
+                    case PLAY_ITEM_MIDI_CC:
+                        enterState(MenuState::MidiCcSetting, cfg.midiCc ? 0 : 1);
                         break;
                     default: enterState(MenuState::MainMenu, MAIN_ITEM_PLAY); break;
                 }
@@ -1962,6 +2291,9 @@ void menuUpdate(SavedConfig& cfg) {
                                    (editLayer == LAYER_B && lc.lowNoteSameAsA)
                                        ? LOW_NOTE_ITEM_SAME_AS_A
                                        : (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
+                        break;
+                    case LAYER_ITEM_EFFECTS:
+                        enterState(MenuState::FxEffectList, 0);
                         break;
                     case LAYER_ITEM_MIDI_IN:
                         enterState(MenuState::LayerMidiIn,
@@ -2130,6 +2462,74 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        case MenuState::FxEffectList: {
+            uint8_t count = FX_MENU_COUNT + 1;   // + Back
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + count) % count;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < FX_MENU_COUNT) {
+                    fxMenuEffect = FX_MENU[cursor];
+                    enterState(MenuState::FxParamList, 0);
+                } else {
+                    enterState(MenuState::LayerMenu, LAYER_ITEM_EFFECTS);
+                }
+            }
+            break;
+        }
+
+        case MenuState::FxParamList: {
+            uint8_t params[FXP_COUNT];
+            uint8_t count = buildFxParamLabels(cfg, params);
+            uint8_t n     = fxParamsOf(fxMenuEffect, params);
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + count) % count;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                uint8_t fxPos = 0;
+                for (uint8_t i = 0; i < FX_MENU_COUNT; i++) if (FX_MENU[i] == fxMenuEffect) fxPos = i;
+                if (cursor < n) {
+                    // Under Same as A this edits B's own value, heard once
+                    // B's effect is unbound, as B's Wrap is under a bound shift.
+                    fxMenuParam = params[cursor];
+                    const LayerFx& fx = cfg.scenes[SCENE_DEFAULTS].layer[editLayer].fx;
+                    enterState(MenuState::FxParamEdit, fxValueIndex(fxMenuParam, fx));
+                } else if (editLayer == LAYER_B && cursor == n) {
+                    uint8_t bit   = 1u << (uint8_t)fxMenuEffect;
+                    bool    bound = cfg.scenes[SCENE_DEFAULTS].layer[LAYER_B].fx.sameAsA & bit;
+                    editDefaults(cfg, [bit, bound](LayerCfg& c) {
+                        if (bound) c.fx.sameAsA &= ~bit;
+                        else       c.fx.sameAsA |= bit;
+                    });
+                    needsRedraw = true;
+                } else {
+                    enterState(MenuState::FxEffectList, fxPos);
+                }
+            }
+            break;
+        }
+
+        case MenuState::FxParamEdit: {
+            uint8_t count = buildFxValueLabels(fxMenuParam, cfg.scenes[SCENE_DEFAULTS].layer[editLayer].fx, true);
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + count) % count;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < count - 1) {   // last entry is Back
+                    uint8_t p = fxMenuParam, i = cursor;
+                    editDefaults(cfg, [p, i](LayerCfg& c) { fxSetIndex(p, c.fx, i); });
+                }
+                uint8_t params[FXP_COUNT];
+                uint8_t n = fxParamsOf(fxMenuEffect, params), pos = 0;
+                for (uint8_t i = 0; i < n; i++) if (params[i] == fxMenuParam) pos = i;
+                enterState(MenuState::FxParamList, pos);
+            }
+            break;
+        }
+
         case MenuState::MidiFnSetting:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + MIDI_FN_COUNT) % MIDI_FN_COUNT;
@@ -2142,6 +2542,22 @@ void menuUpdate(SavedConfig& cfg) {
                     storageSave(cfg);
                 }
                 enterState(MenuState::PlaySetup, PLAY_ITEM_MIDI_FN);
+            }
+            break;
+
+        // Whether incoming effects CCs change the sound. Off by default, so
+        // settings dialed in are not changed unexpectedly.
+        case MenuState::MidiCcSetting:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + WELCOME_COUNT) % WELCOME_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < WELCOME_COUNT - 1) {   // last entry is Back
+                    cfg.midiCc = (cursor == 0);
+                    storageSave(cfg);
+                }
+                enterState(MenuState::PlaySetup, PLAY_ITEM_MIDI_CC);
             }
             break;
 
@@ -2219,11 +2635,31 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < AUX_FN_COUNT) {   // last entry is Back
+                if (cursor == AUX_FN_MENU_EFFECTS) {
+                    enterState(MenuState::AuxFnDefaultFx, auxFnFxPos((AuxFn)cfg.auxFn));
+                    break;
+                }
+                if (cursor < AUX_FN_MENU_PLAIN) {   // last entry is Back
                     cfg.auxFn = cursor;
                     storageSave(cfg);
                 }
                 enterState(MenuState::PlaySetup, PLAY_ITEM_AUX_FN);
+            }
+            break;
+
+        case MenuState::AuxFnDefaultFx:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + AUX_FN_FX_COUNT) % AUX_FN_FX_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < AUX_FN_FX_COUNT - 1) {   // last entry is Back
+                    cfg.auxFn = (uint8_t)AUX_FN_FX[cursor];
+                    storageSave(cfg);
+                    enterState(MenuState::PlaySetup, PLAY_ITEM_AUX_FN);
+                } else {
+                    enterState(MenuState::AuxFnDefault, AUX_FN_MENU_EFFECTS);
+                }
             }
             break;
 
@@ -2674,8 +3110,25 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::LayerMidiIn:
                 drawList(MIDI_IN_ITEMS, MIDI_IN_COUNT, cursor);
                 break;
+            case MenuState::FxEffectList:
+                buildFxEffectLabels(cfg);
+                drawList(FX_LABELS, FX_MENU_COUNT + 1, cursor);
+                break;
+            case MenuState::FxParamList: {
+                uint8_t params[FXP_COUNT];
+                drawList(FX_LABELS, buildFxParamLabels(cfg, params), cursor);
+                break;
+            }
+            case MenuState::FxParamEdit:
+                drawList(fxValueLabels,
+                         buildFxValueLabels(fxMenuParam, cfg.scenes[SCENE_DEFAULTS].layer[editLayer].fx, true),
+                         cursor);
+                break;
             case MenuState::MidiFnSetting:
                 drawList(MIDI_FN_ITEMS, MIDI_FN_COUNT, cursor);
+                break;
+            case MenuState::MidiCcSetting:
+                drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);
                 break;
             case MenuState::WelcomeTune:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);
@@ -2692,6 +3145,9 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::AuxFnDefault:
                 drawList(AUX_FN_MENU_LABELS, AUX_FN_MENU_COUNT, cursor);
                 break;
+            case MenuState::AuxFnDefaultFx:
+                drawList(AUX_FN_FX_LABELS, AUX_FN_FX_COUNT, cursor);
+                break;
             case MenuState::PitchStep:
                 drawList(PITCH_STEP_LABELS, PITCH_STEP_COUNT, cursor);
                 break;
@@ -2703,6 +3159,9 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::AuxLayerSelect:
                 drawList(AUX_LAYER_LABELS, AUX_LAYER_COUNT, cursor);
+                break;
+            case MenuState::AuxFxSelect:
+                drawList(AUX_FX_LABELS, AUX_FX_COUNT, cursor);
                 break;
             case MenuState::VoiceEditList:
                 drawVoiceEditList(cfg);
@@ -2716,6 +3175,12 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::HarmonicParam:
                 drawHarmonicParam(cfg);
+                break;
+            case MenuState::FilterList:
+                drawList(FILTER_LABELS, VF_COUNT, cursor);
+                break;
+            case MenuState::FilterParam:
+                drawFilterParam(cfg);
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);

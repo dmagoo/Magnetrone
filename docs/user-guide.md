@@ -143,7 +143,7 @@ the Speed knob moves the platter.
 
 ```
 Sound Defaults   Layer A, Layer B
-Play Setup       Beats/Rev, Pitch Step, Aux Fn, MIDI Fn
+Play Setup       Beats/Rev, Pitch Step, Aux Fn, MIDI Fn, MIDI CC
 System           LCD Timeout, Menu Timeout, Welcome Tune, StartPos Check, Magnet Pole
 Tools            calibration and maintenance
 Exit
@@ -176,7 +176,7 @@ The function list:
 | Entry | What it does |
 |-------|--------------|
 | Pitch | Moves both layers together. |
-| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode. |
+| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
 | Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
@@ -205,6 +205,7 @@ from the next note:
 | Sustain   | The level it holds while the note lasts, 0 to 100%. At 100% Decay does nothing |
 | Release   | How long it fades after the note ends, 0 to 3000 ms |
 | Length    | How long each note is held, 10 to 2000 ms |
+| Filter    | The voice's own filter and its envelope. See below |
 
 A tweaked voice shows `*` in the Voice list, such as `Piano*`. Tweaks affect
 only that layer. Like other Aux changes they are not saved, and choosing
@@ -231,6 +232,21 @@ sound the most; the high ones add brightness or buzz.
 - The steps widen as the level rises (0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40,
   50, 70, 100%), so each click is about the same change to the ear.
 
+#### Filter
+
+**Filter** gives the voice its own low-pass filter, which opens and closes
+with each note, like the Attack to Release envelope does for volume but for
+brightness. It is separate from the layer's Tone (see [Effects](#effects)).
+
+| Setting   | What it sets |
+|-----------|--------------|
+| Cutoff    | How much of the top end gets through, 0 to 90%. 100% reads **Off**: no filter. |
+| Resonance | A peak at the cutoff, 0 to 100%. |
+| Amount    | How far the envelope opens the filter above the cutoff, 0 to 100%. At 0% the filter stays at the cutoff (it is still on). |
+| Attack, Decay, Sustain, Release | The filter's envelope, as for the volume above. |
+
+A plucky sound: Cutoff low, Amount high, short Decay, low Sustain.
+
 To keep a tweaked voice, choose **Save As...** at the bottom of the Voice Edit
 list:
 
@@ -247,7 +263,7 @@ Saving a scene to another slot copies its Scene Voice along.
 ## Scenes
 
 A scene is the whole sound of the table: both layers (mode, voice, key, octave,
-level, shift, wrap, low note, channel), Pitch and A/B Balance. The table always
+level, shift, wrap, low note, channel, effects), Pitch and A/B Balance. The table always
 plays one scene, shown on the home screen, with any Aux changes on top.
 
 - **0: Defaults** is what **Sound Defaults** in the main menu edits. It is
@@ -268,6 +284,47 @@ Each slot shows Layer A's root and scale, such as `2: D Minor`, or `3: (empty)`.
 
 At power-up the table plays the last scene loaded or saved, without Aux changes.
 
+## Effects
+
+Each layer has its own effects, which work on that layer's whole sound, in
+this order: **Tone**, **Chorus**, **Delay**, **Reverb**. So Layer A can be a
+wet, echoing piano while Layer B stays dry drums. Every effect is off in the
+factory sound.
+
+Set them in **Menu > Sound Defaults > Layer A > Effects** (and Layer B). There
+is no On/Off: the setting that takes an effect out reads **Off** at its end of
+the range. Values are in 10% steps.
+
+| Effect | Settings | Off at |
+|--------|----------|--------|
+| Tone   | **Cutoff**, a low-pass filter that darkens the sound as it comes down; **Resonance**, a peak at the cutoff. | Cutoff 100% (Resonance then does nothing) |
+| Chorus | **Rate** and **Depth** of the wobble, and **Mix**. Depth 0% is not off: a fixed delayed copy still colours the sound. | Mix 0% |
+| Delay  | **Mode**, **Time**, **Feedback** (how many echoes, up to 90% so they always die out), **Mix**. | Mix 0% |
+| Reverb | **Room Size**, **Damping** (how dark the tail is), **Mix**. | Mix 0% |
+
+Delay **Mode**:
+
+- **Sync**: Time is a fraction of one beat (see Beats/Rev): 1, 1/2, 3/8, 1/3,
+  1/4, 1/5, 1/6, 3/16, 1/8, 1/10, 1/12, 1/16 or 1/32. The echoes follow the
+  platter speed. The longest echo is 2.4 seconds; at slow speeds a longer
+  time is halved until it fits, so the echoes stay in rhythm.
+- **Free**: Time in milliseconds, 10 to 2400 ms.
+
+Delay and Reverb keep running while their Mix is off, so turning Mix down
+lets the echoes and tail fade out naturally rather than cutting them off.
+
+On Layer B, each effect's list ends with **Same as A**: Yes plays Layer A's
+settings for that effect. B's effects follow A's too while B's Mode is Same as
+A. Either way the entries are tagged `(=A)`.
+
+A drum layer goes through its effects too. The kit is shared, so when both
+layers play drums, the drums go through Layer A's effects.
+
+On the Aux (**Aux > Layer A > Effects**) you can change **Tone Cutoff**,
+**Delay Mix**, **Delay Feedback** and **Reverb Mix** live. They also appear
+under **Effects** in **Menu > Play Setup > Aux Fn**. With MIDI CC on, a MIDI
+controller can change them too (see [MIDI In](#midi-in)).
+
 ## Performance Functions
 
 Functions meant to be changed while playing. "Layer" means the setting is in
@@ -284,6 +341,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Wrap        | Layer  | Yes | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
 | Low Note    | Layer  | Yes | Which end of the arm plays the lowest note: Inner or Outer. On Layer B, Same as A follows A. On Drums it flips the kit end to end. | Inner |
 | Level       | Layer  | No  | Layer volume, 0 to 100%. Also sets MIDI velocity. | 100% |
+| Effects     | Layer  | Some | Tone, Chorus, Delay and Reverb. See [Effects](#effects). | All off |
 | Pitch       | Aux only | Yes | Moves both layers together, root and octave as one, so turning up always raises the pitch. Step size is set by Pitch Step. Drums ignore it. | 0 |
 | A/B Balance | Aux only | Yes | Crossfades between the layers. Centre is both at full level. | Centre |
 | Load Scene  | Aux only | Yes | Loads a scene at the next bar. See [Scenes](#scenes). | - |
@@ -309,6 +367,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Pitch Step   | Play Setup | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | 1 semitone |
 | Aux Fn       | Play Setup | Which function the Aux knob controls. | Pitch |
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
+| MIDI CC      | Play Setup | On: MIDI controllers can change the effects. Off keeps settings you dialed in from changing unexpectedly. See [MIDI In](#midi-in). | Off |
 | LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 5 s |
 | Menu Timeout | System | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. | 30 s |
 | Welcome Tune | System | Plays each track's Layer A note at power-up. Press the Menu button to skip it. Turning it on plays it once as a preview. | On |
@@ -380,6 +439,19 @@ B on Same as A does not listen, since it plays Layer A's settings.
 - **CC 7** sets the volume. **CC 20** sets the octave. (A CC is the message a
   knob or slider on a controller sends; most controllers let you choose the
   number.)
+- With **Menu > Play Setup > MIDI CC** on, these CCs change the
+  [effects](#effects), each on the layer's channel:
+
+  | CC | Sets |
+  |----|------|
+  | 74 | Tone Cutoff (the top of the knob is Off) |
+  | 71 | Tone Resonance |
+  | 93 | Chorus Mix |
+  | 94 | Delay Mix |
+  | 12 | Delay Feedback, 0 to 90% |
+  | 91 | Reverb Mix |
+
+  If Layer B's effect is on Same as A, B's CC for it does nothing.
 
 | MIDI Fn     | What the keys do |
 |-------------|------------------|

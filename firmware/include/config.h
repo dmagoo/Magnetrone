@@ -43,6 +43,14 @@ constexpr uint8_t   DEFAULT_MIDI_IN_CHANNEL_B = 2;
 constexpr uint8_t   DEFAULT_MIDI_FN           = 0;    // Off
 constexpr uint8_t   MIDI_CC_VOLUME            = 7;    // the standard volume CC
 constexpr uint8_t   MIDI_CC_OCTAVE            = 20;   // no standard; unassigned
+// Effects CCs, the General MIDI numbers. Only while Play Setup > MIDI CC is On.
+constexpr bool      DEFAULT_MIDI_CC           = false;
+constexpr uint8_t   MIDI_CC_RESONANCE         = 71;
+constexpr uint8_t   MIDI_CC_CUTOFF            = 74;
+constexpr uint8_t   MIDI_CC_REVERB            = 91;
+constexpr uint8_t   MIDI_CC_CHORUS            = 93;
+constexpr uint8_t   MIDI_CC_DELAY             = 94;   // GM Effects 4 Depth; XG's variation send
+constexpr uint8_t   MIDI_CC_DELAY_FEEDBACK    = 12;   // Effect Control 1, no fixed meaning
 constexpr float     MIDI_BEND_IN_RANGE        = 2.0f; // semitones, the GM default
 
 // -------------------------------------------------------------------------

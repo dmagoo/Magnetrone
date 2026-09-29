@@ -44,6 +44,35 @@ uint8_t layerDegree(const SavedConfig& cfg, uint8_t layer, uint8_t sensor);
 // note velocity, which scales the internal synth and external synths alike.
 float layerGain(const SavedConfig& cfg, uint8_t layer);
 
+// --- Effects -------------------------------------------------------------------
+// Which layer's settings this layer's effect plays with: A's for Layer B in
+// Same as A, or with that effect set to Same as A; otherwise its own.
+uint8_t layerFxSource(const SavedConfig& cfg, uint8_t layer, FxId fx);
+
+// The effects this layer plays with, each effect from its source above.
+LayerFx layerFx(const SavedConfig& cfg, uint8_t layer);
+
+// Pushes both layers' effects to the audio, and nothing else: cheaper than
+// layersApply() for a stream of changes (a knob, a MIDI CC).
+void layersApplyEffects(const SavedConfig& cfg);
+
+// Delay times. Sync: a fraction of one beat (1/Beats/Rev of a platter
+// revolution), picked from a list; scenes store the list position, so new
+// times go at the end. Free: milliseconds, in steps.
+constexpr uint8_t DELAY_SYNC_COUNT = 13;
+const char* delaySyncName(uint8_t i);
+constexpr uint8_t DELAY_FREE_COUNT = 42;
+uint16_t    delayFreeMs(uint8_t i);         // 10 to DELAY_MAX_MS
+uint8_t     delayFreeIndex(uint16_t ms);    // the nearest step
+
+// The delay time a layer plays with, in ms. A Sync time longer than the
+// buffer holds is halved until it fits, so the echoes stay in rhythm. With
+// the platter's speed at 0 there is no beat: `lastMs` is kept.
+float layerDelayMs(const SavedConfig& cfg, uint8_t layer, float lastMs);
+
+// Call every loop: keeps the delay times on the beat as the speed changes.
+void layersUpdate(const SavedConfig& cfg);
+
 // --- A/B balance --------------------------------------------------------------
 // A live crossfade between the two layers, driven by the aux knob. RAM only,
 // like the pitch offset: a session always starts centred. -BALANCE_STEPS is

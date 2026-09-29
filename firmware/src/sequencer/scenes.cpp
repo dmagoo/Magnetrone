@@ -105,13 +105,25 @@ void sceneSave(SavedConfig& cfg, uint8_t slot) {
     storageSave(cfg);
 }
 
+// Field by field: memcmp would also compare the padding.
+static bool fxEqual(const LayerFx& a, const LayerFx& b) {
+    return a.cutoff == b.cutoff && a.resonance == b.resonance &&
+           a.chorusRate == b.chorusRate && a.chorusDepth == b.chorusDepth &&
+           a.chorusMix == b.chorusMix && a.delayMode == b.delayMode &&
+           a.delaySync == b.delaySync && a.delayMs == b.delayMs &&
+           a.delayFeedback == b.delayFeedback && a.delayMix == b.delayMix &&
+           a.roomSize == b.roomSize && a.damping == b.damping &&
+           a.reverbMix == b.reverbMix && a.sameAsA == b.sameAsA;
+}
+
 static bool layerEqual(const LayerCfg& a, const LayerCfg& b) {
     return a.mode == b.mode && a.voice == b.voice && a.channel == b.channel &&
            a.root == b.root && a.scale == b.scale && a.octave == b.octave &&
            (a.scale != Scale::Learned || a.learned == b.learned) &&
            a.level == b.level && a.shift == b.shift && a.wrap == b.wrap &&
            a.shiftSameAsA == b.shiftSameAsA && a.lowNote == b.lowNote &&
-           a.lowNoteSameAsA == b.lowNoteSameAsA;
+           a.lowNoteSameAsA == b.lowNoteSameAsA &&
+           fxEqual(a.fx, b.fx);
 }
 
 bool sceneModified(const SavedConfig& cfg) {

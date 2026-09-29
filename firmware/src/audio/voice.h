@@ -22,6 +22,22 @@ enum class NoteSource : uint8_t { Scale, Kit, Silent };
 // levels are unused; the built-ins leave them at 0.
 constexpr uint8_t NUM_HARMONICS = 16;
 
+// The voice's own low-pass filter and its envelope, which opens and closes
+// the filter with each note (ADSR on brightness). Separate from the layer's
+// Tone. Cutoff and resonance are percent, as the layer's Tone; Cutoff
+// VOICE_FILTER_OFF leaves the filter out. Amount is how far the envelope
+// opens it: 0% leaves the filter fixed at the cutoff, not off.
+constexpr uint8_t VOICE_FILTER_OFF = 100;
+struct VoiceFilter {
+    uint8_t  cutoff;
+    uint8_t  resonance;
+    uint8_t  amount;
+    uint8_t  sustainPct;
+    uint16_t attackMs;
+    uint16_t decayMs;
+    uint16_t releaseMs;
+};
+
 struct Voice {
     const char* name;       // menu label
     short       waveform;   // WAVEFORM_* from the Teensy Audio library
@@ -34,6 +50,7 @@ struct Voice {
     NoteSource  source;
     uint8_t     harmonics[NUM_HARMONICS];   // percent; used only when harmonicsEdited
     bool        harmonicsEdited;            // plays the wave built from harmonics[]
+    VoiceFilter filter;
 };
 
 // Order matches VOICES[] in voice.cpp, and the stored cfg.layer[].voice is an index
