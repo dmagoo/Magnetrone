@@ -14,6 +14,7 @@ enum class LayerMode : uint8_t {
     On,
     Off,
     SameAsA,   // Layer B only: reversed magnets play exactly like normal ones
+    Stack,     // Layer B only: every magnet, either pole, plays A and B
 };
 
 constexpr uint8_t LAYER_A     = 0;

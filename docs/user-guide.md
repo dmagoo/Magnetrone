@@ -117,6 +117,10 @@ set of magnets can play piano one way up and bass the other.
 For single-voice play, set Layer B's Mode to **Same as A**. Both sides then play
 the same, and it never matters which way up a magnet sits.
 
+To play both layers from every magnet, set Layer B's Mode to **Stack**. Each
+magnet then plays its Layer A note and its Layer B note together, whichever way
+up it sits.
+
 ### Placement Mode
 
 **Menu > Tools > Placement Mode** turns the platter into a workbench for placing
@@ -172,7 +176,7 @@ The function list:
 | Entry | What it does |
 |-------|--------------|
 | Pitch | Moves both layers together. |
-| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap. |
+| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode. |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
 | Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
@@ -271,7 +275,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 
 | Function    | Where  | Aux | What it does | Default |
 |-------------|--------|-----|--------------|---------|
-| Mode        | Layer  | No  | On or Off. Layer B also has Same as A: it plays exactly like Layer A. Off silences every magnet that way up. | On |
+| Mode        | Layer  | Yes | On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits. Off silences every magnet that way up. | On |
 | Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, or a scale learned from MIDI (see [MIDI In](#midi-in)). Drums ignore it. | Major |
@@ -285,7 +289,11 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Load Scene  | Aux only | Yes | Loads a scene at the next bar. See [Scenes](#scenes). | - |
 
 When Layer B is on **Same as A**, the Aux knob shows **Layer B is Same as A**
-instead of changing B's settings.
+instead of changing B's settings. Mode is the exception, so you can switch B
+back from the Aux.
+
+Mode on the Aux is also the way to give a saved scene Stack: load the scene,
+set Layer B's Mode to Stack on the Aux, then choose **Save Scene**.
 
 ## Setup Functions
 
@@ -393,7 +401,8 @@ Not yet: following an external clock.
 Set Layer B up the same as Layer A: Mode On (not Same as A), and the same
 voice, root, scale and octave. Then change one thing on Layer B. A magnet plays
 the layer of whichever side faces down, so a flipped magnet plays Layer B's
-version of its note.
+version of its note. Set Layer B's Mode to **Stack** instead and every magnet
+plays both, so each idea below becomes a two-note chord.
 
 - **Thirds.** Set B's Shift to 2. A flipped magnet plays a third above its
   Layer A note (Shift 4 gives a fifth, 5 a sixth). The intervals stay in the

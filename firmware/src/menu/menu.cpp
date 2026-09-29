@@ -145,9 +145,9 @@ static const uint8_t MIDI_IN_COUNT = 18;
 
 // Order matches LayerMode. Layer A has no Same as A, so its list is shorter.
 static const char* MODE_ITEMS_A[] = { "On","Off","Back" };
-static const char* MODE_ITEMS_B[] = { "On","Off","Same as A","Back" };
+static const char* MODE_ITEMS_B[] = { "On","Off","Same as A","Stack","Back" };
 static const uint8_t MODE_COUNT_A = 3;
-static const uint8_t MODE_COUNT_B = 4;
+static const uint8_t MODE_COUNT_B = 5;
 
 // Auto, then channels 1-16, then Back. Index == stored value. Filled in by
 // menuInit().
@@ -267,11 +267,12 @@ enum class AuxFn : uint8_t { Pitch, Balance, LoadScene,
                              VoiceA, VoiceB, RootA, RootB, ScaleA, ScaleB,
                              OctaveA, OctaveB, ShiftA, ShiftB, LowNoteA, LowNoteB,
                              WrapA, WrapB,   // appended, so saved bindings keep their numbers
+                             ModeA, ModeB,
                              COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
 // What a per-layer Fn changes. The layer comes from the A/B pair.
-enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, Wrap, COUNT };
+enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, Wrap, Mode, COUNT };
 static const uint8_t AUX_KIND_COUNT = (uint8_t)AuxKind::COUNT;
 
 static bool    auxIsLayerFn(AuxFn fn) { return fn >= AuxFn::VoiceA && fn < AuxFn::COUNT; }
@@ -298,7 +299,8 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
 // Voice Edit after Voice, then Back.
 static const char* AUX_LAYER_LABELS[] = {
-    "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Wrap","Back"
+    "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Wrap","Mode",
+    "Back"
 };
 static const uint8_t AUX_LAYER_COUNT      = AUX_KIND_COUNT + 2;   // + Voice Edit, Back
 static const uint8_t AUX_LAYER_VOICE_EDIT = 1;
@@ -467,7 +469,7 @@ static const char* AUX_FN_MENU_LABELS[] = {
     "Layer A Voice","Layer B Voice","Layer A Root","Layer B Root",
     "Layer A Scale","Layer B Scale","Layer A Octave","Layer B Octave",
     "Layer A Shift","Layer B Shift","Layer A Low","Layer B Low",
-    "Layer A Wrap","Layer B Wrap","Back"
+    "Layer A Wrap","Layer B Wrap","Layer A Mode","Layer B Mode","Back"
 };
 static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
 
@@ -992,8 +994,10 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
 
     uint8_t l = auxLayerOf(fn);
     // B in Same as A plays A's settings, so turning B's would do nothing
-    // audible; leave it alone rather than change a hidden setting.
-    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) return;
+    // audible; leave it alone rather than change a hidden setting. Its Mode
+    // is the way out of Same as A, so that one still turns.
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA &&
+        auxKindOf(fn) != AuxKind::Mode) return;
     LayerCfg& lc = cfg.layer[l];
 
     switch (auxKindOf(fn)) {
@@ -1050,6 +1054,14 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             lc.wrap = constrain(v, 0, 1) == 0;                 // clamp: a list
             break;
         }
+        case AuxKind::Mode: {
+            // Layer A has On and Off; B also Same as A and Stack.
+            int n = (l == LAYER_A) ? MODE_COUNT_A - 1 : MODE_COUNT_B - 1;   // - Back
+            int v = (int)lc.mode + delta;
+            lc.mode = (LayerMode)constrain(v, 0, n - 1);       // clamp: a list
+            layersApply(cfg);   // Same as A changes which voice B plays
+            break;
+        }
         default:
             break;
     }
@@ -1058,7 +1070,8 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
 // A per-layer Fn's parameter screen. Layer B in Same as A says so instead,
 // as do B's Shift and Low Note while bound to A's.
 static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
-    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA &&
+        kind != AuxKind::Mode) {
         lcdLine(0, "Layer B is");
         lcdLine(1, "Same as A");
         return;
@@ -1117,6 +1130,10 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
             } else {
                 drawList(WRAP_ITEMS, 2, lc.wrap ? 0 : 1);
             }
+            break;
+        case AuxKind::Mode:
+            if (l == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A - 1, (uint8_t)lc.mode);
+            else              drawList(MODE_ITEMS_B, MODE_COUNT_B - 1, (uint8_t)lc.mode);
             break;
         default:
             break;

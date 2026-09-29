@@ -17,7 +17,8 @@ turning physical arrangement into musical pattern.
 - Voice Edit (Aux): live tweaks to a layer's wave, envelope and note length,
   and its first 16 harmonics; Save As keeps them in Custom 1-8 (shared by all
   scenes) or as the current scene's own Scene Voice
-- Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B,
+- Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B
+  (or both, with Layer B's Mode on Stack),
   each with its own voice, MIDI channel, root note, scale, octave, level, Track
   Shift, Wrap and Low Note
 - Per-layer Track Shift raises the run by scale degrees, with Wrap (the run
@@ -52,7 +53,7 @@ turning physical arrangement into musical pattern.
   From a stop, turning Speed starts from zero in the turned direction; a
   press resumes the last speed
 - Aux knob changes one bound function live (Pitch, A/B Balance, Load Scene,
-  or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note or Wrap)
+  or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note, Wrap or Mode)
 - Menu knob opens the main menu from the home screen by turning or pressing;
   the Menu button leaves the Aux screens straight back to the home screen, and
   the Aux button leaves the main menu (prompts excepted)

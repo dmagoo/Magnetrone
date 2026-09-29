@@ -85,7 +85,7 @@ static VoiceSlot toSlot(const SavedConfig& cfg, uint8_t l) {
 bool layerActive(const SavedConfig& cfg, uint8_t layer) {
     LayerMode m = cfg.layer[layer].mode;
     if (layer == LAYER_B && m == LayerMode::SameAsA) m = cfg.layer[LAYER_A].mode;
-    return m == LayerMode::On;
+    return m == LayerMode::On || m == LayerMode::Stack;
 }
 
 const LayerCfg& layerEffective(const SavedConfig& cfg, uint8_t layer) {
