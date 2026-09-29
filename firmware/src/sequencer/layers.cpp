@@ -1,5 +1,6 @@
 #include "layers.h"
 #include <Arduino.h>
+#include <string.h>
 #include "audio/audio.h"
 #include "midi/midi.h"
 
@@ -45,12 +46,15 @@ static void sync(const SavedConfig& cfg, uint8_t l) {
     if (s) {
         live[l]           = voiceGet(s->base);
         live[l].name      = voiceIdName(id);
-        live[l].waveform  = voiceWaveform((Wave)s->wave);
+        uint8_t wave      = s->wave & ~SLOT_HARMONICS_EDITED;
+        live[l].waveform  = voiceWaveform((Wave)wave);   // out of range reads as Sine
         live[l].attackMs  = s->attackMs;
         live[l].decayMs   = s->decayMs;
         live[l].sustain   = (float)s->sustainPct / 100.0f;
         live[l].releaseMs = s->releaseMs;
         live[l].noteMs    = s->noteMs;
+        memcpy(live[l].harmonics, s->harmonics, NUM_HARMONICS);
+        live[l].harmonicsEdited = (s->wave & SLOT_HARMONICS_EDITED) || wave >= WAVE_COUNT;
         liveBase[l]       = s->base;
     } else {
         uint8_t base = (id < VOICE_COUNT) ? id : (uint8_t)VoiceId::Piano;
@@ -68,12 +72,13 @@ static VoiceSlot toSlot(const SavedConfig& cfg, uint8_t l) {
     VoiceSlot s{};
     s.used       = true;
     s.base       = liveBase[l];
-    s.wave       = (uint8_t)voiceWave(v.waveform);
+    s.wave       = (uint8_t)voiceWave(v.waveform) | (v.harmonicsEdited ? SLOT_HARMONICS_EDITED : 0);
     s.sustainPct = (uint8_t)constrain((int)lroundf(v.sustain * 100.0f), 0, 100);
     s.attackMs   = v.attackMs;
     s.decayMs    = v.decayMs;
     s.releaseMs  = v.releaseMs;
     s.noteMs     = v.noteMs;
+    memcpy(s.harmonics, v.harmonics, NUM_HARMONICS);
     return s;
 }
 

@@ -40,7 +40,7 @@ turning physical arrangement into musical pattern.
 - Speed and volume adjustable live at any time via dedicated encoders; touching
   either one returns to the home screen from any menu (prompts excepted)
 - Menu knob opens the main menu from the home screen by turning or pressing;
-  the menu button leaves the Aux screens straight back to the home screen
+  the Menu button leaves the Aux screens straight back to the home screen
 - Welcome tune plays on boot -- previews what Layer A's tracks play, hall 1 to 8
   and back, including its key, octave, Track Shift, Wrap and Low Note; a menu
   button press skips it
@@ -108,6 +108,6 @@ jack through a panel-mount power switch and an MP1584EN buck converter to 5V.
 ### First Run
 
 On first boot, no calibration data is present and the table offers to calibrate
-(later: Main > Tools > Full Calibrate). Clear the platter when asked, then place a
+(later: Menu > Tools > Full Calibrate). Clear the platter when asked, then place a
 single magnet on the start mark on the outer track. See the
 [user guide](docs/user-guide.md) for details.

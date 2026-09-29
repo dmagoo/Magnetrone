@@ -1,5 +1,6 @@
 #include "voice.h"
 #include <Audio.h>
+#include <math.h>
 
 // Starting values, agreed 2026-09-23 and expected to be tuned by ear. The
 // bandlimited saw and square alias far less than the plain ones, which matters
@@ -38,4 +39,23 @@ Wave voiceWave(short waveform) {
 
 const char* voiceWaveName(Wave w) {
     return WAVE_NAMES[(uint8_t)w < WAVE_COUNT ? (uint8_t)w : 0];
+}
+
+// Saw has every harmonic at 1/n, Square the odd ones at 1/n, Triangle the odd
+// ones at 1/n^2. Triangle's alternate harmonics are phase-flipped, which a
+// level cannot say, but a steady tone sounds the same either way.
+void voiceHarmonicsFrom(Wave w, uint8_t harmonics[NUM_HARMONICS]) {
+    for (uint8_t i = 0; i < NUM_HARMONICS; i++) {
+        uint8_t n = i + 1;
+        bool    odd = (n % 2) == 1;
+        float   level = 0.0f;
+        switch (w) {
+            case Wave::Sine:     level = (n == 1) ? 1.0f : 0.0f;          break;
+            case Wave::Triangle: level = odd ? 1.0f / (n * n) : 0.0f;     break;
+            case Wave::Saw:      level = 1.0f / n;                        break;
+            case Wave::Square:   level = odd ? 1.0f / n : 0.0f;           break;
+            default: break;
+        }
+        harmonics[i] = (uint8_t)lroundf(level * 100.0f);
+    }
 }

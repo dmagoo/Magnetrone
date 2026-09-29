@@ -1,6 +1,7 @@
 #include "menu.h"
 #include <Arduino.h>
 #include <math.h>
+#include <string.h>
 #include <LiquidCrystal_I2C.h>
 #include "ui/encoder.h"
 #include "motion/stepper.h"
@@ -49,9 +50,11 @@ enum class MenuState : uint8_t {
     AuxFnDefault,
     PitchStep,
     AuxFnSelect,    // aux knob: choose what the knob modulates
-    AuxLayerSelect, // aux knob: the same, inside Layer A > or Layer B >
+    AuxLayerSelect, // aux knob: the same, inside Layer A or Layer B
     VoiceEditList,  // aux knob: the layer's voice, which setting to tweak
     VoiceEditParam, // aux knob: tweak it, live
+    HarmonicList,   // aux knob: Voice Edit > Harmonics, which harmonic
+    HarmonicParam,  // aux knob: its level, live
     VoiceSaveSelect,  // aux knob: Save As, pick the slot
     VoiceSaveConfirm, // aux knob: overwrite a used custom slot?
     AuxParam,       // aux knob: modulate the chosen parameter, live
@@ -273,7 +276,7 @@ static AuxFn   auxLayerFn(AuxKind k, uint8_t layer) {
 // The Aux list, as shown: Pitch, a submenu per layer, Balance, the scene Fn,
 // then three actions. Layer entries open the per-layer list below.
 static const char* AUX_TOP_LABELS[] = {
-    "Pitch","Layer A >","Layer B >","A/B Balance","Load Scene","Save Scene",
+    "Pitch","Layer A","Layer B","A/B Balance","Load Scene","Save Scene",
     "Reset All","Exit"
 };
 enum : uint8_t { AUXT_PITCH, AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE,
@@ -284,7 +287,7 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
     AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
 };
 
-// Inside Layer A > / Layer B >: the per-layer Fns in AuxKind order, with
+// Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
 // Voice Edit after Voice, then Back.
 static const char* AUX_LAYER_LABELS[] = {
     "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Back"
@@ -305,10 +308,18 @@ static AuxKind auxPosKind(uint8_t pos) {
 // Live tweaks to the voice a layer plays (layers.h). Save As keeps them, in a
 // custom slot or as the current scene's own voice for the layer.
 static const char* VOICE_EDIT_LABELS[] = {
-    "Wave","Attack","Decay","Sustain","Release","Length","Save As...","Back"
+    "Wave","Harmonics","Attack","Decay","Sustain","Release","Length","Save As...","Back"
 };
-enum : uint8_t { VE_WAVE, VE_ATTACK, VE_DECAY, VE_SUSTAIN, VE_RELEASE, VE_LENGTH,
-                 VE_SAVE, VE_BACK, VE_COUNT };
+enum : uint8_t { VE_WAVE, VE_HARMONICS, VE_ATTACK, VE_DECAY, VE_SUSTAIN, VE_RELEASE,
+                 VE_LENGTH, VE_SAVE, VE_BACK, VE_COUNT };
+
+// The Voice Edit list as shown: "Harmonics*" once they are edited, the same
+// mark a tweaked voice gets in the Voice list.
+static const char* veLabels[VE_COUNT];
+static void buildVoiceEditLabels(const SavedConfig& cfg) {
+    for (uint8_t i = 0; i < VE_COUNT; i++) veLabels[i] = VOICE_EDIT_LABELS[i];
+    if (layerVoice(cfg, auxLayer).harmonicsEdited) veLabels[VE_HARMONICS] = "Harmonics*";
+}
 
 // The voices a layer can pick, as shown: the built-ins, the used custom
 // slots, then (for the Aux, outside Defaults) the scene's own voice if it
@@ -390,6 +401,47 @@ static uint16_t timeStep(uint16_t ms, int8_t delta, uint16_t lo, uint16_t hi) {
     }
     int i = constrain((int)near + delta, 0, TIME_STEP_COUNT - 1);
     return (uint16_t)constrain((int)TIME_STEPS[i], (int)lo, (int)hi);
+}
+
+// Harmonic levels, in percent. As with the times, we hear them in ratios,
+// so each step is about the same change (roughly 3 dB). Saved voices keep
+// the percentage, so this list can change without breaking them.
+static const uint8_t HARM_STEPS[] = { 0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 70, 100 };
+static const uint8_t HARM_STEP_COUNT = sizeof(HARM_STEPS) / sizeof(HARM_STEPS[0]);
+
+// Moves a level `delta` steps from its nearest step.
+static uint8_t harmStep(uint8_t pct, int8_t delta) {
+    uint8_t near = 0;
+    for (uint8_t i = 1; i < HARM_STEP_COUNT; i++) {
+        if (abs((int)HARM_STEPS[i] - (int)pct) < abs((int)HARM_STEPS[near] - (int)pct)) near = i;
+    }
+    return HARM_STEPS[constrain((int)near + delta, 0, HARM_STEP_COUNT - 1)];
+}
+
+static uint8_t harmonicSel = 0;   // which harmonic HarmonicParam changes
+
+// A voice's harmonic levels as heard: its edited ones, or until then its
+// stock wave's.
+static void harmonicLevels(const Voice& v, uint8_t out[NUM_HARMONICS]) {
+    if (v.harmonicsEdited) memcpy(out, v.harmonics, NUM_HARMONICS);
+    else                   voiceHarmonicsFrom(voiceWave(v.waveform), out);
+}
+
+// The Harmonics list: "H1 100%" to "H16 0%", Reset, then Back. Rebuilt
+// before use. Reset drops the edits, back to the stock wave.
+static const uint8_t HARM_RESET = NUM_HARMONICS;
+static const uint8_t HARM_COUNT = NUM_HARMONICS + 2;
+static char        HARM_BUF[NUM_HARMONICS][10];
+static const char* HARM_ITEMS[HARM_COUNT];
+static void buildHarmonicItems(const SavedConfig& cfg) {
+    uint8_t levels[NUM_HARMONICS];
+    harmonicLevels(layerVoice(cfg, auxLayer), levels);
+    for (uint8_t i = 0; i < NUM_HARMONICS; i++) {
+        snprintf(HARM_BUF[i], sizeof(HARM_BUF[i]), "H%u %u%%", (unsigned)(i + 1), (unsigned)levels[i]);
+        HARM_ITEMS[i] = HARM_BUF[i];
+    }
+    HARM_ITEMS[HARM_RESET]     = "Reset";
+    HARM_ITEMS[HARM_COUNT - 1] = "Back";
 }
 
 // Layer B in Same as A plays A's voice, and Drums and None have nothing to
@@ -889,7 +941,11 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
 // size currently in force.
 // Voice Edit's list, or why this layer's voice cannot be edited.
 static void drawVoiceEditList(const SavedConfig& cfg) {
-    if (voiceEditable(cfg, auxLayer)) { drawList(VOICE_EDIT_LABELS, VE_COUNT, cursor); return; }
+    if (voiceEditable(cfg, auxLayer)) {
+        buildVoiceEditLabels(cfg);
+        drawList(veLabels, VE_COUNT, cursor);
+        return;
+    }
     if (auxLayer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
         lcdLine(0, "Layer B is");
         lcdLine(1, "Same as A");
@@ -904,7 +960,8 @@ static void drawVoiceEditParam(const SavedConfig& cfg) {
     const Voice& v = layerVoice(cfg, auxLayer);
     lcdLine(0, "%s", VOICE_EDIT_LABELS[voiceEditParam]);
     switch (voiceEditParam) {
-        case VE_WAVE:    lcdLine(1, "%s", voiceWaveName(voiceWave(v.waveform)));    break;
+        case VE_WAVE:    lcdLine(1, "%s%s", voiceWaveName(voiceWave(v.waveform)),
+                                 v.harmonicsEdited ? "*" : "");                     break;
         case VE_ATTACK:  lcdLine(1, "%u ms", (unsigned)v.attackMs);                 break;
         case VE_DECAY:   lcdLine(1, "%u ms", (unsigned)v.decayMs);                  break;
         case VE_SUSTAIN: lcdLine(1, "%d%%", (int)lroundf(v.sustain * 100.0f));      break;
@@ -914,15 +971,39 @@ static void drawVoiceEditParam(const SavedConfig& cfg) {
     }
 }
 
+// One harmonic's level: which one on top, the level below.
+static void drawHarmonicParam(const SavedConfig& cfg) {
+    uint8_t levels[NUM_HARMONICS];
+    harmonicLevels(layerVoice(cfg, auxLayer), levels);
+    lcdLine(0, "H%u", (unsigned)(harmonicSel + 1));
+    lcdLine(1, "%u%%", (unsigned)levels[harmonicSel]);
+}
+
+// The first change starts the levels from the stock wave, so it sounds the
+// same as before apart from that one harmonic. A click that changes nothing
+// (already at 0 or 100%) does not count as an edit.
+static void harmonicEditApply(SavedConfig& cfg, int8_t delta) {
+    Voice& v = layerVoiceEdit(cfg, auxLayer);
+    uint8_t levels[NUM_HARMONICS];
+    harmonicLevels(v, levels);
+    uint8_t next = harmStep(levels[harmonicSel], delta);
+    if (next == levels[harmonicSel]) return;
+    levels[harmonicSel] = next;
+    memcpy(v.harmonics, levels, NUM_HARMONICS);
+    v.harmonicsEdited = true;
+    layerVoiceTweaked(cfg, auxLayer);
+}
+
 // One Voice Edit step, heard from the next note. Wave wraps (a list); the
-// rest clamp (magnitudes).
+// rest clamp (magnitudes). A new wave drops any harmonic edits.
 static void voiceEditApply(SavedConfig& cfg, int8_t delta) {
     Voice& v = layerVoiceEdit(cfg, auxLayer);
     switch (voiceEditParam) {
         case VE_WAVE: {
             int w = ((int)voiceWave(v.waveform) + delta) % WAVE_COUNT;
             if (w < 0) w += WAVE_COUNT;
-            v.waveform = voiceWaveform((Wave)w);
+            v.waveform        = voiceWaveform((Wave)w);
+            v.harmonicsEdited = false;
             break;
         }
         case VE_ATTACK:  v.attackMs  = timeStep(v.attackMs,  delta, 0,  2000); break;
@@ -1216,6 +1297,8 @@ void menuUpdate(SavedConfig& cfg) {
                   state == MenuState::AuxLayerSelect ||
                   state == MenuState::VoiceEditList ||
                   state == MenuState::VoiceEditParam ||
+                  state == MenuState::HarmonicList ||
+                  state == MenuState::HarmonicParam ||
                   state == MenuState::VoiceSaveSelect ||
                   state == MenuState::VoiceSaveConfirm ||
                   state == MenuState::AuxParam ||
@@ -1232,6 +1315,15 @@ void menuUpdate(SavedConfig& cfg) {
     // short; the menu button is the way out.
     bool isView = (state == MenuState::Info ||
                    state == MenuState::SensorLevels);
+
+    // A hidden way out: the aux button in the menus goes straight to the live
+    // display. Not in the prompts (calibration, resets), where a stray press
+    // could cut one short.
+    if (ev.auxPressed && state != MenuState::Status && !isPrompt && !isAux) {
+        enterState(MenuState::Status);
+        ev.menuDelta = 0;  ev.menuPressed = false;
+        ev.auxDelta  = 0;  ev.auxPressed  = false;
+    }
 
     if (ev.menuDelta != 0 || ev.menuPressed) lastActivity = millis();
     if (state != MenuState::Status && !isPrompt && !isAux && !isView &&
@@ -1336,11 +1428,49 @@ void menuUpdate(SavedConfig& cfg) {
                     enterState(MenuState::AuxLayerSelect, AUX_LAYER_VOICE_EDIT);
                 } else if (cursor == VE_SAVE) {
                     enterState(MenuState::VoiceSaveSelect, 0);
+                } else if (cursor == VE_HARMONICS) {
+                    enterState(MenuState::HarmonicList, 0);
                 } else {
                     voiceEditParam = cursor;
                     enterState(MenuState::VoiceEditParam);
                 }
             }
+            break;
+
+        // Harmonics: the aux knob picks H1-H16, the aux button opens one.
+        // If the voice stops being editable underneath (a MIDI Fn or scene
+        // load), these screens go back to Voice Edit.
+        case MenuState::HarmonicList:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (!voiceEditable(cfg, auxLayer)) { enterState(MenuState::VoiceEditList, VE_HARMONICS); break; }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + HARM_COUNT) % HARM_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == HARM_COUNT - 1) {
+                    enterState(MenuState::VoiceEditList, VE_HARMONICS);
+                } else if (cursor == HARM_RESET) {
+                    // The stock wave again, band-limited Saw and Square
+                    // included. The list stays open, showing its levels.
+                    Voice& v = layerVoiceEdit(cfg, auxLayer);
+                    if (v.harmonicsEdited) {
+                        v.harmonicsEdited = false;
+                        layerVoiceTweaked(cfg, auxLayer);
+                    }
+                    needsRedraw = true;
+                } else {
+                    harmonicSel = cursor;
+                    enterState(MenuState::HarmonicParam);
+                }
+            }
+            break;
+
+        case MenuState::HarmonicParam:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (!voiceEditable(cfg, auxLayer)) { enterState(MenuState::VoiceEditList, VE_HARMONICS); break; }
+            if (ev.auxDelta) { harmonicEditApply(cfg, ev.auxDelta); needsRedraw = true; }
+            if (ev.auxPressed) enterState(MenuState::HarmonicList, harmonicSel);
             break;
 
         // Save As: the aux knob picks a slot, the aux button saves. A used
@@ -2268,6 +2398,13 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::VoiceEditParam:
                 drawVoiceEditParam(cfg);
+                break;
+            case MenuState::HarmonicList:
+                buildHarmonicItems(cfg);
+                drawList(HARM_ITEMS, HARM_COUNT, cursor);
+                break;
+            case MenuState::HarmonicParam:
+                drawHarmonicParam(cfg);
                 break;
             case MenuState::AuxParam:
                 drawAuxParam(cfg);

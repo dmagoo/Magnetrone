@@ -50,6 +50,33 @@ struct SavedConfigV15 {
 
 static_assert(sizeof(SavedConfig) <= E2END + 1, "SavedConfig does not fit the EEPROM");
 static_assert(NUM_SAVED_VOICES == NUM_CUSTOM_VOICES, "custom voice counts differ");
+static_assert(NUM_SLOT_HARMONICS == NUM_HARMONICS, "harmonic counts differ");
+
+// The version 17 saved voice, before the harmonics. The saved voices come
+// last in both layouts and everything before them is unchanged, so version
+// 17's sit at the same address as this version's.
+struct VoiceSlotV17 {
+    bool     used;
+    uint8_t  base, wave, sustainPct;
+    uint16_t attackMs, decayMs, releaseMs, noteMs;
+};
+struct SavedVoicesV17 {
+    VoiceSlotV17 custom[NUM_SAVED_VOICES];
+    VoiceSlotV17 scene[NUM_SCENES][NUM_LAYERS];
+};
+
+static VoiceSlot fromV17(const VoiceSlotV17& o) {
+    VoiceSlot s{};
+    s.used       = o.used;
+    s.base       = o.base;
+    s.wave       = o.wave;
+    s.sustainPct = o.sustainPct;
+    s.attackMs   = o.attackMs;
+    s.decayMs    = o.decayMs;
+    s.releaseMs  = o.releaseMs;
+    s.noteMs     = o.noteMs;
+    return s;
+}
 
 Scene storageFactoryScene() {
     Scene s{};
@@ -122,11 +149,14 @@ SavedConfig storageDefaults() {
 
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
-    // Version 16 is a prefix of this one: only the saved voices are new.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version == 16) {
-        for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) cfg.customVoices[i] = VoiceSlot{};
+    // Versions 16 and 17 match this one up to the saved voices. Version 16
+    // has none; version 17's lack the harmonics.
+    if (cfg.magic == EEPROM_MAGIC && (cfg.version == 16 || cfg.version == 17)) {
+        SavedVoicesV17 old{};
+        if (cfg.version == 17) EEPROM.get(EEPROM_ADDRESS + offsetof(SavedConfig, customVoices), old);
+        for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) cfg.customVoices[i] = fromV17(old.custom[i]);
         for (uint8_t i = 0; i < NUM_SCENES; i++)
-            for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.sceneVoices[i][l] = VoiceSlot{};
+            for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.sceneVoices[i][l] = fromV17(old.scene[i][l]);
         cfg.version = EEPROM_VERSION;
         storageSave(cfg);
     }

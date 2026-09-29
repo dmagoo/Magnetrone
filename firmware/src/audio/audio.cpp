@@ -1,6 +1,8 @@
 #include "audio.h"
 #include <Audio.h>
 #include <Wire.h>
+#include <math.h>
+#include <string.h>
 #include "config.h"
 #include "config/storage.h"
 #include "kit.h"
@@ -205,13 +207,62 @@ void audioInit(float volume, bool muted) {
     }
 }
 
+// Harmonic waves. Each layer's 256-point wave is built from its voice's
+// harmonic levels, and rebuilt only when they change. Two tables per layer:
+// the new wave is built in the one not playing, then the oscillators switch
+// to it, so a change mid-note never plays a half-written wave.
+constexpr uint16_t WAVE_POINTS = 256;
+static int16_t harmWave[NUM_LAYERS][2][WAVE_POINTS];
+static uint8_t harmWaveCur[NUM_LAYERS] = {};
+static uint8_t harmBuilt[NUM_LAYERS][NUM_HARMONICS];
+static bool    harmValid[NUM_LAYERS] = {};
+
+// Harmonic n at point i is SINE[(n * i) % 256], so the whole build needs
+// only one period of sine.
+static float harmSine[WAVE_POINTS];
+static bool  harmSineReady = false;
+
+static const int16_t* harmonicWave(uint8_t layer, const uint8_t levels[NUM_HARMONICS]) {
+    if (harmValid[layer] && memcmp(harmBuilt[layer], levels, NUM_HARMONICS) == 0) {
+        return harmWave[layer][harmWaveCur[layer]];
+    }
+    if (!harmSineReady) {
+        for (uint16_t i = 0; i < WAVE_POINTS; i++) harmSine[i] = sinf(TWO_PI * i / WAVE_POINTS);
+        harmSineReady = true;
+    }
+    float sum[WAVE_POINTS];
+    float peak = 0.0f;
+    for (uint16_t i = 0; i < WAVE_POINTS; i++) {
+        float s = 0.0f;
+        for (uint8_t h = 0; h < NUM_HARMONICS; h++) {
+            if (levels[h]) s += levels[h] * harmSine[((h + 1) * i) % WAVE_POINTS];
+        }
+        sum[i] = s;
+        if (fabsf(s) > peak) peak = fabsf(s);
+    }
+    // Scaled to full range, so only the ratios between the levels matter.
+    // All levels at 0 is silence.
+    float scale = (peak > 0.0f) ? 32767.0f / peak : 0.0f;
+    uint8_t next = harmWaveCur[layer] ^ 1;
+    for (uint16_t i = 0; i < WAVE_POINTS; i++) {
+        harmWave[layer][next][i] = (int16_t)lroundf(sum[i] * scale);
+    }
+    harmWaveCur[layer] = next;
+    memcpy(harmBuilt[layer], levels, NUM_HARMONICS);
+    harmValid[layer] = true;
+    return harmWave[layer][next];
+}
+
 void audioSetVoice(uint8_t layer, const Voice& voice) {
     if (layer >= NUM_LAYERS) return;
     // A kit voice plays the shared drum bank and a silent one plays nothing;
     // either way this layer's synth bank sits idle, so leave it as it was.
     if (voiceIsKit(voice) || voiceIsSilent(voice)) return;
+    const int16_t* wave = nullptr;
+    if (voice.harmonicsEdited) wave = harmonicWave(layer, voice.harmonics);
     for (int i = layer * VOICES_PER_LAYER; i < (layer + 1) * VOICES_PER_LAYER; i++) {
-        osc[i].begin(voice.waveform);
+        if (wave) osc[i].arbitraryWaveform(wave, 0.0f);
+        osc[i].begin(wave ? WAVEFORM_ARBITRARY : voice.waveform);
         env[i].attack(voice.attackMs);
         env[i].decay(voice.decayMs);
         env[i].sustain(voice.sustain);

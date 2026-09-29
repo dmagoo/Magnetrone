@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 17;
+constexpr uint8_t  EEPROM_VERSION = 18;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -60,17 +60,24 @@ struct Scene {
 constexpr uint8_t SCENE_DEFAULTS = 0;
 constexpr uint8_t NUM_SCENES     = 9;   // Defaults + 8 saved
 
+constexpr uint8_t NUM_SLOT_HARMONICS = 16;   // = NUM_HARMONICS in voice.h
+// Set in VoiceSlot::wave when the voice plays its edited harmonics rather
+// than the stock wave. An early version 18 build had a "Harmonic" wave (4)
+// instead; a slot holding it reads as edited Sine.
+constexpr uint8_t SLOT_HARMONICS_EDITED = 0x80;
+
 // A saved voice: what Voice Edit changes, plus the built-in voice it was made
 // from, which gives the rest (Auto MIDI channel, note source).
 struct VoiceSlot {
     bool     used;
     uint8_t  base;         // VoiceId
-    uint8_t  wave;         // Wave
+    uint8_t  wave;         // Wave, plus SLOT_HARMONICS_EDITED
     uint8_t  sustainPct;   // 0-100
     uint16_t attackMs;
     uint16_t decayMs;
     uint16_t releaseMs;
     uint16_t noteMs;
+    uint8_t  harmonics[NUM_SLOT_HARMONICS];   // percent, for Wave::Harmonic (added in version 18)
 };
 constexpr uint8_t NUM_SAVED_VOICES = 8;   // = NUM_CUSTOM_VOICES in voice.h
 

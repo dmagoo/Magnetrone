@@ -6,8 +6,9 @@ The Magnetrone is a spinning sequencer. You place magnets on a rotating platter,
 and each magnet plays a note as it passes over a sensor arm. One revolution is
 one bar, so the pattern on the platter is the pattern you hear.
 
-The platter has eight concentric tracks, one sensor each. By default the innermost track
-plays the lowest note of the current scale and the outermost plays the highest.
+The platter has eight concentric tracks, one sensor each. By default the
+innermost track plays the lowest note of the current scale and the outermost
+plays the highest.
 
 Sound comes from the built-in synth (headphone or line out) and from MIDI OUT,
 so it can also drive external synths and send them tempo. See [MIDI](#midi).
@@ -19,14 +20,18 @@ current scene, the key and the volume, and every menu leads back to it.
 
 | Knob   | Turn                                  | Press                    |
 |--------|---------------------------------------|--------------------------|
-| Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects. Anywhere outside the main menu and its questions, it is the Home button |
+| Menu   | Opens the main menu, then scrolls     | Opens the main menu, then selects. On the Aux screens, returns to the home screen |
 | Speed  | Platter speed. Below zero it reverses | Start or stop the platter |
 | Volume | Volume                                | Mute                     |
-| Aux    | Changes the selected function live    | Choose the function      |
+| Aux    | Changes the selected function live    | Opens the Aux function list. In the main menu, returns to the home screen |
 
 Speed and Volume work from any screen, and touching either one returns to the
 home screen. Menus also return to the home screen after a while untouched
-(Menu Timeout, 30 seconds by default).
+(Menu Timeout, 30 seconds by default). Calibration and reset questions are the
+exception: they stay on screen until answered.
+
+In this guide, **Menu >** paths start at the main menu and **Aux >** paths
+start at the Aux function list.
 
 The home screen shows:
 
@@ -43,8 +48,9 @@ volume, or `[MUTE]`.
 ## First Run
 
 On first power-up the screen shows **Not calibrated**. Choose **Setup** to
-calibrate now, or **Skip** to do it later from **Main > Tools > Full Calibrate**. Until it
-is calibrated, some tracks may play once and then go quiet.
+calibrate now, or **Skip** to do it later from **Menu > Tools > Full
+Calibrate**. Until it is calibrated, some tracks may play once and then go
+quiet.
 
 To calibrate:
 
@@ -68,15 +74,15 @@ table shows **StartPos unknown** at power-up. Choose **Find** to set it again,
 or **Skip**. Turning the platter by hand while the table is off moves the mark
 without the table knowing.
 
-**Tools > Calib. StartPos** sets it again without a full calibration:
+**Menu > Tools > Calib. StartPos** sets it again without a full calibration:
 
 - **Auto**: place one magnet on the start mark, with nothing else on the outer
   track. Magnets on the other tracks can stay. Choose **OK** and the platter
   spins until it has found the mark.
-- **Manual**: turn the menu knob to move the platter until the mark is under
+- **Manual**: turn the Menu knob to move the platter until the mark is under
   the arm, press, then choose **Yes**. **More** goes back to moving it.
 
-To check it, choose **Tools > Go to StartPos**. The platter turns until the
+To check it, choose **Menu > Tools > Go to StartPos**. The platter turns until the
 mark should be under the arm.
 
 ## Playing
@@ -112,8 +118,9 @@ or [Setup Functions](#setup-functions). Choosing a value saves it.
 
 **Sound Defaults** edits the Defaults scene (see [Scenes](#scenes)), and you
 hear each change as you make it. If another scene is playing, it first asks
-**Load Defaults?**. A layer that has no effect says so in these menus: `(=A)`
-when Layer B is on Same as A, `(off)` when the layer is off.
+**Load Defaults?**. In these menus, a layer's name shows `(=A)` when Layer B is
+on Same as A, and `(off)` when the layer is off, since its settings then have
+no effect.
 
 ## Aux Knob
 
@@ -124,18 +131,28 @@ home screen.
   each click after that changes it straight away.
 - **Press** from the home screen: opens the function list at the top. Turn to
   pick a function, press to start changing it.
-- Press again to go back. The menu button returns straight to the home screen.
+- While changing a function, press to go back: to the home screen if you got
+  there by turning, otherwise to the list. In the lists, **Back** goes up a
+  level. The Menu button returns straight to the home screen.
 
 The function list:
 
-| Entry | |
-|-------|-|
+| Entry | What it does |
+|-------|--------------|
 | Pitch | Moves both layers together. |
-| Layer A >, Layer B > | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note. |
-| A/B Balance, Load Scene | See the tables below and [Scenes](#scenes). |
+| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note. |
+| A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
+| Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
 | Reset All | Undoes every Aux change. |
 | Exit | Back to the home screen. |
+
+**Aux changes are not saved.** They are for playing, on top of the current
+scene. Power off, or choose **Reset All**, and the scene comes back as it was
+saved. To keep the changes, save them as a scene.
+
+The function the knob controls is saved, so it is still selected next time.
+You can also set it from **Menu > Play Setup > Aux Fn**.
 
 ### Voice Edit
 
@@ -143,19 +160,40 @@ The function list:
 playing. Turn to pick a setting, press to change it, and each click is heard
 from the next note:
 
-| Setting | Range |
-|---------|-------|
-| Wave    | Sine, Triangle, Saw, Square |
-| Attack  | How long the note takes to reach full volume, 0 to 2000 ms |
-| Decay   | How long it then takes to fall to the Sustain level, 0 to 2000 ms |
-| Sustain | The level it holds while the note lasts, 0 to 100%. At 100% Decay does nothing |
-| Release | How long it fades after the note ends, 0 to 3000 ms |
-| Length  | How long each note is held, 10 to 2000 ms |
+| Setting   | What it sets |
+|-----------|--------------|
+| Wave      | Sine, Triangle, Saw or Square |
+| Harmonics | The wave's harmonics, H1 to H16, each 0 to 100%. See below |
+| Attack    | How long the note takes to reach full volume, 0 to 2000 ms |
+| Decay     | How long it then takes to fall to the Sustain level, 0 to 2000 ms |
+| Sustain   | The level it holds while the note lasts, 0 to 100%. At 100% Decay does nothing |
+| Release   | How long it fades after the note ends, 0 to 3000 ms |
+| Length    | How long each note is held, 10 to 2000 ms |
 
 A tweaked voice shows `*` in the Voice list, such as `Piano*`. Tweaks affect
-only that layer, and are not kept on their own: choosing another voice, loading
-a scene, **Reset All** or a restart puts the voice back as it was. **Save
-Scene** does not keep them either. Drums and None cannot be edited.
+only that layer. Like other Aux changes they are not saved, and choosing
+another voice or loading a scene also drops them. **Save Scene** does not keep
+them; use **Save As...** below. Drums and None cannot be edited.
+
+#### Harmonics
+
+**Harmonics** reshapes the wave by its harmonics, **H1** to **H16**, each with
+a level from 0 to 100%. H1 is the note itself, H2 an octave above, and each
+one after is a little higher again. The low ones change the character of the
+sound the most; the high ones add brightness or buzz.
+
+- The list starts with the levels of the current wave. The first change
+  marks the edit: the list shows `Harmonics*` and Wave shows, for example,
+  `Triangle*`. Saw and Square come out slightly duller once edited.
+- Changing Wave drops the harmonic edits and plays the new wave as it is.
+  Save the voice first to keep them.
+- **Reset**, below H16, drops the edits and goes back to the stock wave,
+  including the fuller Saw and Square.
+- The overall volume stays the same however the levels are set. Only how
+  loud each harmonic is compared to the others matters: all at 50% sounds the
+  same as all at 100%.
+- The steps widen as the level rises (0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40,
+  50, 70, 100%), so each click is about the same change to the ear.
 
 To keep a tweaked voice, choose **Save As...** at the bottom of the Voice Edit
 list:
@@ -165,17 +203,10 @@ list:
   and changes every scene that uses it.
 - **Scene 3 Voice A** (the current scene, and the layer you are editing): kept
   with this scene only, as its **Scene Voice**. The scene is set to play it
-  straight away, nothing else in the scene changes. Not offered in the
+  straight away. Nothing else in the scene changes. Not offered in the
   Defaults scene.
 
 Saving a scene to another slot copies its Scene Voice along.
-
-**Aux changes are not saved.** They are for playing, on top of the current
-scene. Power off, or choose **Reset All**, and the scene comes back as it was
-saved. To keep the changes, save them as a scene.
-
-The function the knob controls is saved, so it is still selected next time.
-You can also set it from **Main > Play Setup > Aux Fn**.
 
 ## Scenes
 
@@ -204,7 +235,7 @@ At power-up the table plays the last scene loaded or saved, without Aux changes.
 ## Performance Functions
 
 Functions meant to be changed while playing. "Layer" means the setting is in
-**Sound Defaults > Layer A** and **Layer B**, and each layer has its own.
+**Menu > Sound Defaults > Layer A** and **Layer B**, and each layer has its own.
 
 | Function    | Where  | Aux | What it does | Default |
 |-------------|--------|-----|--------------|---------|
@@ -226,7 +257,9 @@ instead of changing B's settings.
 
 ## Setup Functions
 
-Settings you choose once and leave alone.
+Settings you choose once and leave alone, plus the Tools. "Layer" means the
+same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
+**Menu > Tools**.
 
 | Function     | Where | What it does | Default |
 |--------------|-------|--------------|---------|
@@ -238,14 +271,14 @@ Settings you choose once and leave alone.
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
 | LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 5 s |
 | Menu Timeout | System | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. | 30 s |
-| Welcome Tune | System | Plays each track's Layer A note at power-up. Press the menu button to skip it. Turning it on plays it once as a preview. | On |
+| Welcome Tune | System | Plays each track's Layer A note at power-up. Press the Menu button to skip it. Turning it on plays it once as a preview. | On |
 | StartPos Check | System | On: at power-up, offers to find the start mark if it was lost. Off: never asks. | On |
 | Magnet Pole  | System | Swaps which way up is Layer A. Calibration sets it. | Set by calibration |
 | Go to StartPos  | Tools | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
 | Full Calibrate  | Tools | See [First Run](#first-run). | - |
 | Reset Calib.    | Tools | Clears calibration only, including the start mark. | - |
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
-| Info            | Tools | Read-only pages, turned through with the menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
+| Info            | Tools | Read-only pages, turned through with the Menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
 | Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices. Asks first. | - |
 | Factory Reset   | Tools | Erases everything, scenes, saved voices and calibration included. Asks first. | - |
@@ -292,12 +325,13 @@ The Magnetrone sends on MIDI OUT:
 
 MIDI IN only controls the table; incoming notes never play its sound.
 
-Each layer listens on its own channel (**Layer > MIDI In**). A message on a
+Each layer listens on its own channel (**Menu > Sound Defaults > Layer A >
+MIDI In**, and the same for Layer B). A message on a
 layer's channel applies to that layer, and with both layers on one channel it
 applies to both. Pitch bend and volume respond on either layer's channel. Layer
 B on Same as A does not listen, since it plays Layer A's settings.
 
-- **Keys** drive the **MIDI Fn** (**Main > Play Setup > MIDI Fn**), much as the
+- **Keys** drive the **MIDI Fn** (**Menu > Play Setup > MIDI Fn**), much as the
   Aux knob drives its function.
 - **Pitch bend wheel** bends the whole table up to 2 semitones either way and
   springs back.
@@ -320,8 +354,8 @@ Not yet: following an external clock.
 
 ## Troubleshooting
 
-**Speaker noise.** This is a quirk of the audio board. Turn the Magnetrone's
-volume up and your speakers down.
+**Noise or hiss from the speakers.** The audio board adds some noise of its
+own. Turn the Magnetrone's volume up and your speakers down.
 
 **Loud noise from the speakers when the Magnetrone is off.** Unplug the audio
 cable whenever the Magnetrone is powered off.
@@ -329,16 +363,14 @@ cable whenever the Magnetrone is powered off.
 **Motor doesn't turn, or moves erratically.** The motor needs the 24 V supply
 plugged in and the power switch on. USB power alone is not enough.
 
-**Power switch does nothing.** The switch is ignored when the unit is powered
-from USB.
-
-**USB.** Use USB only for firmware updates and debugging, never to power the
-unit. Do not connect USB while the 24 V supply is plugged in.
+**Power switch does nothing.** The unit is running from USB, which the switch
+does not control. Use USB only for firmware updates and debugging, never to
+power the unit, and do not connect it while the 24 V supply is plugged in.
 
 **MIDI keys do odd things, or Scale Learn learns the wrong notes.** The other
 device or DAW is probably echoing the table's MIDI OUT back to its input. Turn
 off MIDI thru (echo) on that device.
 
-**No sound, or the wrong layer plays.** Check **Main > System > Magnet Pole**,
+**No sound, or the wrong layer plays.** Check **Menu > System > Magnet Pole**,
 and check that the layer's Mode is On and its Voice is not None. If some tracks
 play once and then stop, recalibrate.
