@@ -14,9 +14,12 @@ turning physical arrangement into musical pattern.
 - Teensy Audio Shield output (headphone/line out) with a built-in synth and drum kit
 - Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note
   length, plus None to mute a layer
+- Voice Edit (Aux): live tweaks to a layer's wave, envelope and note length,
+  and its first 16 harmonics; Save As keeps them in Custom 1-8 (shared by all
+  scenes) or as the current scene's own Scene Voice
 - Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B,
   each with its own voice, MIDI channel, root note, scale, octave, level, Track
-  Shift and Low Note
+  Shift, Wrap and Low Note
 - Per-layer Track Shift raises the run by scale degrees, with Wrap (the run
   rotates around the arm) or No Wrap (the whole run transposes)
 - Per-layer Low Note: Inner or Outer sets which end of the sensor arm plays
@@ -39,10 +42,13 @@ turning physical arrangement into musical pattern.
 - LCD menu: Sound Defaults (both layers), Play Setup, System and Tools
 - Speed and volume adjustable live at any time via dedicated encoders; touching
   either one returns to the home screen from any menu (prompts excepted)
+- Aux knob changes one bound function live (Pitch, A/B Balance, Load Scene,
+  or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note or Wrap)
 - Menu knob opens the main menu from the home screen by turning or pressing;
-  the Menu button leaves the Aux screens straight back to the home screen
+  the Menu button leaves the Aux screens straight back to the home screen, and
+  the Aux button leaves the main menu (prompts excepted)
 - Welcome tune plays on boot -- previews what Layer A's tracks play, hall 1 to 8
-  and back, including its key, octave, Track Shift, Wrap and Low Note; a menu
+  and back, including its key, octave, Track Shift, Wrap and Low Note; a Menu
   button press skips it
 - LCD backlight timeout: configurable from always off to always on
 - Stepper motor sleeps when idle to reduce heat and power draw

@@ -259,11 +259,12 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 enum class AuxFn : uint8_t { Pitch, Balance, LoadScene,
                              VoiceA, VoiceB, RootA, RootB, ScaleA, ScaleB,
                              OctaveA, OctaveB, ShiftA, ShiftB, LowNoteA, LowNoteB,
+                             WrapA, WrapB,   // appended, so saved bindings keep their numbers
                              COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
 
 // What a per-layer Fn changes. The layer comes from the A/B pair.
-enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, COUNT };
+enum class AuxKind : uint8_t { Voice, Root, Scale, Octave, Shift, LowNote, Wrap, COUNT };
 static const uint8_t AUX_KIND_COUNT = (uint8_t)AuxKind::COUNT;
 
 static bool    auxIsLayerFn(AuxFn fn) { return fn >= AuxFn::VoiceA && fn < AuxFn::COUNT; }
@@ -290,7 +291,7 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
 // Voice Edit after Voice, then Back.
 static const char* AUX_LAYER_LABELS[] = {
-    "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Back"
+    "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Wrap","Back"
 };
 static const uint8_t AUX_LAYER_COUNT      = AUX_KIND_COUNT + 2;   // + Voice Edit, Back
 static const uint8_t AUX_LAYER_VOICE_EDIT = 1;
@@ -458,7 +459,8 @@ static const char* AUX_FN_MENU_LABELS[] = {
     "Pitch","A/B Balance","Load Scene",
     "Layer A Voice","Layer B Voice","Layer A Root","Layer B Root",
     "Layer A Scale","Layer B Scale","Layer A Octave","Layer B Octave",
-    "Layer A Shift","Layer B Shift","Layer A Low","Layer B Low","Back"
+    "Layer A Shift","Layer B Shift","Layer A Low","Layer B Low",
+    "Layer A Wrap","Layer B Wrap","Back"
 };
 static const uint8_t AUX_FN_MENU_COUNT   = AUX_FN_COUNT + 1;  // + Back
 
@@ -868,6 +870,13 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             lc.lowNote = (uint8_t)constrain(v, 0, LOW_NOTE_VALUES - 1);
             break;
         }
+        case AuxKind::Wrap: {
+            // Wrap goes with the shift: B playing A's shift plays A's Wrap.
+            if (layerShiftSource(cfg, l) != l) break;
+            int v = (lc.wrap ? 0 : 1) + delta;                 // index 0 = Wrap
+            lc.wrap = constrain(v, 0, 1) == 0;                 // clamp: a list
+            break;
+        }
         default:
             break;
     }
@@ -923,6 +932,17 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
             } else {
                 drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_VALUES,
                          (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
+            }
+            break;
+        case AuxKind::Wrap:
+            if (l == LAYER_B && lc.shiftSameAsA) {
+                lcdLine(0, "B Shift is");
+                lcdLine(1, "Same as A");
+            } else if (voiceIsKit(layerVoice(cfg, l))) {
+                lcdLine(0, "Drums always");
+                lcdLine(1, "wrap");
+            } else {
+                drawList(WRAP_ITEMS, 2, lc.wrap ? 0 : 1);
             }
             break;
         default:

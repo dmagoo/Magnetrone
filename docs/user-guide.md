@@ -140,7 +140,7 @@ The function list:
 | Entry | What it does |
 |-------|--------------|
 | Pitch | Moves both layers together. |
-| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note. |
+| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap. |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
 | Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
@@ -245,7 +245,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, or a scale learned from MIDI (see [MIDI In](#midi-in)). Drums ignore it. | Major |
 | Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
 | Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. On Layer B, Same as A follows A's shift. On Drums it moves each drum to another track. | 0 |
-| Wrap        | Layer  | No  | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
+| Wrap        | Layer  | Yes | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
 | Low Note    | Layer  | Yes | Which end of the arm plays the lowest note: Inner or Outer. On Layer B, Same as A follows A. On Drums it flips the kit end to end. | Inner |
 | Level       | Layer  | No  | Layer volume, 0 to 100%. Also sets MIDI velocity. | 100% |
 | Pitch       | Aux only | Yes | Moves both layers together, root and octave as one, so turning up always raises the pitch. Step size is set by Pitch Step. Drums ignore it. | 0 |
