@@ -281,7 +281,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Full Calibrate  | Tools | See [First Run](#first-run). | - |
 | Reset Calib.    | Tools | Clears calibration only, including the start mark. | - |
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
-| Info            | Tools | Read-only pages, turned through with the Menu knob: belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
+| Info            | Tools | Read-only pages, turned through with the Menu knob: RPM, belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
 | Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices. Asks first. | - |
 | Factory Reset   | Tools | Erases everything, scenes, saved voices and calibration included. Asks first. | - |
@@ -354,6 +354,36 @@ Like Aux changes, all of this is live and not saved, except the volume. Save a
 scene to keep it, a learned scale included.
 
 Not yet: following an external clock.
+
+## Things to Try
+
+### With two layers
+
+Set Layer B up the same as Layer A: Mode On (not Same as A), and the same
+voice, root, scale and octave. Then change one thing on Layer B. A magnet plays
+the layer of whichever side faces down, so a flipped magnet plays Layer B's
+version of its note.
+
+- **Thirds.** Set B's Shift to 2. A flipped magnet plays a third above its
+  Layer A note (Shift 4 gives a fifth, 5 a sixth). The intervals stay in the
+  scale, so some thirds are major and some minor.
+- **Another key.** Set B's Root a fifth above A's (C to G) or a third above (C
+  to E). A flipped magnet plays exactly that interval higher. B is now in
+  another key, so some notes clash with A.
+- **Double-length runs.** Set B's Octave one above A's. The eight tracks now
+  reach about two octaves: run a line up the tracks, then carry on up with
+  flipped magnets.
+- **Mirror.** Set B's Low Note to Outer. A flipped magnet plays the note from
+  the other end of the arm.
+
+### With one layer
+
+- **Backwards.** Turn Speed down past zero. The platter reverses and the
+  pattern plays backwards.
+- **Rotating melody.** Turn Wrap on, choose Shift on the Aux knob, and turn it
+  while playing. The melody rotates across the arm.
+- **Slow and dense.** Set a very low speed and Beats/Rev 16 or 32
+  (**Menu > Play Setup > Beats/Rev**).
 
 ## Troubleshooting
 

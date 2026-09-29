@@ -226,8 +226,8 @@ enum : uint8_t { TOOL_GO_TO_START, TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
 
 // Info: one page per value, turned through with the menu knob.
-enum : uint8_t { INFO_BELT, INFO_START_POS, INFO_THRESHOLD, INFO_DRIVER,
-                 INFO_PAGE_COUNT };
+enum : uint8_t { INFO_RPM, INFO_BELT, INFO_START_POS, INFO_THRESHOLD,
+                 INFO_DRIVER, INFO_PAGE_COUNT };
 
 // Live screens (the StartPos page, Sensor Levels) redraw at this rate:
 // enough to watch a magnet go by, cheap on the I2C bus.
@@ -730,10 +730,15 @@ static void drawList(const char** items, uint8_t count, uint8_t cur) {
 // One Info page: the name and page number on top, the value below.
 static void drawInfo(const SavedConfig& cfg, uint8_t page) {
     static const char* NAMES[INFO_PAGE_COUNT] = {
-        "Belt ratio", "StartPos", "Threshold", "Motor driver"
+        "RPM", "Belt ratio", "StartPos", "Threshold", "Motor driver"
     };
     lcdLine(0, "%-13s%u/%u", NAMES[page], page + 1, INFO_PAGE_COUNT);
     switch (page) {
+        case INFO_RPM:
+            // The set speed, signed like the BPM (negative is reverse).
+            if (stepperRunning()) lcdLine(1, "%d", (int)lroundf(cfg.rpm));
+            else                  lcdLine(1, "%d (stopped)", (int)lroundf(cfg.rpm));
+            break;
         case INFO_BELT: {
             if (!cfg.calibrated) { lcdLine(1, "Not calibrated"); break; }
             // As shown after calibration: GEAR_RATIO / correction, in tenths.
