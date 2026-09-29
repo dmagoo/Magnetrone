@@ -11,6 +11,9 @@ void  stepperSetCorrection(float actualOverCommanded);
 void  stepperUpdate();   // MUST be called every loop: services the accel ramp
 void  stepperStart(float rpm);
 void  stepperStop();
+// Coils off, so the platter turns freely by hand. Call only at rest. Hand
+// turns are not counted; the next start or jog powers it again.
+void  stepperRelease();
 void  stepperSetRPM(float rpm);
 bool  stepperRunning();
 float stepperCurrentRPM();

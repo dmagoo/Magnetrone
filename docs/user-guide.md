@@ -59,11 +59,14 @@ To calibrate:
 
 1. At **Clear platter**, remove all magnets and choose **OK**. The platter
    spins while the screen shows **Sampling...**, then stops.
-2. At **Magnet on mark**, place a single magnet on the start mark, on the outer
-   track, and choose **OK**. Whichever way up it sits becomes the normal side
-   (Layer A).
+2. At **Magnet at front**, place a single magnet on the start mark, on the
+   outer track, then turn the platter by hand until the mark is in front of
+   you. That spot is **Front**. Choose **OK**. Whichever way up the magnet sits
+   becomes the normal side (Layer A).
 3. **Calibrated!** means it worked. The start mark is now where each bar
-   begins. On an error, fix the magnet and choose **OK** again:
+   begins, and the table knows where Front is. The platter then turns the mark
+   back to Front so you can take the magnet off. On an error, fix the magnet
+   and choose **OK** again:
    - **No magnet found**: the magnet is not on the mark.
    - **Wrong track**: move it to the outer track.
    - **Too many magnets**: remove the extras.
@@ -80,13 +83,21 @@ without the table knowing.
 **Menu > Tools > Calib. StartPos** sets it again without a full calibration:
 
 - **Auto**: place one magnet on the start mark, with nothing else on the outer
-  track. Magnets on the other tracks can stay. Choose **OK** and the platter
-  spins until it has found the mark.
-- **Manual**: turn the Menu knob to move the platter until the mark is under
-  the arm, press, then choose **Yes**. **More** goes back to moving it.
+  track. Magnets on the other tracks can stay. Turn the platter by hand until
+  the mark is in front of you, then choose **OK**. The platter spins until it
+  has found the mark, sets Front, and turns the mark back to you. The motor
+  lets go at this step so the platter turns freely, so choosing **Back** leaves
+  StartPos unknown.
+- **Manual**: first, at **Mark to front**, turn the Menu knob until the mark is
+  in front of you, press, then choose **Yes** (**Skip** keeps the Front you set
+  last time). Then, at **Mark to the arm**, turn it until the mark is under the
+  arm, press, then choose **Yes**. **More** goes back to moving it.
+
+Front does not change unless the table or your seat moves.
 
 To check it, choose **Menu > Tools > Go to StartPos**. The platter turns until the
-mark should be under the arm.
+mark should be under the arm. **Menu > Tools > Go to Front** turns it to Front
+instead, the shorter way round.
 
 ## Playing
 
@@ -278,6 +289,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | StartPos Check | System | On: at power-up, offers to find the start mark if it was lost. Off: never asks. | On |
 | Magnet Pole  | System | Swaps which way up is Layer A. Calibration sets it. | Set by calibration |
 | Go to StartPos  | Tools | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
+| Go to Front     | Tools | Turns the platter the shorter way round until the start mark is in front of you (Front). See [The start mark](#the-start-mark). | - |
 | Full Calibrate  | Tools | See [First Run](#first-run). | - |
 | Reset Calib.    | Tools | Clears calibration only, including the start mark. | - |
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |

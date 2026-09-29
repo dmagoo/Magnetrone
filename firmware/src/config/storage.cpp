@@ -123,7 +123,9 @@ SavedConfig storageDefaults() {
     c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
     c.barPhase        = 0;
     c.barPhaseValid   = false;
-    c.volume          = DEFAULT_VOLUME;
+    c.frontPhase      = 0;
+    c.frontKnown      = false;
+    c.volume         = DEFAULT_VOLUME;
     c.rpm             = DEFAULT_RPM;
     c.muted           = false;
     c.playWelcomeTune = DEFAULT_PLAY_WELCOME_TUNE;
@@ -149,14 +151,19 @@ SavedConfig storageDefaults() {
 
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
-    // Versions 16 and 17 match this one up to the saved voices. Version 16
-    // has none; version 17's lack the harmonics.
-    if (cfg.magic == EEPROM_MAGIC && (cfg.version == 16 || cfg.version == 17)) {
-        SavedVoicesV17 old{};
-        if (cfg.version == 17) EEPROM.get(EEPROM_ADDRESS + offsetof(SavedConfig, customVoices), old);
-        for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) cfg.customVoices[i] = fromV17(old.custom[i]);
-        for (uint8_t i = 0; i < NUM_SCENES; i++)
-            for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.sceneVoices[i][l] = fromV17(old.scene[i][l]);
+    // Versions 16 to 18 match this one up to the saved voices (16, 17) or the
+    // Front (18). Version 16 has no saved voices; version 17's lack the
+    // harmonics. None of them has a Front.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 16 && cfg.version <= 18) {
+        if (cfg.version <= 17) {
+            SavedVoicesV17 old{};
+            if (cfg.version == 17) EEPROM.get(EEPROM_ADDRESS + offsetof(SavedConfig, customVoices), old);
+            for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) cfg.customVoices[i] = fromV17(old.custom[i]);
+            for (uint8_t i = 0; i < NUM_SCENES; i++)
+                for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.sceneVoices[i][l] = fromV17(old.scene[i][l]);
+        }
+        cfg.frontPhase = 0;
+        cfg.frontKnown = false;
         cfg.version = EEPROM_VERSION;
         storageSave(cfg);
     }

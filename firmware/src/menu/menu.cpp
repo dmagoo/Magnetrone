@@ -71,6 +71,8 @@ enum class MenuState : uint8_t {
     StartPosAuto,       //   blocking: find the start from that magnet
     FindStart,          // Manual: jog the platter until the start mark is at the arm
     FindStartConfirm,
+    FindFront,          // Manual, first: jog the mark to the player (Front)
+    FindFrontConfirm,
     StartCheck,         // setting: whether the boot prompt above is shown
     Info,               // read-only pages: belt, StartPos, threshold, driver
     SensorLevels,       // live: each sensor's reading against its rest level
@@ -215,13 +217,15 @@ static const char* MIDI_FN_ITEMS[] = { "Off","Pitch","Shift","Scale Learn","Chor
 static const uint8_t MIDI_FN_COUNT = 6;
 
 // Calibration and maintenance, kept out of the main menu. StartPos is the
-// bar start: where the start mark on the platter passes the arm.
+// bar start: where the start mark on the platter passes the arm. Front is
+// where the player sits.
 static const char* TOOLS_ITEMS[] = {
-    "Go to StartPos","Full Calibrate","Reset Calib.","Calib. StartPos",
-    "Info","Sensor Levels","Reset Settings","Factory Reset","Back"
+    "Go to StartPos","Go to Front","Full Calibrate","Reset Calib.",
+    "Calib. StartPos","Info","Sensor Levels","Reset Settings","Factory Reset",
+    "Back"
 };
-static const uint8_t TOOLS_COUNT = 9;
-enum : uint8_t { TOOL_GO_TO_START, TOOL_FULL_CAL, TOOL_RESET_CAL,
+static const uint8_t TOOLS_COUNT = 10;
+enum : uint8_t { TOOL_GO_TO_START, TOOL_GO_TO_FRONT, TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_CALIB_START, TOOL_INFO, TOOL_SENSOR_LEVELS,
                  TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
 
@@ -593,31 +597,73 @@ static void waitForRest(uint32_t ms) {
     }
 }
 
-// Turns the platter so the start mark stops at the arm, the shorter way
-// round. A check: if the start is right, the mark lands under the arm.
-// Blocking; the move takes a second or two.
+// Turns the platter the shorter way round until it is `phase` steps past the
+// start, which puts the mark there. Blocking; the move takes a second or two.
+static void goToPhase(uint32_t phase) {
+    menuMessage("Moving...", "");
+    stepperStop();
+    waitForRest(GO_TO_STOP_MS);
+
+    int32_t n     = (int32_t)barStepsPerRev();
+    int32_t steps = ((int32_t)phase - (int32_t)barPhase()) % n;
+    if (steps < 0)     steps += n;                   // forward to the target
+    if (steps > n / 2) steps -= n;                   // shorter the other way
+    stepperMoveBy(steps, GO_TO_START_RPM);
+    waitForRest(GO_TO_ARRIVE_MS);
+}
+
+// The mark to the arm. A check: if the start is right, the mark lands under
+// the arm.
 static void goToStart() {
     if (!barKnown()) {
         menuMessage("StartPos unknown", "Calib. StartPos");
         delay(2000);
         return;
     }
-    menuMessage("Moving...", "");
-    stepperStop();
-    waitForRest(GO_TO_STOP_MS);
-
-    int32_t n     = (int32_t)barStepsPerRev();
-    int32_t steps = (n - (int32_t)barPhase()) % n;   // forward to the mark
-    if (steps > n / 2) steps -= n;                   // shorter the other way
-    stepperMoveBy(steps, GO_TO_START_RPM);
-    waitForRest(GO_TO_ARRIVE_MS);
+    goToPhase(0);
 }
+
+// The mark to the player, where magnets are easiest to place or take off.
+static void goToFront(const SavedConfig& cfg) {
+    if (!barKnown() || !cfg.frontKnown) {
+        menuMessage(barKnown() ? "Front unknown" : "StartPos unknown", "Calib. StartPos");
+        delay(2000);
+        return;
+    }
+    goToPhase(cfg.frontPhase);
+}
+
+// Front, where the player sits. Auto and Full Calibrate start with the magnet
+// turned by hand to the player, motor off, and count the spin from there to
+// the arm. Manual jogs the mark to the player first, then to the arm.
+static int32_t frontPos     = 0;       // motor position with the mark at Front
+static bool    frontPending = false;   // Manual: Front chosen, StartPos not yet
 
 // Find Start works on a platter at rest: stop it first if it is playing.
 static void enterFindStart() {
     if (stepperRunning()) stepperStop();
-    jogMoving = false;
-    enterState(MenuState::FindStart);
+    jogMoving    = false;
+    frontPending = false;
+    enterState(MenuState::FindFront);   // Front first, then the arm
+}
+
+// Motor off at rest, for the hand-turn prompts. Turning the platter by hand
+// moves the mark unseen, so the old start is forgotten rather than left wrong.
+static void releaseForHandTurn(SavedConfig& cfg) {
+    stepperStop();
+    waitForRest(GO_TO_STOP_MS);
+    stepperRelease();
+    if (barKnown()) {
+        barForget(cfg);
+        storageSave(cfg);
+    }
+}
+
+// The spin from Front found the start: Front is where it began.
+static void setFrontFrom(SavedConfig& cfg, int32_t pos) {
+    cfg.frontPhase = barPhaseAt(pos);
+    cfg.frontKnown = true;
+    storageSave(cfg);
 }
 
 // Wake the backlight and reset the inactivity timer.
@@ -1295,6 +1341,8 @@ void menuUpdate(SavedConfig& cfg) {
                      state == MenuState::StartPosAuto ||
                      state == MenuState::FindStart ||
                      state == MenuState::FindStartConfirm ||
+                     state == MenuState::FindFront ||
+                     state == MenuState::FindFrontConfirm ||
                      state == MenuState::ResetCalPrompt ||
                      state == MenuState::ResetSettingsPrompt ||
                      state == MenuState::FactoryResetPrompt);
@@ -2045,6 +2093,10 @@ void menuUpdate(SavedConfig& cfg) {
                         goToStart();
                         enterState(MenuState::Tools, TOOL_GO_TO_START);
                         break;
+                    case TOOL_GO_TO_FRONT:
+                        goToFront(cfg);
+                        enterState(MenuState::Tools, TOOL_GO_TO_FRONT);
+                        break;
                     case TOOL_FULL_CAL:    enterState(MenuState::CalClearPrompt); break;
                     case TOOL_RESET_CAL:   enterState(MenuState::ResetCalPrompt); break;
                     case TOOL_CALIB_START: enterState(MenuState::StartPosMode); break;
@@ -2094,14 +2146,19 @@ void menuUpdate(SavedConfig& cfg) {
 
         case MenuState::CalSampling:
             calibrationSampleBaselines();
+            releaseForHandTurn(cfg);
             enterState(MenuState::CalMagnetPrompt);
             break;
 
         case MenuState::CalMagnetPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
-                if (cursor == 0) enterState(MenuState::CalDetecting);
-                else             leaveTo(TOOL_FULL_CAL);
+                if (cursor == 0) {
+                    frontPos = stepperPosition();   // hand turns are not counted
+                    enterState(MenuState::CalDetecting);
+                } else {
+                    leaveTo(TOOL_FULL_CAL);
+                }
             }
             break;
 
@@ -2109,8 +2166,11 @@ void menuUpdate(SavedConfig& cfg) {
             // On failure the error has been shown; ask again, so the magnet
             // can be moved and retried without sampling the clear platter again.
             if (calibrationDetect(cfg) == CalibrationStatus::Success) {
+                setFrontFrom(cfg, frontPos);
+                goToFront(cfg);   // back to the player, to take the magnet off
                 leaveTo(TOOL_FULL_CAL);
             } else {
+                releaseForHandTurn(cfg);
                 enterState(MenuState::CalMagnetPrompt);
             }
             break;
@@ -2133,6 +2193,7 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor == 0) {
                     // Auto reads the magnet with the saved calibration.
                     if (cfg.calibrated) {
+                        releaseForHandTurn(cfg);
                         enterState(MenuState::StartPosAutoPrompt);
                     } else {
                         menuMessage("Not calibrated", "Full Calibrate");
@@ -2150,21 +2211,29 @@ void menuUpdate(SavedConfig& cfg) {
         case MenuState::StartPosAutoPrompt:
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
-                if (cursor == 0) enterState(MenuState::StartPosAuto);
-                else             leaveTo(TOOL_CALIB_START);
+                if (cursor == 0) {
+                    frontPos = stepperPosition();   // hand turns are not counted
+                    enterState(MenuState::StartPosAuto);
+                } else {
+                    leaveTo(TOOL_CALIB_START);
+                }
             }
             break;
 
         case MenuState::StartPosAuto:
             // On failure the error has been shown; ask again.
             if (calibrationFindStart(cfg) == CalibrationStatus::Success) {
+                setFrontFrom(cfg, frontPos);
+                goToFront(cfg);   // back to the player, to take the magnet off
                 leaveTo(TOOL_CALIB_START);
             } else {
+                releaseForHandTurn(cfg);
                 enterState(MenuState::StartPosAutoPrompt);
             }
             break;
 
-        case MenuState::FindStart: {
+        case MenuState::FindStart:
+        case MenuState::FindFront: {
             // The menu knob jogs the platter, powered, so the step count stays
             // exact. Each detent keeps it turning a moment; quick detents turn
             // it faster.
@@ -2180,7 +2249,8 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (jogMoving) { stepperStop(); jogMoving = false; }
-                enterState(MenuState::FindStartConfirm);
+                enterState(state == MenuState::FindStart ? MenuState::FindStartConfirm
+                                                         : MenuState::FindFrontConfirm);
             }
             break;
         }
@@ -2195,6 +2265,8 @@ void menuUpdate(SavedConfig& cfg) {
                     // The mark is at the arm: this position is the bar start.
                     // barUpdate() saves it once the platter is at rest.
                     barSetStart(stepperPosition());
+                    if (frontPending) setFrontFrom(cfg, frontPos);
+                    frontPending = false;
                     menuMessage("StartPos set", "");
                     delay(1500);
                     leaveTo(TOOL_CALIB_START);
@@ -2202,6 +2274,24 @@ void menuUpdate(SavedConfig& cfg) {
                     enterState(MenuState::FindStart);   // keep jogging
                 } else {
                     leaveTo(TOOL_CALIB_START);
+                }
+            }
+            break;
+
+        case MenuState::FindFrontConfirm:
+            if (ev.menuDelta) {
+                cursor = (uint8_t)((cursor + ev.menuDelta + 3) % 3);
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                // Yes: the mark is at the player. Saved once StartPos is set,
+                // since Front is counted from it. Skip keeps the saved Front.
+                if (cursor == 1) {
+                    enterState(MenuState::FindFront);   // keep jogging
+                } else {
+                    frontPos     = stepperPosition();
+                    frontPending = (cursor == 0);
+                    enterState(MenuState::FindStart);
                 }
             }
             break;
@@ -2269,10 +2359,10 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor == 0) {
                     SavedConfig d = storageDefaults();
                     if (!factory) {
-                        // Reset Settings keeps calibration, StartPos, the
-                        // saved scenes 1-8 and the saved voices; everything
-                        // else is factory, the Defaults scene included, and
-                        // Defaults now plays.
+                        // Reset Settings keeps calibration, StartPos, Front,
+                        // the saved scenes 1-8 and the saved voices;
+                        // everything else is factory, the Defaults scene
+                        // included, and Defaults now plays.
                         d.calibrated     = cfg.calibrated;
                         d.hallThreshold  = cfg.hallThreshold;
                         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) d.hallBaseline[i] = cfg.hallBaseline[i];
@@ -2280,6 +2370,8 @@ void menuUpdate(SavedConfig& cfg) {
                         d.magnetPolarity = cfg.magnetPolarity;
                         d.barPhase       = cfg.barPhase;
                         d.barPhaseValid  = cfg.barPhaseValid;
+                        d.frontPhase     = cfg.frontPhase;
+                        d.frontKnown     = cfg.frontKnown;
                         for (uint8_t i = 1; i < NUM_SCENES; i++) {
                             d.scenes[i]    = cfg.scenes[i];
                             d.sceneUsed[i] = cfg.sceneUsed[i];
@@ -2457,7 +2549,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
             case MenuState::CalMagnetPrompt:
-                lcdLine(0, "Magnet on mark");
+                lcdLine(0, "Magnet at front");
                 lcdLine(1, "%c OK  %c Back",
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
@@ -2473,7 +2565,7 @@ void menuUpdate(SavedConfig& cfg) {
                 drawList(START_MODE_ITEMS, START_MODE_COUNT, cursor);
                 break;
             case MenuState::StartPosAutoPrompt:
-                lcdLine(0, "Magnet on mark");
+                lcdLine(0, "Magnet at front");
                 lcdLine(1, "%c OK  %c Back",
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
@@ -2494,6 +2586,17 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::FindStartConfirm:
                 lcdLine(0, "StartPos here?");
                 lcdLine(1, "%cYes %cMore %cBack",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 2 ? LCD_ARROW_RIGHT : ' ');
+                break;
+            case MenuState::FindFront:
+                lcdLine(0, "Mark to front");
+                lcdLine(1, "Turn, then press");
+                break;
+            case MenuState::FindFrontConfirm:
+                lcdLine(0, "Front here?");
+                lcdLine(1, "%cYes %cMore %cSkip",
                     cursor == 0 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ',
                     cursor == 2 ? LCD_ARROW_RIGHT : ' ');

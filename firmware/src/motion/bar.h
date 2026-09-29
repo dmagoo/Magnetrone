@@ -26,6 +26,9 @@ uint32_t barStepsPerRev();
 // direction. Only meaningful when barKnown().
 uint32_t barPhase();
 
+// The same, for the platter at motor position `pos` rather than now.
+uint32_t barPhaseAt(int32_t pos);
+
 // The start mark passed the arm at motor position `pos`.
 void     barSetStart(int32_t pos);
 

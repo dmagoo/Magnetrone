@@ -4,7 +4,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 18;
+constexpr uint8_t  EEPROM_VERSION = 19;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -131,6 +131,13 @@ struct SavedConfig {
     // scene's own voice per layer (VOICE_SCENE). Scene 0's are never used.
     VoiceSlot customVoices[NUM_SAVED_VOICES];
     VoiceSlot sceneVoices[NUM_SCENES][NUM_LAYERS];
+
+    // Added in version 19. Front, where the player sits: the bar phase (steps
+    // past the start mark) at which the mark is in front of them. Set at the
+    // end of Calib. StartPos. It is where the player sits relative to the arm,
+    // so it does not depend on the start mark and Reset Cal keeps it.
+    uint32_t frontPhase;
+    bool     frontKnown;
 };
 
 void storageLoad(SavedConfig& cfg);

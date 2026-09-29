@@ -52,6 +52,10 @@ void stepperStart(float rpm) {
     platter.setRPM(rpm / correction);   // spins up from rest via pull-in + ramp
 }
 
+void stepperRelease() {
+    platter.disable();
+}
+
 void stepperStop() {
     // Ramps to rest and keeps the coils energised so the platter holds
     // position rather than freewheeling. That is Platter's documented choice.

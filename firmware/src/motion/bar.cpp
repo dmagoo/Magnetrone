@@ -22,8 +22,12 @@ uint32_t barStepsPerRev() {
 }
 
 uint32_t barPhase() {
+    return barPhaseAt(stepperPosition());
+}
+
+uint32_t barPhaseAt(int32_t pos) {
     int32_t n = (int32_t)barStepsPerRev();
-    int32_t m = (stepperPosition() - origin) % n;
+    int32_t m = (pos - origin) % n;
     return (uint32_t)(m < 0 ? m + n : m);
 }
 
