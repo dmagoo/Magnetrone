@@ -92,6 +92,24 @@ constexpr uint16_t  HALL_DEBOUNCE_MS        = 80;
 // that one shared number cannot serve them -- see hallSetCalibration().
 constexpr uint16_t  HALL_BASELINE_DEFAULT   = 2050;
 
+// Resting noise per sensor: the largest deviation from the baseline seen
+// while calibration samples the clear platter. This default stands in until
+// calibration has measured it. PROVISIONAL: not measured.
+constexpr uint16_t  HALL_NOISE_DEFAULT      = 10;
+
+// Peak triggering (see hallUpdate()). The minimum drop that counts as a
+// peak, as a multiple of the sensor's noise. PROVISIONAL: picked before any
+// noise was measured; check against Sensor Timing.
+constexpr uint8_t   HALL_MIN_DROP_NOISE_X   = 3;
+
+// Magnet diameter and each track's radius (platter center to track center,
+// hall 1 innermost), from the platter CAD. A magnet's detection arc grows as
+// the radius shrinks, so the trigger timing is set per sensor from these.
+constexpr float     MAGNET_DIAMETER_MM      = 10.0f;
+constexpr float     TRACK_RADIUS_MM[NUM_HALL_SENSORS] = {
+    12.5f, 23.9f, 35.3f, 46.7f, 58.1f, 69.5f, 80.9f, 92.3f
+};
+
 // Which way a passing magnet pushes the sensor output: +1 or -1. Only that
 // direction fires a note, which is what keeps a magnet's opposite-signed fringe
 // lobes from each firing one of their own. Calibration measures this from the

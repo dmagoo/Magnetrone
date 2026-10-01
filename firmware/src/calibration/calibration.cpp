@@ -85,7 +85,8 @@ static void stopAndSettle() {
 // ---------------------------------------------------------------------------
 // With the platter clear and the motor running, sample every sensor
 // repeatedly over a fixed time window. The average becomes the resting
-// baseline. The motor runs so its noise is part of what is measured.
+// baseline, and the largest swing either side of it the sensor's noise. The
+// motor runs so its noise is part of what is measured.
 //
 // Baselines are kept PER SENSOR. The eight rest levels span roughly 150 counts,
 // and averaging them into one number leaves the outliers permanently further
@@ -93,19 +94,26 @@ static void stopAndSettle() {
 // re-arm, so it fires once and is silent from then on.
 
 static uint16_t sampled[NUM_HALL_SENSORS];   // phase 1's result, for phase 2
+static uint16_t noise[NUM_HALL_SENSORS];     // likewise
 
 void calibrationSampleBaselines() {
     menuMessage("Sampling...", "Keep it clear");
     stepperStart(CALIBRATION_RPM);
 
     uint32_t sum[NUM_HALL_SENSORS] = {};
+    uint16_t lo[NUM_HALL_SENSORS];
+    uint16_t hi[NUM_HALL_SENSORS] = {};
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) lo[i] = 0xFFFF;
     uint32_t count = 0;
     uint32_t start = millis();
 
     while (millis() - start < BASELINE_SAMPLE_MS) {
         stepperUpdate();   // this loop blocks main loop(); the ramp still needs servicing
         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
-            sum[i] += rawRead(i);
+            uint16_t v = rawRead(i);
+            sum[i] += v;
+            if (v < lo[i]) lo[i] = v;
+            if (v > hi[i]) hi[i] = v;
         }
         count++;
         delay(5);
@@ -114,6 +122,9 @@ void calibrationSampleBaselines() {
     if (count == 0) count = 1;
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         sampled[i] = (uint16_t)(sum[i] / count);
+        noise[i]   = (count > 1) ? max(deviation(hi[i], sampled[i]),
+                                       deviation(lo[i], sampled[i]))
+                                 : HALL_NOISE_DEFAULT;
     }
 
     stopAndSettle();
@@ -128,11 +139,13 @@ void calibrationSampleBaselines() {
 //   2. Second pass, one revolution later. The steps between them give the
 //      belt ratio (and so the speed correction), exactly and independent of
 //      the spin-up ramp. The peak seen so far sets the threshold and pole.
-//   3. Third pass, at the final threshold, so the bar start is where the
-//      mark's notes will actually fire: that position is the start.
-// Each pass must first see the reading back near baseline (the same re-arm
-// rule as hallUpdate()), so a magnet already over the sensor when the spin
-// starts cannot be timed from the middle of its pass.
+//   3. Third pass, at the final threshold: its position is the start.
+// Each pass is located at its highest reading, the magnet's center, which is
+// where play fires the mark's notes (hallUpdate()); the pass ends when the
+// reading falls back under the threshold. Each pass must first see the
+// reading back near baseline (the same re-arm rule as hallUpdate()), so a
+// magnet already over the sensor when the spin starts cannot be timed from
+// the middle of its pass.
 //
 // The other sensors are watched too: a strong reading there means a magnet
 // on another track, either instead of or as well as the outer one.
@@ -146,6 +159,9 @@ CalibrationStatus calibrationDetect(SavedConfig& cfg) {
 
     uint8_t  pass       = 0;       // passes seen so far
     bool     armed      = false;   // outer reading has been back near baseline
+    bool     tracking   = false;   // in a pass, looking for its highest reading
+    uint16_t best       = 0;       // this pass's highest so far
+    int32_t  bestPos    = 0;       // and where it was
     int32_t  firstPos   = 0;
     int32_t  startPos   = 0;
     uint16_t peak       = 0;       // outer sensor's highest deviation
@@ -183,10 +199,24 @@ CalibrationStatus calibrationDetect(SavedConfig& cfg) {
                 if (dev < HALL_REARM_LEVEL) armed = true;
                 continue;
             }
-            if (dev < threshold) continue;
+            if (!tracking) {
+                if (dev < threshold) continue;
+                tracking = true;
+                best     = dev;
+                bestPos  = stepperPosition();
+                continue;
+            }
+            if (dev > best) {
+                best    = dev;
+                bestPos = stepperPosition();
+                continue;
+            }
+            if (dev >= threshold) continue;
 
-            int32_t pos = stepperPosition();
-            armed = false;
+            // Back under the threshold: the pass is over.
+            int32_t pos = bestPos;
+            tracking = false;
+            armed    = false;
             pass++;
 
             if (pass == 1) {
@@ -239,7 +269,10 @@ CalibrationStatus calibrationDetect(SavedConfig& cfg) {
     }
 
     // Commit results to config and EEPROM.
-    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) cfg.hallBaseline[i] = baselines[i];
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        cfg.hallBaseline[i] = baselines[i];
+        cfg.hallNoise[i]    = noise[i];
+    }
     cfg.hallThreshold  = threshold;
     cfg.rpmCorrection  = correction;
     cfg.magnetPolarity = peakSign;
@@ -249,8 +282,9 @@ CalibrationStatus calibrationDetect(SavedConfig& cfg) {
     // Push everything into the modules that use it, so it applies at once.
     // The phase is saved by barUpdate() now that the platter is at rest.
     stepperSetCorrection(correction);
-    hallSetCalibration(baselines, threshold);
+    hallSetCalibration(baselines, noise, threshold);
     hallSetPolarity(peakSign);
+    hallResetTiming();   // learned against the old threshold
     barSetStart(startPos);
 
     // Report the measured belt reduction so it can be compared against the
@@ -268,8 +302,9 @@ CalibrationStatus calibrationDetect(SavedConfig& cfg) {
 // ---------------------------------------------------------------------------
 // Start position only
 // ---------------------------------------------------------------------------
-// Two passes over the outer sensor at the saved threshold, the one play uses,
-// so the start is where the mark's notes fire. The first pass only checks the
+// Two passes over the outer sensor at the saved threshold, each located at
+// its highest reading as in calibrationDetect(), so the start is where the
+// mark's notes fire. The first pass only checks the
 // spacing: a second outer-track magnet makes the revolution come up short.
 // The other tracks are ignored, so their magnets can stay.
 
@@ -280,6 +315,9 @@ CalibrationStatus calibrationFindStart(const SavedConfig& cfg) {
     const uint32_t nominal = stepperStepsPerRev();
     uint8_t  pass     = 0;
     bool     armed    = false;
+    bool     tracking = false;
+    uint16_t best     = 0;
+    int32_t  bestPos  = 0;
     int32_t  firstPos = 0;
     int32_t  startPos = 0;
     CalibrationStatus status = CalibrationStatus::TimeoutNoMagnet;
@@ -292,10 +330,23 @@ CalibrationStatus calibrationFindStart(const SavedConfig& cfg) {
             if (dev < HALL_REARM_LEVEL) armed = true;
             continue;
         }
-        if (dev < cfg.hallThreshold) continue;
+        if (!tracking) {
+            if (dev < cfg.hallThreshold) continue;
+            tracking = true;
+            best     = dev;
+            bestPos  = stepperPosition();
+            continue;
+        }
+        if (dev > best) {
+            best    = dev;
+            bestPos = stepperPosition();
+            continue;
+        }
+        if (dev >= cfg.hallThreshold) continue;
 
-        int32_t pos = stepperPosition();
-        armed = false;
+        int32_t pos = bestPos;
+        tracking = false;
+        armed    = false;
         if (++pass == 1) {
             firstPos = pos;
         } else {

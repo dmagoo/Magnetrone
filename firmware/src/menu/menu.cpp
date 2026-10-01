@@ -86,6 +86,7 @@ enum class MenuState : uint8_t {
     StartCheck,         // setting: whether the boot prompt above is shown
     Info,               // read-only pages: belt, StartPos, threshold, driver
     SensorLevels,       // live: each sensor's reading against its rest level
+    SensorTiming,       // live: each sensor's learned trigger timing
     ResetCalPrompt,
     ResetSettingsPrompt,
     FactoryResetPrompt
@@ -335,14 +336,14 @@ static const uint8_t MIDI_FN_COUNT = 6;
 // where the player sits.
 static const char* TOOLS_ITEMS[] = {
     "Go to StartPos","Go to Front","Placement Mode","Full Calibrate",
-    "Reset Calib.","Calib. StartPos","Info","Sensor Levels","Reset Settings",
-    "Factory Reset","Back"
+    "Reset Calib.","Calib. StartPos","Info","Sensor Levels","Sensor Timing",
+    "Reset Settings","Factory Reset","Back"
 };
-static const uint8_t TOOLS_COUNT = 11;
+static const uint8_t TOOLS_COUNT = 12;
 enum : uint8_t { TOOL_GO_TO_START, TOOL_GO_TO_FRONT, TOOL_PLACEMENT,
                  TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_CALIB_START, TOOL_INFO, TOOL_SENSOR_LEVELS,
-                 TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
+                 TOOL_SENSOR_TIMING, TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
 
 // Info: one page per value, turned through with the menu knob.
 enum : uint8_t { INFO_RPM, INFO_BELT, INFO_START_POS, INFO_THRESHOLD,
@@ -1163,6 +1164,28 @@ static void drawSensorLevels() {
     }
 }
 
+// One sensor's learned timing. Top: the sensor, passes recorded of the last
+// 8, how many of those had no clear peak in time (F: a saturated or weak
+// magnet, or its height), and the learned angle from the threshold crossing
+// to the peak. Bottom: the last pass's highest deviation (Pk), the noise
+// calibration recorded (N), and how many readings the last pass lasted (S).
+//   S3 8/8 F2 12.4°
+//   Pk1234 N12 S123
+static void drawSensorTiming(const SavedConfig& cfg, uint8_t sensor) {
+    HallTiming t = hallTiming(sensor);
+    char angle[8];
+    if (t.learnedSteps == 0) {
+        snprintf(angle, sizeof(angle), "  --");
+    } else {
+        // Tenths of a degree by integer maths.
+        uint32_t tenths = (t.learnedSteps * 3600UL + stepperStepsPerRev() / 2) / stepperStepsPerRev();
+        snprintf(angle, sizeof(angle), "%2lu.%lu", (unsigned long)min(tenths / 10, 99UL),
+                 (unsigned long)(tenths % 10));
+    }
+    lcdLine(0, "S%u %u/8 F%u %s%c", sensor + 1, t.passes, t.fallbacks, angle, LCD_DEGREE);
+    lcdLine(1, "Pk%u N%u S%u", t.lastPeak, cfg.hallNoise[sensor], min(t.lastSamples, (uint16_t)999));
+}
+
 // Apply one aux knob step to whatever the knob is bound to.
 //
 // LIVE ONLY. These are performance moves on top of the current scene, not
@@ -1835,7 +1858,8 @@ void menuUpdate(SavedConfig& cfg) {
     // Screens you read rather than drive. Timing out would cut the reading
     // short; the menu button is the way out.
     bool isView = (state == MenuState::Info ||
-                   state == MenuState::SensorLevels);
+                   state == MenuState::SensorLevels ||
+                   state == MenuState::SensorTiming);
 
     // A hidden way out: the aux button in the menus goes straight to the live
     // display. Not in the prompts (calibration, resets), where a stray press
@@ -2702,6 +2726,7 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::Info);
                         break;
                     case TOOL_SENSOR_LEVELS: enterState(MenuState::SensorLevels); break;
+                    case TOOL_SENSOR_TIMING: enterState(MenuState::SensorTiming); break;
                     case TOOL_RESET_SETTINGS: enterState(MenuState::ResetSettingsPrompt); break;
                     case TOOL_FACTORY_RESET:  enterState(MenuState::FactoryResetPrompt); break;
                     default: enterState(MenuState::MainMenu, MAIN_ITEM_TOOLS); break;
@@ -2943,6 +2968,15 @@ void menuUpdate(SavedConfig& cfg) {
             if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
             break;
 
+        case MenuState::SensorTiming:
+            if (ev.menuDelta) {
+                cursor = (uint8_t)((cursor + ev.menuDelta + NUM_HALL_SENSORS) % NUM_HALL_SENSORS);
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) enterState(MenuState::Tools, TOOL_SENSOR_TIMING);
+            if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
+            break;
+
         case MenuState::StartCheck:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + WELCOME_COUNT) % WELCOME_COUNT;
@@ -2964,6 +2998,7 @@ void menuUpdate(SavedConfig& cfg) {
                     // Reset calibration fields only.
                     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
                         cfg.hallBaseline[i] = HALL_BASELINE_DEFAULT;
+                        cfg.hallNoise[i]    = HALL_NOISE_DEFAULT;
                     }
                     cfg.hallThreshold = HALL_THRESHOLD_DEFAULT;
                     cfg.rpmCorrection = 1.0f;
@@ -2971,8 +3006,9 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.magnetPolarity = DEFAULT_MAGNET_POLARITY;
                     barForget(cfg);
                     storageSave(cfg);
-                    hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+                    hallSetCalibration(cfg.hallBaseline, cfg.hallNoise, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
+                    hallResetTiming();
                     stepperSetCorrection(cfg.rpmCorrection);
                     menuMessage("Cal reset", "");
                     delay(1500);
@@ -2995,7 +3031,10 @@ void menuUpdate(SavedConfig& cfg) {
                         // included, and Defaults now plays.
                         d.calibrated     = cfg.calibrated;
                         d.hallThreshold  = cfg.hallThreshold;
-                        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) d.hallBaseline[i] = cfg.hallBaseline[i];
+                        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+                            d.hallBaseline[i] = cfg.hallBaseline[i];
+                            d.hallNoise[i]    = cfg.hallNoise[i];
+                        }
                         d.rpmCorrection  = cfg.rpmCorrection;
                         d.magnetPolarity = cfg.magnetPolarity;
                         d.barPhase       = cfg.barPhase;
@@ -3014,10 +3053,13 @@ void menuUpdate(SavedConfig& cfg) {
                     }
                     cfg = d;
                     storageSave(cfg);
-                    hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+                    hallSetCalibration(cfg.hallBaseline, cfg.hallNoise, cfg.hallThreshold);
                     hallSetPolarity(cfg.magnetPolarity);
                     stepperSetCorrection(cfg.rpmCorrection);
-                    if (factory) barInit(cfg);     // defaults: start unknown
+                    if (factory) {
+                        barInit(cfg);              // defaults: start unknown
+                        hallResetTiming();         // learned against the old threshold
+                    }
                     audioSetVolume(cfg.volume);
                     cfg.muted ? audioMute() : audioUnmute();
                     midiInReset();
@@ -3273,6 +3315,10 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::SensorLevels:
                 drawSensorLevels();
+                lastLiveDraw = millis();
+                break;
+            case MenuState::SensorTiming:
+                drawSensorTiming(cfg, cursor);
                 lastLiveDraw = millis();
                 break;
             case MenuState::ResetCalPrompt:

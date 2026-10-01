@@ -229,6 +229,7 @@ SavedConfig storageDefaults() {
     c.hallThreshold   = HALL_THRESHOLD_DEFAULT;
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         c.hallBaseline[i] = HALL_BASELINE_DEFAULT;
+        c.hallNoise[i]    = HALL_NOISE_DEFAULT;
     }
     c.rpmCorrection   = 1.0f;
     c.magnetPolarity  = DEFAULT_MAGNET_POLARITY;
@@ -323,6 +324,12 @@ void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 16 && cfg.version <= 19) {
         fromV16to19(cfg);
+    }
+    // Version 20 is this layout without the noise at the end.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 20) {
+        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) cfg.hallNoise[i] = HALL_NOISE_DEFAULT;
+        cfg.version = EEPROM_VERSION;
+        storageSave(cfg);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
         if (cfg.currentScene >= NUM_SCENES || !cfg.sceneUsed[cfg.currentScene]) {

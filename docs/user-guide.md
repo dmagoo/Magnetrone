@@ -381,6 +381,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
 | Info            | Tools | Read-only pages, turned through with the Menu knob: RPM, belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
+| Sensor Timing   | Tools | One sensor per page, turned through with the Menu knob. Notes play when a magnet is centered on its sensor, and each sensor learns how far the platter turns from first sensing the magnet to its center. Top line: the sensor, how many of the last 8 passes it has learned from, **F** (how many of those had no clear center: a magnet too strong, too weak, or at the wrong height), and that angle. Bottom line: **Pk**, the last pass's strongest reading; **N**, the sensor's resting noise from calibration; **S**, how many readings the last pass lasted. Relearned every power-up, after a few turns. | - |
 | Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices. Asks first. | - |
 | Factory Reset   | Tools | Erases everything, scenes, saved voices and calibration included. Asks first. | - |
 

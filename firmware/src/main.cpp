@@ -30,7 +30,7 @@ void setup() {
     midiInit();
     layersApply(cfg);
     hallInit();
-    hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+    hallSetCalibration(cfg.hallBaseline, cfg.hallNoise, cfg.hallThreshold);
     hallSetPolarity(cfg.magnetPolarity);
     scenesInit(cfg);
     menuInit(cfg);

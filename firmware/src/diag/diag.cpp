@@ -393,7 +393,7 @@ void diagSetup() {
     stepperSetCorrection(cfg.rpmCorrection);
     stepperClearDriverGstat(0x07);              // the power-up reset flag
     hallInit();
-    hallSetCalibration(cfg.hallBaseline, cfg.hallThreshold);
+    hallSetCalibration(cfg.hallBaseline, cfg.hallNoise, cfg.hallThreshold);
     hallSetPolarity(cfg.magnetPolarity);
 
     audioInit(DIAG_VOLUME, false);

@@ -5,7 +5,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 20;
+constexpr uint8_t  EEPROM_VERSION = 21;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -179,6 +179,11 @@ struct SavedConfig {
     // the effects. Off by default, so settings dialed in are not changed
     // unexpectedly.
     bool     midiCc;
+
+    // Added in version 21. Each sensor's resting noise: the largest deviation
+    // from its baseline while calibration sampled the clear platter. Sets the
+    // minimum drop that counts as a peak (hallSetCalibration()).
+    uint16_t hallNoise[NUM_HALL_SENSORS];
 };
 
 void storageLoad(SavedConfig& cfg);
