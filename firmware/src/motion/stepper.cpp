@@ -107,3 +107,21 @@ uint8_t stepperDriverVersion() {
 bool stepperJogging() {
     return jogging;
 }
+
+StepperDriverStatus stepperDriverStatus() {
+    StepperDriverStatus s;
+    s.version     = platter.driverVersion();
+    s.gconf       = platter.driverGconf();
+    s.gconfWanted = platter.driverGconfWanted();
+    s.drvStatus   = platter.driverDrvStatus();
+    s.gstat       = platter.driverGstat();
+    return s;
+}
+
+void     stepperClearDriverGstat(uint8_t bits) { platter.driverClearGstat(bits); }
+void     stepperSetCurrentMa(uint16_t ma)      { platter.setCurrentMa(ma); }
+uint16_t stepperCurrentMa()                    { return platter.currentMa(); }
+
+bool stepperSetChopper(bool spreadCycle, float hybridRpm) {
+    return platter.setChopper(spreadCycle, hybridRpm);
+}

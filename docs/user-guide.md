@@ -512,6 +512,12 @@ plugged in and the power switch on. USB power alone is not enough.
 does not control. Use USB only for firmware updates and debugging, never to
 power the unit, and do not connect it while the 24 V supply is plugged in.
 
+**Display shows only black boxes.** The display was connected after the
+Magnetrone was switched on. Switch it off and on again. Always connect the
+display with the power off, and check the pin labels: a display lead plugged
+in the wrong way round can damage it, and a damaged display can also silence
+the sound.
+
 **MIDI keys do odd things, or Scale Learn learns the wrong notes.** The other
 device or DAW is probably echoing the table's MIDI OUT back to its input. Turn
 off MIDI thru (echo) on that device.
@@ -519,3 +525,36 @@ off MIDI thru (echo) on that device.
 **No sound, or the wrong layer plays.** Check **Menu > System > Magnet Pole**,
 and check that the layer's Mode is On and its Voice is not None. If some tracks
 play once and then stop, recalibrate.
+
+### Diagnostics mode
+
+A bench mode for tracking down hardware faults, used with a computer's serial
+monitor over USB. Two ways in:
+
+- Hold the Menu button while powering on.
+- With the table running normally, type `diag` in the serial monitor. It
+  restarts into diagnostics.
+
+Type `exit` or power off to return to normal. In diagnostics the motor stays
+off and nothing plays unless you ask. Every 5 seconds it beeps and prints a
+report: whether the display and audio board answer, the motor driver's status,
+and each sensor's reading, its resting level, the lowest and highest reading
+since the last report, and how many times it fired. Faults print the moment
+they happen. The display shows "DIAG" with a running time on the top line and
+`0123456789ABCDEF` on the bottom; anything else on it means the display link is
+faulty.
+
+Commands (type `help` for the list):
+
+| Command | Does |
+|---|---|
+| `spin <rpm>` | Runs the platter (negative for reverse) |
+| `stop` | Stops the platter |
+| `current <mA>` | Sets the motor current, up to 1700 |
+| `chop stealth` / `chop spread` / `chop hybrid <rpm>` | Motor drive mode: quiet, strong, or quiet switching to strong above the given speed |
+| `beep` | Plays the beep |
+| `lcd` | Restarts the display |
+| `hall <1-8>` | Streams one sensor's readings, 200 a second; press any key to stop |
+| `exit` | Restarts normally |
+
+Motor settings changed here are not saved.

@@ -136,3 +136,12 @@ On first boot, no calibration data is present and the table offers to calibrate
 (later: Menu > Tools > Full Calibrate). Clear the platter when asked, then place a
 single magnet on the start mark on the outer track. See the
 [user guide](docs/user-guide.md) for details.
+
+### Diagnostics
+
+For hardware faults, the firmware has a diagnostics mode used over the USB
+serial monitor (`pio device monitor`). Hold the Menu button at power-up, or
+type `diag` in the monitor while the table runs. It reports the display, audio
+board, motor driver and every sensor every 5 seconds, and takes commands for
+running and tuning the motor. Type `help` in the monitor for the commands; see
+Troubleshooting > Diagnostics mode in the [user guide](docs/user-guide.md).

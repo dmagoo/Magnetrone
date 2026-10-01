@@ -36,3 +36,19 @@ void stepperMoveBy(int32_t steps, float rpm);
 // Driver version register over UART (0x21 = TMC2209 answering). For Info.
 uint8_t stepperDriverVersion();
 constexpr uint8_t STEPPER_DRIVER_VERSION = 0x21;
+
+// Diagnostics mode only: raw driver registers and live tuning.
+struct StepperDriverStatus {
+    uint8_t  version;       // STEPPER_DRIVER_VERSION when answering
+    uint32_t gconf;         // as read back
+    uint32_t gconfWanted;   // what the firmware last wrote
+    uint32_t drvStatus;     // DRV_STATUS
+    uint8_t  gstat;         // GSTAT (reset, drv_err, uv_cp)
+};
+StepperDriverStatus stepperDriverStatus();
+void     stepperClearDriverGstat(uint8_t bits);
+void     stepperSetCurrentMa(uint16_t ma);
+uint16_t stepperCurrentMa();
+// spreadCycle false + hybridRpm 0 = StealthChop only; hybridRpm > 0 switches
+// to SpreadCycle above that platter RPM. False if GCONF did not verify.
+bool     stepperSetChopper(bool spreadCycle, float hybridRpm);

@@ -141,6 +141,18 @@ public:
     // is answering, 0 or 0xFF when it is not.
     uint8_t  driverVersion();
 
+    // --- diagnostics (read over UART; see diag.cpp) ---
+    uint32_t driverGconf();         // GCONF as the chip holds it now
+    uint32_t driverGconfWanted() const { return gconfWanted_; }
+    uint32_t driverDrvStatus();     // DRV_STATUS: temperature, short, open-load flags
+    uint8_t  driverGstat();         // GSTAT: reset, drv_err, uv_cp
+    void     driverClearGstat(uint8_t bits);   // write 1s to clear
+    void     setCurrentMa(uint16_t ma);
+    uint16_t currentMa() const { return currentMa_; }
+    // Chopper: StealthChop only, SpreadCycle only, or StealthChop switching to
+    // SpreadCycle above hybridRpm (TPWMTHRS). Returns false if GCONF did not verify.
+    bool     setChopper(bool spreadCycle, float hybridRpm);
+
 private:
     // TMC2209 hardware constants (BigTreeTech V1.3, MS1/MS2 low -> UART addr 0).
     static constexpr float    kRSense          = 0.11f;
@@ -148,6 +160,8 @@ private:
     // GCONF written as ONE raw verified word: I_scale_analog=0, StealthChop,
     // pdn_disable=1, mstep_reg_select=1, multistep_filt=1. (See reference.)
     static constexpr uint32_t kGconfStealthChop = 0x1C0;
+    static constexpr uint32_t kGconfSpreadCycle = 0x1C4;   // same, en_spreadcycle=1
+    static constexpr float    kDriverClockHz    = 12000000.0f;  // TSTEP units
 
     // ISR plumbing (single-instance).
     static Platter*  instance_;
@@ -189,6 +203,9 @@ private:
     float    currentStepRate_ = 0.0f;       // |steps/s| the ramp is at now
     float    targetStepRate_  = 0.0f;       // |steps/s| the ramp is heading to
     float    resumeRPM_       = 0.0f;       // signed speed latched at stop()
+
+    uint32_t gconfWanted_     = kGconfStealthChop;
+    uint16_t currentMa_       = 0;
 
     uint32_t dwellStartMs_    = 0;
     uint32_t lastUpdateUs_    = 0;

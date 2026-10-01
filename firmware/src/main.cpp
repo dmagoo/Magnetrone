@@ -12,10 +12,15 @@
 #include "sequencer/sequencer.h"
 #include "sequencer/layers.h"
 #include "sequencer/scenes.h"
+#include "diag/diag.h"
 
 static SavedConfig cfg;
+static bool diagMode = false;
 
 void setup() {
+    diagMode = diagWanted();
+    if (diagMode) { diagSetup(); return; }
+
     storageLoad(cfg);
     stepperInit();
     stepperSetCorrection(cfg.rpmCorrection);   // measured by calibration
@@ -32,6 +37,8 @@ void setup() {
 }
 
 void loop() {
+    if (diagMode) { diagLoop(); return; }
+
     stepperUpdate();
     encoderUpdate();
     hallUpdate();
@@ -44,4 +51,6 @@ void loop() {
 
     // Beat clock follows the platter's position, so it tracks the real speed.
     transportUpdate(cfg.beatsPerRev);
+
+    diagPollSerial();   // "diag" in the serial monitor
 }

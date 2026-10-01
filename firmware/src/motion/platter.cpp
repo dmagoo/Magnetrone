@@ -87,12 +87,14 @@ void Platter::begin() {
 
     Serial8.begin(115200);
     driver_.begin();
-    setGconfVerified(kGconfStealthChop);       // StealthChop + UART current/microsteps
+    gconfWanted_ = kGconfStealthChop;
+    setGconfVerified(gconfWanted_);            // StealthChop + UART current/microsteps
     driver_.toff(5);                           // enable the chopper
     driver_.tbl(2);                            // (SpreadCycle-only, harmless here)
     driver_.hstrt(4);
     driver_.hend(0);
-    driver_.rms_current(cfg_.runCurrentMa);
+    currentMa_ = cfg_.runCurrentMa;
+    driver_.rms_current(currentMa_);
     setMicrostepsVerified(cfg_.microsteps);
     driver_.intpol(true);                      // interpolate to 256: smooth + quiet
     driver_.pwm_autoscale(true);               // required for StealthChop
@@ -260,6 +262,31 @@ void Platter::moveBy(int32_t steps, float maxRPM) {
 
 uint8_t Platter::driverVersion() {
     return driver_.version();
+}
+
+uint32_t Platter::driverGconf()     { return driver_.GCONF(); }
+uint32_t Platter::driverDrvStatus() { return driver_.DRV_STATUS(); }
+uint8_t  Platter::driverGstat()     { return driver_.GSTAT(); }
+void     Platter::driverClearGstat(uint8_t bits) { driver_.GSTAT(bits); }
+
+void Platter::setCurrentMa(uint16_t ma) {
+    currentMa_ = ma;
+    driver_.rms_current(ma);
+}
+
+bool Platter::setChopper(bool spreadCycle, float hybridRpm) {
+    gconfWanted_ = spreadCycle ? kGconfSpreadCycle : kGconfStealthChop;
+    bool ok = setGconfVerified(gconfWanted_) != 0;
+    // TPWMTHRS compares against TSTEP, the time between 1/256 microsteps in
+    // driver clocks. Above the speed where TSTEP drops under it, the chip
+    // switches from StealthChop to SpreadCycle. 0 = never switch.
+    uint32_t thrs = 0;
+    if (!spreadCycle && hybridRpm > 0.0f) {
+        float rate = rpmToStepRate(hybridRpm) * (256.0f / (float)cfg_.microsteps);
+        thrs = (uint32_t)(kDriverClockHz / rate);
+    }
+    driver_.TPWMTHRS(thrs);
+    return ok;
 }
 
 void Platter::setStepsPerPlatterRev(uint32_t steps) {
