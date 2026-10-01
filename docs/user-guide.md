@@ -71,6 +71,15 @@ To calibrate:
    - **Wrong track**: move it to the outer track.
    - **Too many magnets**: remove the extras.
 
+Calibrate again after changing the sensor arm's height, since every reading
+changes with it.
+
+Each note plays when its magnet is centered on the sensor. The table works out
+when that will be from how far the platter turns between first sensing a magnet
+and its strongest reading. Each sensor learns that from the last few passes, so
+after power-up timing settles within a few turns. **Menu > Tools > Sensor
+Timing** shows what each sensor has learned.
+
 ### The start mark
 
 The table keeps track of where the start mark is (StartPos), so external MIDI
@@ -526,6 +535,11 @@ off MIDI thru (echo) on that device.
 **No sound, or the wrong layer plays.** Check **Menu > System > Magnet Pole**,
 and check that the layer's Mode is On and its Voice is not None. If some tracks
 play once and then stop, recalibrate.
+
+**One track plays early or late.** Check that track in **Menu > Tools > Sensor
+Timing**. A high **F** count or a low **Pk** means that magnet reads weakly or
+unevenly: check that it is seated flat and that the sensor arm is level. Then
+recalibrate.
 
 ### Diagnostics mode
 

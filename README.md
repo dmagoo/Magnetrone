@@ -70,11 +70,11 @@ turning physical arrangement into musical pattern.
 - LCD backlight timeout: configurable from always off to always on
 - Stepper motor sleeps when idle to reduce heat and power draw
 - Calibration (at 24 RPM, clear platter then one magnet on the start mark)
-  measures sensor baselines, threshold, magnet pole, the belt reduction
+  measures sensor baselines and noise, threshold, magnet pole, the belt reduction
   (e.g. "Belt 10.9:1", counted in motor steps) and the bar start
 - Tools menu: Go to StartPos, Go to Front, Placement Mode, calibration,
-  StartPos, Info (RPM, belt ratio, StartPos, threshold, motor driver) and live
-  Sensor Levels screens, Reset Settings (keeps calibration, Front and scenes
+  StartPos, Info (RPM, belt ratio, StartPos, threshold, motor driver), live
+  Sensor Levels and Sensor Timing screens, Reset Settings (keeps calibration, Front and scenes
   1-8) and Factory Reset
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1
@@ -85,14 +85,16 @@ turning physical arrangement into musical pattern.
 
 The firmware is structured as a set of independent modules: stepper motor control
 uses an IntervalTimer ISR for non-blocking step generation; Hall sensor polling
-detects rising-edge triggers with hysteresis and debounce; the sequencer maps sensor
+fires each note when the magnet is centered on its sensor, predicted from a
+threshold-to-peak angle each sensor learns as it plays (so timing holds on every
+track and at any speed), with re-arm and debounce; the sequencer maps sensor
 index to scale degree and fires timed MIDI note on/off pairs; the audio module drives
 an 8-voice synth bank per magnet layer plus a shared drum kit through the SGTL5000
 codec in parallel with MIDI out; the menu
 is a simple state machine driven by three encoders with live speed and volume handling
 at all times. The platter keeps a signed step count, so the bar phase is exact; MIDI
 clock and scene loads are driven from it. A calibration routine samples the sensor
-baselines, counts motor steps over one platter revolution, and derives a threshold,
+baselines and noise, counts motor steps over one platter revolution, and derives a threshold,
 RPM correction factor and bar start stored in EEPROM.
 
 ---
