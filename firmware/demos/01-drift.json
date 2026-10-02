@@ -1,0 +1,17 @@
+{
+  "name": "Drift",
+  "layerA": {
+    "voice": "sceneVoice",
+    "sceneVoice": {
+      "base": "strings",
+      "attack": 300,
+      "release": 1000
+    },
+    "scale": "pentatonicMinor",
+    "delay": { "sync": "3/8", "feedback": 40, "mix": 30 },
+    "reverb": { "mix": 40 }
+  },
+  "layerB": {
+    "mode": "sameAsA"
+  }
+}

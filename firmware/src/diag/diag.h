@@ -18,5 +18,7 @@ bool diagWanted();
 void diagSetup();   // instead of the normal setup
 void diagLoop();    // instead of the normal loop
 
-// Normal mode: call every loop. Watches the serial monitor for "diag".
-void diagPollSerial();
+// Normal mode: call every loop. Watches the serial monitor for "diag", and
+// for "scenes", which prints the saved scenes as JSON (scene_dump.h).
+struct SavedConfig;
+void diagPollSerial(const SavedConfig& cfg);

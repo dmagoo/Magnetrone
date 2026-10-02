@@ -161,7 +161,7 @@ struct SavedConfig {
 
     Scene    scenes[NUM_SCENES];
     bool     sceneUsed[NUM_SCENES];   // Defaults is always used
-    uint8_t  currentScene;            // last loaded or saved
+    uint8_t  currentScene;            // last loaded or saved; past the slots, a demo (scenes.h)
 
     // Added in version 17. Custom 1-8, shared by every scene, and each
     // scene's own voice per layer (VOICE_SCENE). Scene 0's are never used.
@@ -199,3 +199,7 @@ Scene storageFactoryScene();
 
 // The factory effects of a layer: every effect Off.
 LayerFx storageFactoryFx();
+
+// Built-in voice `base` as a saved voice, unedited: where a demo's scene
+// voice starts, and what the scene dump compares against.
+VoiceSlot storageStockVoice(uint8_t base);

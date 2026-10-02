@@ -1,0 +1,31 @@
+{
+  "name": "Reedbed",
+  "layerA": {
+    "voice": "sceneVoice",
+    "sceneVoice": {
+      "base": "leads",
+      "harmonics": [100, 5, 70, 3, 45, 2, 25, 0, 12, 0, 6],
+      "attack": 50,
+      "decay": 100,
+      "sustain": 80,
+      "release": 150,
+      "length": 200,
+      "filter": {
+        "cutoff": 50,
+        "resonance": 10,
+        "amount": 30,
+        "attack": 50,
+        "decay": 200,
+        "sustain": 50,
+        "release": 150
+      }
+    },
+    "tone": { "cutoff": 70 },
+    "reverb": { "roomSize": 60, "damping": 70, "mix": 30 }
+  },
+  "layerB": {
+    "tone": { "cutoff": 60, "resonance": 20 },
+    "delay": { "sync": "3/8", "feedback": 50, "mix": 40 },
+    "reverb": { "roomSize": 90, "damping": 40, "mix": 60 }
+  }
+}

@@ -52,5 +52,5 @@ void loop() {
     // Beat clock follows the platter's position, so it tracks the real speed.
     transportUpdate(cfg.beatsPerRev);
 
-    diagPollSerial();   // "diag" in the serial monitor
+    diagPollSerial(cfg);   // "diag" and "scenes" in the serial monitor
 }

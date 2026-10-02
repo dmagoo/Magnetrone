@@ -44,9 +44,9 @@ C  Major  [███ ]
 ```
 
 The top line is the tempo (negative means the platter runs in reverse) and the
-current [scene](#scenes), with `*` once you have changed something with the Aux
-knob since loading it. The bottom line is Layer A's root note and scale, and the
-volume, or `[MUTE]`.
+current [scene](#scenes) (`Demo 1` while a demo plays), with `*` once you have
+changed something with the Aux knob since loading it. The bottom line is Layer
+A's root note and scale, and the volume, or `[MUTE]`.
 
 ## First Run
 
@@ -153,8 +153,8 @@ the Speed knob moves the platter.
 ```
 Sound Defaults   Layer A, Layer B
 Play Setup       Beats/Rev, Pitch Step, Aux Fn, MIDI Fn, MIDI CC
-System           LCD Timeout, Menu Timeout, Welcome Tune, StartPos Check, Magnet Pole
 Tools            calibration and maintenance
+System           LCD Timeout, Menu Timeout, Welcome Tune, StartPos Check, Magnet Pole
 Exit
 ```
 
@@ -259,13 +259,13 @@ A plucky sound: Cutoff low, Amount high, short Decay, low Sustain.
 To keep a tweaked voice, choose **Save As...** at the bottom of the Voice Edit
 list:
 
+- **Scene 3 Voice A** (the current scene, and the layer you are editing),
+  first in the list: kept with this scene only, as its **Scene Voice**. The
+  scene is set to play it straight away. Nothing else in the scene changes.
+  Not offered in the Defaults scene or a demo.
 - **Custom 1** to **Custom 8**: shared by every scene. The layer then plays
   it, and it appears in every Voice list. Saving over a used one asks first,
   and changes every scene that uses it.
-- **Scene 3 Voice A** (the current scene, and the layer you are editing): kept
-  with this scene only, as its **Scene Voice**. The scene is set to play it
-  straight away. Nothing else in the scene changes. Not offered in the
-  Defaults scene.
 
 Saving a scene to another slot copies its Scene Voice along.
 
@@ -292,6 +292,12 @@ Using them:
 Each slot shows Layer A's root and scale, such as `2: D Minor`, or `3: (empty)`.
 
 At power-up the table plays the last scene loaded or saved, without Aux changes.
+
+**Demos** are scenes built into the firmware. They follow scene 8 in the Load
+Scene list, as `Demo1: Drift` and so on, and load like any scene, power-up
+and Aux **Reset All** included. They cannot be changed or lost: to keep changes
+to one, save it to a slot. To make your own, or to copy your saved scenes off
+the table, see [Scene Format](scene-format.md).
 
 ## Effects
 
@@ -372,14 +378,14 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 |--------------|-------|--------------|---------|
 | Channel      | Layer | MIDI channel. Auto follows the voice (see [Voices and Drums](#voices-and-drums)), or pick 1 to 16. Saved in scenes. | Auto |
 | MIDI In      | Layer | The MIDI channel this layer listens on, or Off. Not part of scenes. | A: 1, B: 2 |
-| Beats/Rev    | Play Setup | Beats per revolution (1, 2, 3, 4, 6, 8, 12, 16, 24 or 32). Sets the BPM shown and the MIDI clock. | 4 |
+| Beats/Rev    | Play Setup | Beats per revolution (1, 2, 3, 4, 6, 8, 12, 16, 24 or 32). Sets the BPM shown and the MIDI clock. | 8 |
 | Pitch Step   | Play Setup | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | 1 semitone |
-| Aux Fn       | Play Setup | Which function the Aux knob controls. | Pitch |
+| Aux Fn       | Play Setup | Which function the Aux knob controls. | Layer A Voice |
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
 | MIDI CC      | Play Setup | On: MIDI controllers can change the effects. Off keeps settings you dialed in from changing unexpectedly. See [MIDI In](#midi-in). | Off |
-| LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 5 s |
+| LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 30 s |
 | Menu Timeout | System | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. | 30 s |
-| Welcome Tune | System | Plays each track's Layer A note at power-up. Press the Menu button to skip it. Turning it on plays it once as a preview. | On |
+| Welcome Tune | System | Plays each track's Layer A note at power-up, quickly, in sixteenth notes. Press the Menu button to skip it. Turning it on plays it once as a preview. | On |
 | StartPos Check | System | On: at power-up, offers to find the start mark if it was lost. Off: never asks. | On |
 | Magnet Pole  | System | Swaps which way up is Layer A. Calibration sets it. | Set by calibration |
 | Go to StartPos  | Tools | Turns the platter until the start mark is under the arm. See [The start mark](#the-start-mark). | - |
@@ -388,9 +394,10 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Full Calibrate  | Tools | See [First Run](#first-run). | - |
 | Reset Calib.    | Tools | Clears calibration only, including the start mark. | - |
 | Calib. StartPos | Tools | Sets the start mark again, Auto or Manual. See [The start mark](#the-start-mark). | - |
-| Info            | Tools | Read-only pages, turned through with the Menu knob: RPM, belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
+| Machine Info    | Tools | Read-only pages, turned through with the Menu knob: RPM, belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
 | Sensor Timing   | Tools | One sensor per page, turned through with the Menu knob. Notes play when a magnet is centered on its sensor, and each sensor learns how far the platter turns from first sensing the magnet to its center. Top line: the sensor, how many of the last 8 passes it has learned from, **F** (how many of those had no clear center: a magnet too strong, too weak, or at the wrong height), and that angle. Bottom line: **Pk**, the last pass's strongest reading; **N**, the sensor's resting noise from calibration; **S**, how many readings the last pass lasted. Relearned every power-up, after a few turns. | - |
+| Track Notes     | Tools | What each track plays right now, Layer A on the top line and Layer B below, inner track on the left, two characters per track (`C D E F G A B C`). Includes everything that moves the notes: root, scale, octave, Pitch, Shift, Wrap and Low Note. Sharps or flats follow the key (D Minor shows Bb); Chromatic and Learned scales use sharps. Drums show a letter per drum: **X** crash, **t** low tom, **T** high tom, **C** clap, **O** open hat, **S** snare, **K** kick, **H** closed hat. Turn the Menu knob to see each layer's key instead (`A: G Blues`). | - |
 | Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices. Asks first. | - |
 | Factory Reset   | Tools | Erases everything, scenes, saved voices and calibration included. Asks first. | - |
 
@@ -477,6 +484,11 @@ scene to keep it, a learned scale included.
 Not yet: following an external clock.
 
 ## Things to Try
+
+Most of these are built in as [demos](#scenes), each changing only what the
+idea needs: **Thirds**, **Key of G**, **Ladder** (double-length runs),
+**Mirror**, **Chords** (Thirds with Stack) and **Carousel** (Wrap on, for the
+rotating melody).
 
 ### With two layers
 

@@ -15,6 +15,10 @@ static uint8_t liveId[NUM_LAYERS]  = { NO_VOICE, NO_VOICE };
 static uint8_t liveBase[NUM_LAYERS];   // the built-in it came from, for saving
 static bool    tweaked[NUM_LAYERS] = { false, false };
 
+// Each layer's Scene Voice: a copy of the loaded scene's own voice, made at
+// each scene load, so a demo (which has no slot) plays one the same way.
+static VoiceSlot sceneVoice[NUM_LAYERS] = {};
+
 static const char* CUSTOM_NAMES[NUM_CUSTOM_VOICES] = {
     "Custom 1","Custom 2","Custom 3","Custom 4","Custom 5","Custom 6","Custom 7","Custom 8"
 };
@@ -31,7 +35,7 @@ const char* voiceIdName(uint8_t id) {
 static const VoiceSlot* slotFor(const SavedConfig& cfg, uint8_t l, uint8_t id) {
     const VoiceSlot* s = nullptr;
     if (voiceIsCustomId(id))  s = &cfg.customVoices[id - VOICE_CUSTOM_FIRST];
-    else if (id == VOICE_SCENE && cfg.currentScene < NUM_SCENES) s = &cfg.sceneVoices[cfg.currentScene][l];
+    else if (id == VOICE_SCENE) s = &sceneVoice[l];
     return (s && s->used) ? s : nullptr;
 }
 
@@ -137,14 +141,23 @@ void layerVoiceSaveCustom(SavedConfig& cfg, uint8_t layer, uint8_t n) {
 
 void layerVoiceSaveScene(SavedConfig& cfg, uint8_t layer) {
     uint8_t sc = cfg.currentScene;
-    if (sc == SCENE_DEFAULTS || sc >= NUM_SCENES) return;
+    if (sc == SCENE_DEFAULTS || sc >= NUM_SCENES) return;   // not Defaults or a demo
     uint8_t src = voiceSource(cfg, layer);
     cfg.sceneVoices[sc][src]          = toSlot(cfg, src);
+    sceneVoice[src]                   = cfg.sceneVoices[sc][src];
     cfg.scenes[sc].layer[src].voice   = VOICE_SCENE;
     cfg.layer[src].voice              = VOICE_SCENE;
     storageSave(cfg);
     layersResetVoices();
     layersApply(cfg);
+}
+
+void layerSetSceneVoice(uint8_t layer, const VoiceSlot& v) {
+    if (layer < NUM_LAYERS) sceneVoice[layer] = v;
+}
+
+const VoiceSlot& layerSceneVoice(uint8_t layer) {
+    return sceneVoice[layer < NUM_LAYERS ? layer : 0];
 }
 
 uint8_t layerChannel(const SavedConfig& cfg, uint8_t layer) {

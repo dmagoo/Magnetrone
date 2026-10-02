@@ -1,0 +1,27 @@
+{
+  "name": "Blue Tap",
+  "layerA": {
+    "voice": "sceneVoice",
+    "sceneVoice": {
+      "base": "piano",
+      "wave": "sine",
+      "harmonics": [100, 30, 10, 5],
+      "attack": 5,
+      "decay": 250,
+      "sustain": 0,
+      "release": 100,
+      "length": 100
+    },
+    "root": "e",
+    "scale": "blues",
+    "shift": 2,
+    "wrap": true,
+    "chorus": { "rate": 20, "depth": 40, "mix": 30 },
+    "delay": { "sync": "1/4", "feedback": 0, "mix": 50 },
+    "reverb": { "mix": 25 }
+  },
+  "layerB": {
+    "lowNote": "outer",
+    "shift": 7
+  }
+}

@@ -105,8 +105,16 @@ void   layersResetVoices();
 void   layerVoiceSaveCustom(SavedConfig& cfg, uint8_t layer, uint8_t n);
 
 // Save As: the layer's voice into the current scene's own voice for this
-// layer, and the scene (saved and live) set to play it. Not for Defaults.
+// layer, and the scene (saved and live) set to play it. Not for Defaults or
+// a demo.
 void   layerVoiceSaveScene(SavedConfig& cfg, uint8_t layer);
+
+// The Scene Voice a layer set to VOICE_SCENE plays: a copy of the loaded
+// scene's own voice, set at every scene load (saved or demo). Unused (`used`
+// false) when the scene has none for the layer. Call layersResetVoices()
+// after setting it.
+void             layerSetSceneVoice(uint8_t layer, const VoiceSlot& v);
+const VoiceSlot& layerSceneVoice(uint8_t layer);
 
 // The name a stored voice id shows in lists: "Piano", "Custom 3", "Scene Voice".
 const char* voiceIdName(uint8_t id);

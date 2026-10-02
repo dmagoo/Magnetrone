@@ -11,6 +11,11 @@
 //
 //   Scene 0, Defaults   what the Sound Defaults menu edits. Always there.
 //   Scenes 1-8          change only through Save Scene.
+//   Demos               built into the firmware, read-only (demos.h). Their
+//                       ids follow the slots: SCENE_DEMO_FIRST is Demo 1.
+//
+// A scene id is a slot (0-8) or a demo. Loading either works the same way,
+// and a demo stays the current scene across a restart like a slot does.
 //
 // Aux tweaks are live only: power-up loads the current scene afresh, and Aux
 // Reset All goes back to it. Save Scene keeps them, in a slot.
@@ -20,9 +25,20 @@
 // start unknown it applies at once.
 // =============================================================================
 
+constexpr uint8_t SCENE_DEMO_FIRST = NUM_SCENES;
+
+bool    sceneIsSlot(uint8_t id);   // 0-8
+bool    sceneIsDemo(uint8_t id);   // a demo this firmware has
+uint8_t sceneCount();              // slots plus demos: the Load Scene list
+
+// The scene `id` holds. A demo is built on demand, so the reference is good
+// only until the next call.
+const Scene& sceneGet(const SavedConfig& cfg, uint8_t id);
+
 void    scenesInit(SavedConfig& cfg);     // at boot: loads the current scene
 void    scenesUpdate(SavedConfig& cfg);   // call every loop: lands a queued load
 
+// A used slot, or a demo.
 bool    sceneUsed(const SavedConfig& cfg, uint8_t slot);
 
 // The scene shown as selected: the one queued to load, else the current one.
@@ -34,7 +50,8 @@ void    sceneQueue(SavedConfig& cfg, uint8_t slot);
 // Loads `slot` at once, dropping any queued load.
 void    sceneLoadNow(SavedConfig& cfg, uint8_t slot);
 
-// Saves the live sound to `slot` (1-8) and makes it the current scene.
+// Saves the live sound to `slot` (1-8) and makes it the current scene. A
+// layer playing Scene Voice takes the voice along, so a demo saves whole.
 void    sceneSave(SavedConfig& cfg, uint8_t slot);
 
 // True when the live sound differs from the current scene.

@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include <stddef.h>
 #include <string.h>
+#include <math.h>
 #include "audio/voice.h"
 
 // ---------------------------------------------------------------------------
@@ -188,6 +189,23 @@ static LayerCfg fromV19(const LayerCfgV19& o) {
     return l;
 }
 
+VoiceSlot storageStockVoice(uint8_t base) {
+    if (base >= VOICE_COUNT) base = (uint8_t)VoiceId::Piano;
+    const Voice& v = voiceGet(base);
+    VoiceSlot s{};
+    s.used       = true;
+    s.base       = base;
+    s.wave       = (uint8_t)voiceWave(v.waveform);
+    s.sustainPct = (uint8_t)lroundf(v.sustain * 100.0f);
+    s.attackMs   = v.attackMs;
+    s.decayMs    = v.decayMs;
+    s.releaseMs  = v.releaseMs;
+    s.noteMs     = v.noteMs;
+    memcpy(s.harmonics, v.harmonics, NUM_SLOT_HARMONICS);
+    s.filter     = v.filter;
+    return s;
+}
+
 Scene storageFactoryScene() {
     Scene s{};
     LayerCfg& a = s.layer[LAYER_A];
@@ -332,7 +350,8 @@ void storageLoad(SavedConfig& cfg) {
         storageSave(cfg);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
-        if (cfg.currentScene >= NUM_SCENES || !cfg.sceneUsed[cfg.currentScene]) {
+        // Past the slots is a demo, which scenesInit() checks.
+        if (cfg.currentScene < NUM_SCENES && !cfg.sceneUsed[cfg.currentScene]) {
             cfg.currentScene = SCENE_DEFAULTS;
         }
         cfg.sceneUsed[SCENE_DEFAULTS] = true;

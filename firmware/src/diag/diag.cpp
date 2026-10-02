@@ -10,6 +10,7 @@
 #include "sensors/hall.h"
 #include "audio/audio.h"
 #include "audio/voice.h"
+#include "sequencer/scene_dump.h"
 
 // -----------------------------------------------------------------------------
 // Entry flag. "diag" writes it and reboots; the next boot reads and clears it.
@@ -131,14 +132,18 @@ bool diagWanted() {
     return flagged || held;
 }
 
-void diagPollSerial() {
+void diagPollSerial(const SavedConfig& cfg) {
     if (!readLine()) return;
     if (strcmp(line, "diag") == 0) {
         Serial.println("Rebooting into diagnostics...");
         EEPROM.write(DIAG_FLAG_ADDR, DIAG_FLAG);
         reboot();
     }
-    Serial.println("Type diag to reboot into diagnostics.");
+    if (strcmp(line, "scenes") == 0) {
+        sceneDump(cfg);
+        return;
+    }
+    Serial.println("Type diag to reboot into diagnostics, or scenes to print the saved scenes.");
 }
 
 // -----------------------------------------------------------------------------

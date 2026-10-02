@@ -17,6 +17,7 @@
 #include "sequencer/layers.h"
 #include "motion/bar.h"
 #include "sequencer/scenes.h"
+#include "sequencer/demos.h"
 #include "midi/midi_in.h"
 #include "sequencer/sequencer.h"
 
@@ -87,6 +88,7 @@ enum class MenuState : uint8_t {
     Info,               // read-only pages: belt, StartPos, threshold, driver
     SensorLevels,       // live: each sensor's reading against its rest level
     SensorTiming,       // live: each sensor's learned trigger timing
+    TrackNotes,         // live: what each track plays now, per layer
     ResetCalPrompt,
     ResetSettingsPrompt,
     FactoryResetPrompt
@@ -296,10 +298,10 @@ static uint8_t fxParamsOf(FxId fx, uint8_t out[FXP_COUNT]) {
 }
 
 static const char* MAIN_ITEMS[] = {
-    "Sound Defaults","Play Setup","System","Tools","Exit"
+    "Sound Defaults","Play Setup","Tools","System","Exit"
 };  // Exit returns to the live display; submenus keep "Back"
 static const uint8_t MAIN_COUNT = 5;
-enum : uint8_t { MAIN_ITEM_SOUND, MAIN_ITEM_PLAY, MAIN_ITEM_SYSTEM, MAIN_ITEM_TOOLS,
+enum : uint8_t { MAIN_ITEM_SOUND, MAIN_ITEM_PLAY, MAIN_ITEM_TOOLS, MAIN_ITEM_SYSTEM,
                  MAIN_ITEM_EXIT };
 
 // Sound Defaults: the two layers of the Defaults scene. Drawn with each
@@ -336,14 +338,14 @@ static const uint8_t MIDI_FN_COUNT = 6;
 // where the player sits.
 static const char* TOOLS_ITEMS[] = {
     "Go to StartPos","Go to Front","Placement Mode","Full Calibrate",
-    "Reset Calib.","Calib. StartPos","Info","Sensor Levels","Sensor Timing",
-    "Reset Settings","Factory Reset","Back"
+    "Reset Calib.","Calib. StartPos","Machine Info","Sensor Levels","Sensor Timing",
+    "Track Notes","Reset Settings","Factory Reset","Back"
 };
-static const uint8_t TOOLS_COUNT = 12;
+static const uint8_t TOOLS_COUNT = 13;
 enum : uint8_t { TOOL_GO_TO_START, TOOL_GO_TO_FRONT, TOOL_PLACEMENT,
                  TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_CALIB_START, TOOL_INFO, TOOL_SENSOR_LEVELS,
-                 TOOL_SENSOR_TIMING, TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
+                 TOOL_SENSOR_TIMING, TOOL_TRACK_NOTES, TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
 
 // Info: one page per value, turned through with the menu knob.
 enum : uint8_t { INFO_RPM, INFO_BELT, INFO_START_POS, INFO_THRESHOLD,
@@ -385,6 +387,7 @@ enum class AuxFn : uint8_t { Pitch, Balance, LoadScene,
                              DelayMixA, DelayMixB, DelayFeedbackA, DelayFeedbackB,
                              COUNT };
 static const uint8_t AUX_FN_COUNT = (uint8_t)AuxFn::COUNT;
+static_assert(DEFAULT_AUX_FN == (uint8_t)AuxFn::VoiceA, "DEFAULT_AUX_FN is meant to be Layer A Voice");
 
 // What a per-layer Fn changes. The layer comes from the A/B pair.
 // The effect kinds (Cutoff on) live in the layer's Effects list, not its
@@ -499,10 +502,7 @@ static uint8_t buildVoiceChoices(const SavedConfig& cfg, uint8_t layer, bool wit
     for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++) {
         if (cfg.customVoices[i].used) voiceChoiceIds[n++] = VOICE_CUSTOM_FIRST + i;
     }
-    if (withScene && cfg.currentScene != SCENE_DEFAULTS &&
-        cfg.sceneVoices[cfg.currentScene][layer].used) {
-        voiceChoiceIds[n++] = VOICE_SCENE;
-    }
+    if (withScene && layerSceneVoice(layer).used) voiceChoiceIds[n++] = VOICE_SCENE;
     for (uint8_t i = 0; i < n; i++) voiceChoiceLabels[i] = voiceIdName(voiceChoiceIds[i]);
     voiceChoiceLabels[n] = "Back";
     return n;
@@ -514,24 +514,30 @@ static uint8_t voiceChoicePos(uint8_t id, uint8_t n) {
     return 0;
 }
 
-// Save As: Custom 1-8, then this layer's slot in the current scene (not
-// Defaults), then Back. Labels rebuilt before each draw.
+// Save As: this layer's slot in the current scene (only for scenes 1-8),
+// first so it is reached without scrolling past the customs, then Custom
+// 1-8, then Back. Labels rebuilt before each draw.
 static char        VOICE_SAVE_BUF[NUM_CUSTOM_VOICES + 1][17];
 static const char* VOICE_SAVE_ITEMS[NUM_CUSTOM_VOICES + 2];
 static uint8_t     voiceSaveTarget = 0;   // the custom slot being confirmed
 
+// 1 when the list starts with the scene's slot, which moves the customs down.
+static uint8_t voiceSaveCustomPos(const SavedConfig& cfg) {
+    return sceneIsSlot(cfg.currentScene) && cfg.currentScene != SCENE_DEFAULTS ? 1 : 0;
+}
+
 static uint8_t buildVoiceSaveItems(const SavedConfig& cfg, uint8_t layer) {
     uint8_t n = 0;
-    for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++, n++) {
-        snprintf(VOICE_SAVE_BUF[n], sizeof(VOICE_SAVE_BUF[n]), "Custom %u%s",
-                 (unsigned)(i + 1), cfg.customVoices[i].used ? "" : " empty");
-        VOICE_SAVE_ITEMS[n] = VOICE_SAVE_BUF[n];
-    }
-    if (cfg.currentScene != SCENE_DEFAULTS) {
+    if (voiceSaveCustomPos(cfg)) {
         snprintf(VOICE_SAVE_BUF[n], sizeof(VOICE_SAVE_BUF[n]), "Scene %c Voice %c",
                  '0' + cfg.currentScene, 'A' + layer);   // scenes are 1-8 here
         VOICE_SAVE_ITEMS[n] = VOICE_SAVE_BUF[n];
         n++;
+    }
+    for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++, n++) {
+        snprintf(VOICE_SAVE_BUF[n], sizeof(VOICE_SAVE_BUF[n]), "Custom %u%s",
+                 (unsigned)(i + 1), cfg.customVoices[i].used ? "" : " empty");
+        VOICE_SAVE_ITEMS[n] = VOICE_SAVE_BUF[n];
     }
     VOICE_SAVE_ITEMS[n] = "Back";
     return n + 1;
@@ -645,13 +651,14 @@ static uint8_t auxFnFxPos(AuxFn fn) {
     return 0;
 }
 
-// Scene list entries: "0: Defaults", "2: D Minor" (Layer A's key), or
-// "3: (empty)". Rebuilt before each draw, since the names come from the
-// slots. Load lists every scene, index == slot. Save lists 1-8, then Back:
-// Defaults changes only from the Sound Defaults menu.
-static char        SCENE_LABEL_BUF[NUM_SCENES][16];
-static const char* LOAD_ITEMS[NUM_SCENES];
-static const uint8_t LOAD_COUNT = NUM_SCENES;
+// Scene list entries: "0: Defaults", "2: D Minor" (Layer A's key),
+// "3: (empty)", then the demos, "Demo1: Shimmer" (the name cut to fit).
+// Rebuilt before each draw, since the names come from the slots. Load lists
+// every scene, index == scene id. Save lists 1-8, then Back: Defaults
+// changes only from the Sound Defaults menu, and demos are read-only.
+static const uint8_t LOAD_COUNT = NUM_SCENES + DEMO_COUNT;
+static char        SCENE_LABEL_BUF[LOAD_COUNT][16];
+static const char* LOAD_ITEMS[LOAD_COUNT];
 static const char* SAVE_ITEMS[NUM_SCENES];
 static const uint8_t SAVE_COUNT = NUM_SCENES;   // 8 slots + Back
 
@@ -1000,7 +1007,9 @@ static void drawStatus(const SavedConfig& cfg) {
     // right half names the current scene, with * once the live sound differs
     // from it. The key shown is Layer A's.
     int bpm = (int)lroundf(cfg.rpm * cfg.beatsPerRev);
-    lcdLine(0, "BPM:%-4dScene %u%c", bpm, (unsigned)cfg.currentScene,
+    bool demo = sceneIsDemo(cfg.currentScene);
+    lcdLine(0, "BPM:%-4d%s %u%c", bpm, demo ? "Demo" : "Scene",
+            (unsigned)(demo ? cfg.currentScene - SCENE_DEMO_FIRST + 1 : cfg.currentScene),
             sceneModified(cfg) ? '*' : ' ');
     const LayerCfg& a = layerEffective(cfg, LAYER_A);
     char vb[7];
@@ -1023,6 +1032,12 @@ static void buildSceneLabels(const SavedConfig& cfg) {
         } else {
             snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "%u: (empty)", i);
         }
+        LOAD_ITEMS[i] = SCENE_LABEL_BUF[i];
+    }
+    for (uint8_t d = 0; d < DEMO_COUNT; d++) {
+        uint8_t i = SCENE_DEMO_FIRST + d;
+        snprintf(SCENE_LABEL_BUF[i], sizeof(SCENE_LABEL_BUF[i]), "Demo%u: %s",
+                 (unsigned)(d + 1), demoName(d));
         LOAD_ITEMS[i] = SCENE_LABEL_BUF[i];
     }
     for (uint8_t i = 1; i < NUM_SCENES; i++) SAVE_ITEMS[i - 1] = SCENE_LABEL_BUF[i];
@@ -1169,7 +1184,7 @@ static void drawSensorLevels() {
 // magnet, or its height), and the learned angle from the threshold crossing
 // to the peak. Bottom: the last pass's highest deviation (Pk), the noise
 // calibration recorded (N), and how many readings the last pass lasted (S).
-//   S3 8/8 F2 12.4°
+//   S3 8/8 F2 12.4ï¿½
 //   Pk1234 N12 S123
 static void drawSensorTiming(const SavedConfig& cfg, uint8_t sensor) {
     HallTiming t = hallTiming(sensor);
@@ -1184,6 +1199,90 @@ static void drawSensorTiming(const SavedConfig& cfg, uint8_t sensor) {
     }
     lcdLine(0, "S%u %u/8 F%u %s%c", sensor + 1, t.passes, t.fallbacks, angle, LCD_DEGREE);
     lcdLine(1, "Pk%u N%u S%u", t.lastPeak, cfg.hallNoise[sensor], min(t.lastSamples, (uint16_t)999));
+}
+
+// Track Notes: what each track plays right now, after everything that moves
+// it (root, scale, octave, Pitch, Shift, Wrap, Low Note), Layer A on top,
+// Layer B below. A 2-character cell per track, hall 1 (inner) on the left:
+//   C D E F G A B C
+//   X t T C O S K H
+// The menu knob flips to the keys: "A: G Blues" / "B: Drums".
+static const char* NOTE_SHARP[12] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+static const char* NOTE_FLAT[12]  = { "C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B" };
+
+// One letter per drum slot (kit.h): crash, low and high tom, clap, open hat,
+// snare, kick, closed hat.
+static const char* DRUM_LETTERS[NUM_HALL_SENSORS] = { "X","t","T","C","O","S","K","H" };
+
+// Flats when the scale's parent major key is a flat key (F, Bb, Eb, Ab, Db),
+// as a key signature would: D Minor gets Bb, E Minor F#. Chromatic and
+// Learned have no key and use sharps.
+static bool spellFlats(uint8_t root, Scale scale) {
+    uint8_t toMajor;
+    switch (scale) {
+        case Scale::Major: case Scale::PentatonicMajor:                   toMajor = 0;  break;
+        case Scale::Minor: case Scale::PentatonicMinor: case Scale::Blues: toMajor = 3;  break;
+        case Scale::Dorian:                                               toMajor = 10; break;
+        case Scale::Mixolydian:                                           toMajor = 5;  break;
+        default: return false;
+    }
+    uint8_t key = (uint8_t)((root + toMajor) % 12);
+    return key == 5 || key == 10 || key == 3 || key == 8 || key == 1;
+}
+
+// The layer's root with the Pitch offset's whole semitones, as it sounds.
+static uint8_t soundingRoot(const LayerCfg& lc) {
+    return (uint8_t)((((int)lc.root + pitchNoteShift()) % 12 + 12) % 12);
+}
+
+static void trackNotesRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
+    const Voice& v = layerVoice(cfg, l);
+    if (!layerActive(cfg, l) || voiceIsSilent(v)) {
+        snprintf(out, 17, "%c: off", 'A' + l);
+        return;
+    }
+    const LayerCfg& lc = layerEffective(cfg, l);
+    bool kit = voiceIsKit(v);
+    const char* const* names = spellFlats(soundingRoot(lc), lc.scale) ? NOTE_FLAT : NOTE_SHARP;
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        uint8_t d = layerDegree(cfg, l, i);
+        const char* name;
+        if (kit) {
+            name = DRUM_LETTERS[d % NUM_HALL_SENSORS];
+        } else {
+            int note = scaleNote(lc.root, lc.scale, lc.learned, d, (uint8_t)constrain(lc.octave, 0, 9))
+                     + pitchNoteShift();
+            name = names[(note % 12 + 12) % 12];
+        }
+        snprintf(out + 2 * i, 3, "%-2s", name);
+    }
+}
+
+static void trackKeyRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
+    const Voice& v = layerVoice(cfg, l);
+    char c = 'A' + l;
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+        snprintf(out, 17, "%c: Same as A", c);
+    } else if (!layerActive(cfg, l)) {
+        snprintf(out, 17, "%c: Off", c);
+    } else if (voiceIsKit(v) || voiceIsSilent(v)) {
+        snprintf(out, 17, "%c: %s", c, v.name);
+    } else {
+        const LayerCfg& lc = layerEffective(cfg, l);
+        uint8_t root = soundingRoot(lc);
+        snprintf(out, 17, "%c: %s %s", c,
+                 (spellFlats(root, lc.scale) ? NOTE_FLAT : NOTE_SHARP)[root],
+                 SCALE_NAMES[(uint8_t)lc.scale % (uint8_t)Scale::COUNT]);
+    }
+}
+
+static void drawTrackNotes(const SavedConfig& cfg, uint8_t view) {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        char row[17];
+        if (view == 0) trackNotesRow(cfg, l, row);
+        else           trackKeyRow(cfg, l, row);
+        lcdLine(l, "%s", row);
+    }
 }
 
 // Apply one aux knob step to whatever the knob is bound to.
@@ -1600,7 +1699,8 @@ static bool tuneWait(uint32_t ms) {
     return false;
 }
 
-// Plays each sensor's Layer A note, hall 1 to hall 8 and back, at current BPM.
+// Plays each sensor's Layer A note, hall 1 to hall 8 and back, in sixteenth
+// notes at the current BPM.
 // Blocking -- returns when the last note's release has finished, or at once if
 // the menu button is pressed. A slow saved tempo makes the full tune long, and
 // the press is the way to skip it. The caller carries on as if it had finished,
@@ -1608,8 +1708,8 @@ static bool tuneWait(uint32_t ms) {
 static void playWelcomeTune(const SavedConfig& cfg) {
     int bpm = (int)(fabsf(cfg.rpm) * cfg.beatsPerRev);
     bpm = constrain(bpm, 40, 200);
-    uint32_t beatMs = 60000UL / (uint32_t)bpm;
-    uint32_t noteMs  = min((uint32_t)layerVoice(cfg, LAYER_A).noteMs, beatMs);
+    uint32_t stepMs = 60000UL / (uint32_t)bpm / 4;   // a sixteenth
+    uint32_t noteMs  = min((uint32_t)layerVoice(cfg, LAYER_A).noteMs, stepMs);
     uint8_t  channel = layerChannel(cfg, LAYER_A);
     bool     kit     = voiceIsKit(layerVoice(cfg, LAYER_A));
     bool     silent  = voiceIsSilent(layerVoice(cfg, LAYER_A));
@@ -1638,7 +1738,7 @@ static void playWelcomeTune(const SavedConfig& cfg) {
             cancelled = tuneWait(noteMs);
             midiNoteOff(LAYER_A, channel, sounded);
         }
-        return cancelled || tuneWait(beatMs - noteMs);
+        return cancelled || tuneWait(stepMs - noteMs);
     };
 
     // Forward pass.
@@ -1646,8 +1746,8 @@ static void playWelcomeTune(const SavedConfig& cfg) {
         if (step(i)) return;
     }
 
-    // Pause for one beat.
-    if (tuneWait(beatMs)) return;
+    // Pause for one sixteenth.
+    if (tuneWait(stepMs)) return;
 
     // Reverse pass.
     for (int8_t i = NUM_HALL_SENSORS - 1; i >= 0; i--) {
@@ -1859,7 +1959,8 @@ void menuUpdate(SavedConfig& cfg) {
     // short; the menu button is the way out.
     bool isView = (state == MenuState::Info ||
                    state == MenuState::SensorLevels ||
-                   state == MenuState::SensorTiming);
+                   state == MenuState::SensorTiming ||
+                   state == MenuState::TrackNotes);
 
     // A hidden way out: the aux button in the menus goes straight to the live
     // display. Not in the prompts (calibration, resets), where a stray press
@@ -1921,7 +2022,8 @@ void menuUpdate(SavedConfig& cfg) {
                 } else if (cursor == AUXT_SAVE_SCENE) {
                     // The list is slots 1-8: cursor on the current one.
                     uint8_t cur = cfg.currentScene;
-                    enterState(MenuState::SceneSaveSelect, cur != SCENE_DEFAULTS ? cur - 1 : 0);
+                    bool    slot = sceneIsSlot(cur) && cur != SCENE_DEFAULTS;
+                    enterState(MenuState::SceneSaveSelect, slot ? cur - 1 : 0);
                 } else if (cursor == AUXT_RESET) {
                     // Throw away every live tweak at once and drop back to the
                     // live display: the current scene, as saved. Nothing is
@@ -2067,19 +2169,20 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.auxPressed) {
+                uint8_t first = voiceSaveCustomPos(cfg);
                 if (cursor == count - 1) {
                     enterState(MenuState::VoiceEditList, VE_SAVE);
-                } else if (cursor < NUM_CUSTOM_VOICES) {
-                    voiceSaveTarget = cursor;
-                    if (cfg.customVoices[cursor].used) {
-                        enterState(MenuState::VoiceSaveConfirm, 1);
-                    } else {
-                        layerVoiceSaveCustom(cfg, auxLayer, cursor);
-                        voiceSaved(voiceIdName(VOICE_CUSTOM_FIRST + cursor));
-                    }
-                } else {
+                } else if (cursor < first) {
                     layerVoiceSaveScene(cfg, auxLayer);
                     voiceSaved("Scene Voice");
+                } else {
+                    voiceSaveTarget = cursor - first;
+                    if (cfg.customVoices[voiceSaveTarget].used) {
+                        enterState(MenuState::VoiceSaveConfirm, 1);
+                    } else {
+                        layerVoiceSaveCustom(cfg, auxLayer, voiceSaveTarget);
+                        voiceSaved(voiceIdName(VOICE_CUSTOM_FIRST + voiceSaveTarget));
+                    }
                 }
             }
             break;
@@ -2093,7 +2196,7 @@ void menuUpdate(SavedConfig& cfg) {
                     layerVoiceSaveCustom(cfg, auxLayer, voiceSaveTarget);
                     voiceSaved(voiceIdName(VOICE_CUSTOM_FIRST + voiceSaveTarget));
                 } else {
-                    enterState(MenuState::VoiceSaveSelect, voiceSaveTarget);
+                    enterState(MenuState::VoiceSaveSelect, voiceSaveTarget + voiceSaveCustomPos(cfg));
                 }
             }
             break;
@@ -2727,6 +2830,7 @@ void menuUpdate(SavedConfig& cfg) {
                         break;
                     case TOOL_SENSOR_LEVELS: enterState(MenuState::SensorLevels); break;
                     case TOOL_SENSOR_TIMING: enterState(MenuState::SensorTiming); break;
+                    case TOOL_TRACK_NOTES:   enterState(MenuState::TrackNotes);   break;
                     case TOOL_RESET_SETTINGS: enterState(MenuState::ResetSettingsPrompt); break;
                     case TOOL_FACTORY_RESET:  enterState(MenuState::FactoryResetPrompt); break;
                     default: enterState(MenuState::MainMenu, MAIN_ITEM_TOOLS); break;
@@ -2974,6 +3078,14 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (ev.menuPressed) enterState(MenuState::Tools, TOOL_SENSOR_TIMING);
+            if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
+            break;
+
+        // The menu knob flips between the notes and the keys. Redrawn live,
+        // so Aux and MIDI In changes show at once.
+        case MenuState::TrackNotes:
+            if (ev.menuDelta) { cursor ^= 1; needsRedraw = true; }
+            if (ev.menuPressed) enterState(MenuState::Tools, TOOL_TRACK_NOTES);
             if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
             break;
 
@@ -3319,6 +3431,10 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::SensorTiming:
                 drawSensorTiming(cfg, cursor);
+                lastLiveDraw = millis();
+                break;
+            case MenuState::TrackNotes:
+                drawTrackNotes(cfg, cursor);
                 lastLiveDraw = millis();
                 break;
             case MenuState::ResetCalPrompt:

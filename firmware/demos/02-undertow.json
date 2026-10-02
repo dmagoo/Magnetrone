@@ -1,0 +1,10 @@
+{
+  "name": "Undertow",
+  "layerB": {
+    "voice": "piano",
+    "root": "d",
+    "scale": "pentatonicMinor",
+    "octave": 2,
+    "lowNote": "outer"
+  }
+}

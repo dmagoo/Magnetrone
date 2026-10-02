@@ -46,7 +46,9 @@ turning physical arrangement into musical pattern.
   to the next step or beat, Volume mutes and unmutes single tracks
 - Scenes: the whole sound of both layers, 8 saved slots plus a Defaults scene
   edited from the menu; loaded live on the next bar start. Aux changes are live
-  only, on top of the current scene
+  only, on top of the current scene. Read-only demo scenes are built into the
+  firmware from JSON files (docs/scene-format.md), and a `scenes` serial
+  command prints the saved scenes in that format
 - MIDI beat clock driven by platter position, with Song Position Pointer so
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
@@ -73,8 +75,8 @@ turning physical arrangement into musical pattern.
   measures sensor baselines and noise, threshold, magnet pole, the belt reduction
   (e.g. "Belt 10.9:1", counted in motor steps) and the bar start
 - Tools menu: Go to StartPos, Go to Front, Placement Mode, calibration,
-  StartPos, Info (RPM, belt ratio, StartPos, threshold, motor driver), live
-  Sensor Levels and Sensor Timing screens, Reset Settings (keeps calibration, Front and scenes
+  StartPos, Machine Info (RPM, belt ratio, StartPos, threshold, motor driver), live
+  Sensor Levels, Sensor Timing and Track Notes screens, Reset Settings (keeps calibration, Front and scenes
   1-8) and Factory Reset
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1

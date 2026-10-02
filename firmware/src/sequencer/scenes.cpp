@@ -6,6 +6,7 @@
 #include "pitch.h"
 #include "motion/bar.h"
 #include "motion/stepper.h"
+#include "demos.h"
 
 // Saving the new current scene waits this long after the downbeat, so an
 // EEPROM write never lands on the notes it would delay.
@@ -19,31 +20,70 @@ static bool     changed      = false;
 static bool     saveDue      = false;
 static uint32_t saveAtMs     = 0;
 
+// The demo last built, for sceneGet().
+static Scene     demoScene;
+static VoiceSlot demoVoices[NUM_LAYERS];
+static uint8_t   demoBuilt = NONE;
+
+bool sceneIsSlot(uint8_t id) {
+    return id < NUM_SCENES;
+}
+
+bool sceneIsDemo(uint8_t id) {
+    return id >= SCENE_DEMO_FIRST && id - SCENE_DEMO_FIRST < DEMO_COUNT;
+}
+
+uint8_t sceneCount() {
+    return NUM_SCENES + DEMO_COUNT;
+}
+
 bool sceneUsed(const SavedConfig& cfg, uint8_t slot) {
-    return slot < NUM_SCENES && cfg.sceneUsed[slot];
+    return (slot < NUM_SCENES && cfg.sceneUsed[slot]) || sceneIsDemo(slot);
+}
+
+static void buildDemo(uint8_t id) {
+    if (demoBuilt == id) return;
+    demoBuild(id - SCENE_DEMO_FIRST, demoScene, demoVoices);
+    demoBuilt = id;
+}
+
+const Scene& sceneGet(const SavedConfig& cfg, uint8_t id) {
+    if (sceneIsDemo(id)) { buildDemo(id); return demoScene; }
+    return cfg.scenes[id < NUM_SCENES ? id : SCENE_DEFAULTS];
+}
+
+// The scene's own voice for a layer; unused if it has none. Defaults never
+// has one.
+static VoiceSlot sceneVoiceOf(const SavedConfig& cfg, uint8_t id, uint8_t l) {
+    if (sceneIsDemo(id)) { buildDemo(id); return demoVoices[l]; }
+    if (id == SCENE_DEFAULTS || id >= NUM_SCENES) return VoiceSlot{};
+    return cfg.sceneVoices[id][l];
 }
 
 uint8_t sceneSelected(const SavedConfig& cfg) {
     return (pending != NONE) ? pending : cfg.currentScene;
 }
 
-// Makes the scene in `slot` the live sound.
+// Makes the scene in `slot` the live sound, its own voices included.
 static void put(SavedConfig& cfg, uint8_t slot) {
-    const Scene& s = cfg.scenes[slot];
+    const Scene& s = sceneGet(cfg, slot);
     for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.layer[l] = s.layer[l];
     pitchSetOffset(s.pitch);
     layerSetBalance(s.balance);
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) layerSetSceneVoice(l, sceneVoiceOf(cfg, slot, l));
     layersResetVoices();   // Voice Edit tweaks are not part of a scene
     layersApply(cfg);
 }
 
 void scenesInit(SavedConfig& cfg) {
+    // A demo this firmware no longer has falls back to Defaults.
+    if (!sceneUsed(cfg, cfg.currentScene)) cfg.currentScene = SCENE_DEFAULTS;
     put(cfg, cfg.currentScene);
 }
 
 static void apply(SavedConfig& cfg, uint8_t slot) {
     if (!sceneUsed(cfg, slot)) return;
-    cfg.currentScene = slot;   // first: a scene's own voices are looked up by it
+    cfg.currentScene = slot;
     put(cfg, slot);
     changed  = true;
     saveDue  = true;
@@ -93,9 +133,8 @@ void sceneSave(SavedConfig& cfg, uint8_t slot) {
     Scene& s = cfg.scenes[slot];
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         s.layer[l] = cfg.layer[l];
-        // A layer playing this scene's own voice takes a copy of it along.
-        if (cfg.layer[l].voice == VOICE_SCENE && slot != cfg.currentScene)
-            cfg.sceneVoices[slot][l] = cfg.sceneVoices[cfg.currentScene][l];
+        // A layer playing the scene's own voice takes a copy of it along.
+        if (cfg.layer[l].voice == VOICE_SCENE) cfg.sceneVoices[slot][l] = layerSceneVoice(l);
     }
     s.pitch   = pitchGetOffset();
     s.balance = layerBalance();
@@ -127,7 +166,7 @@ static bool layerEqual(const LayerCfg& a, const LayerCfg& b) {
 }
 
 bool sceneModified(const SavedConfig& cfg) {
-    const Scene& s = cfg.scenes[cfg.currentScene];
+    const Scene& s = sceneGet(cfg, cfg.currentScene);
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         if (!layerEqual(cfg.layer[l], s.layer[l])) return true;
     }

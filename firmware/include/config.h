@@ -27,7 +27,7 @@ constexpr bool      DEFAULT_LOW_NOTE_OUTER = false;  // per layer: Low Note Inne
 // Which parameter the aux knob modulates. Index into the Fn list in menu.cpp.
 // This binding is saved; the VALUES it modulates are live performance state and
 // deliberately are not.
-constexpr uint8_t   DEFAULT_AUX_FN       = 0;   // Pitch
+constexpr uint8_t   DEFAULT_AUX_FN       = 3;   // Layer A Voice (AuxFn::VoiceA)
 
 // Pitch step size, stored as a divisor of one semitone: 1 = a half step,
 // 2 = a quarter tone, and so on. Anything above 1 is microtonal -- exact on the
@@ -121,7 +121,7 @@ constexpr int8_t    DEFAULT_MAGNET_POLARITY = 1;
 // -------------------------------------------------------------------------
 // 1 revolution = 1 bar (4/4) by default. Now configurable from the menu and
 // stored per-config as cfg.beatsPerRev; this is only the factory default.
-constexpr uint8_t   DEFAULT_BEATS_PER_REV = 4;
+constexpr uint8_t   DEFAULT_BEATS_PER_REV = 8;
 // BPM = |RPM| * cfg.beatsPerRev
 
 // -------------------------------------------------------------------------
@@ -163,7 +163,7 @@ constexpr uint8_t   MENU_TIMEOUT_NEVER   = 0;
 
 // LCD backlight timeout in seconds.
 // 0 = always off, 255 = always on, any other value = seconds of inactivity.
-constexpr uint8_t   DEFAULT_LCD_TIMEOUT  = 5;
+constexpr uint8_t   DEFAULT_LCD_TIMEOUT  = 30;
 
 // Sentinel values for LCD timeout setting.
 constexpr uint8_t   LCD_TIMEOUT_ALWAYS_OFF = 0;
