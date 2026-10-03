@@ -1505,11 +1505,55 @@ static void trackKeyRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
     }
 }
 
+// The Shift and Low Note screens open the same way as the keys: Same as A,
+// then Off (a silent voice counts). Returns false if `out` is already filled.
+static bool trackMoveRowLive(const SavedConfig& cfg, uint8_t l, char out[17]) {
+    char c = 'A' + l;
+    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
+        snprintf(out, 17, "%c: Same as A", c);
+        return false;
+    }
+    if (!layerActive(cfg, l) || voiceIsSilent(layerVoice(cfg, l))) {
+        snprintf(out, 17, "%c: Off", c);
+        return false;
+    }
+    return true;
+}
+
+// "A: Shift1 Wrap". Drums always wrap, so they show "Kit". B playing A's
+// shift plays A's Wrap too, shown on the line above, so it reads just
+// "B: Shift=A" (with NoWrap it would not fit).
+static void trackShiftRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
+    if (!trackMoveRowLive(cfg, l, out)) return;
+    if (layerShiftSource(cfg, l) != l) {
+        snprintf(out, 17, "%c: Shift=A", 'A' + l);
+        return;
+    }
+    const char* wrap = voiceIsKit(layerVoice(cfg, l)) ? "Kit"
+                     : layerWraps(cfg, l)             ? "Wrap" : "NoWrap";
+    snprintf(out, 17, "%c: Shift%u %s", 'A' + l,
+             (unsigned)(cfg.layer[l].shift % NUM_HALL_SENSORS), wrap);
+}
+
+// "A: Low Inner"; B playing A's Low Note shows "B: Low=A Inner".
+static void trackLowRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
+    if (!trackMoveRowLive(cfg, l, out)) return;
+    uint8_t src = layerLowNoteSource(cfg, l);
+    const char* end = (cfg.layer[src].lowNote == (uint8_t)LowNote::Outer) ? "Outer" : "Inner";
+    snprintf(out, 17, "%c: Low%s %s", 'A' + l, src != l ? "=A" : "", end);
+}
+
+// The Track Notes screens, in Menu knob order.
+static const uint8_t TRACK_VIEWS = 4;
 static void drawTrackNotes(const SavedConfig& cfg, uint8_t view) {
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         char row[17];
-        if (view == 0) trackNotesRow(cfg, l, row);
-        else           trackKeyRow(cfg, l, row);
+        switch (view) {
+            case 0:  trackNotesRow(cfg, l, row); break;
+            case 1:  trackKeyRow(cfg, l, row);   break;
+            case 2:  trackShiftRow(cfg, l, row); break;
+            default: trackLowRow(cfg, l, row);   break;
+        }
         lcdLine(l, "%s", row);
     }
 }
@@ -3455,10 +3499,13 @@ void menuUpdate(SavedConfig& cfg) {
             if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
             break;
 
-        // The menu knob flips between the notes and the keys. Redrawn live,
-        // so Aux and MIDI In changes show at once.
+        // The menu knob steps through the notes, the keys, the shifts and
+        // the Low Notes. Redrawn live, so Aux and MIDI In changes show at once.
         case MenuState::TrackNotes:
-            if (ev.menuDelta) { cursor ^= 1; needsRedraw = true; }
+            if (ev.menuDelta) {
+                cursor = (uint8_t)((cursor + ev.menuDelta % TRACK_VIEWS + TRACK_VIEWS) % TRACK_VIEWS);
+                needsRedraw = true;
+            }
             if (ev.menuPressed) enterState(MenuState::Tools, TOOL_TRACK_NOTES);
             if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
             break;
