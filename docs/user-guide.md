@@ -294,6 +294,10 @@ change turns it into **Custom**, starting from the same notes.
 The notes count from the root, so Root Note transposes them. Shift and Wrap
 work as with any scale; with No Wrap, notes past slot 8 repeat an octave up.
 
+**Reset**, below slot 8, undoes your changes: on the Aux it goes back to the
+scale the current scene was saved with, and in Sound Defaults to the scale the
+layer had when you opened Edit Scale. The list stays open.
+
 Custom is saved with the scene like any other setting. To use it in other
 scenes, choose **Save As** at the bottom of the list and pick **Custom 1** to
 **Custom 8**. These appear in every Scale list. Choosing one copies its notes

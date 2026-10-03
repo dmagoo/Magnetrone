@@ -888,10 +888,11 @@ static void scaleStepName(const LayerCfg& lc, int8_t step, char* out, size_t len
     snprintf(out, len, "%s%+d", ROOT_ITEMS[n - oct * 12], oct);
 }
 
-// The Edit Scale list: "1: C+0" to "8: C+1", Save As, Back.
-static const uint8_t SE_SAVE  = CUSTOM_SCALE_SLOTS;
-static const uint8_t SE_BACK  = CUSTOM_SCALE_SLOTS + 1;
-static const uint8_t SE_COUNT = CUSTOM_SCALE_SLOTS + 2;
+// The Edit Scale list: "1: C+0" to "8: C+1", Reset, Save As, Back.
+static const uint8_t SE_RESET = CUSTOM_SCALE_SLOTS;
+static const uint8_t SE_SAVE  = CUSTOM_SCALE_SLOTS + 1;
+static const uint8_t SE_BACK  = CUSTOM_SCALE_SLOTS + 2;
+static const uint8_t SE_COUNT = CUSTOM_SCALE_SLOTS + 3;
 static char        SE_BUF[CUSTOM_SCALE_SLOTS][12];
 static const char* SE_ITEMS[SE_COUNT];
 static void buildScaleEditItems(const SavedConfig& cfg) {
@@ -904,6 +905,7 @@ static void buildScaleEditItems(const SavedConfig& cfg) {
         snprintf(SE_BUF[i], sizeof(SE_BUF[i]), "%u: %s", (unsigned)(i + 1), name);
         SE_ITEMS[i] = SE_BUF[i];
     }
+    SE_ITEMS[SE_RESET] = "Reset";
     SE_ITEMS[SE_SAVE] = "Save As";
     SE_ITEMS[SE_BACK] = "Back";
 }
@@ -961,6 +963,20 @@ static void scaleSaveCustom(SavedConfig& cfg, uint8_t n) {
     menuMessage(msg, "");
     delay(1000);
     enterState(MenuState::ScaleEditList, SE_SAVE);
+}
+
+// Reset: the layer's scale as it was before the fiddling. On the Aux that is
+// the current scene's, as saved; from Sound Defaults, which changes the
+// Defaults scene as it goes, it is the scale when Edit Scale was opened.
+static LayerCfg scaleEditSnap{};
+static void scaleEditReset(SavedConfig& cfg) {
+    LayerCfg src = scaleEditAux ? sceneGet(cfg, cfg.currentScene).layer[auxLayer] : scaleEditSnap;
+    scaleEditSet(cfg, [&src](LayerCfg& c) {
+        c.scale   = src.scale;
+        c.learned = src.learned;
+        memcpy(c.custom, src.custom, CUSTOM_SCALE_SLOTS);
+    }, true);
+    customScaleFrom[scaleEditLayer()] = NO_CUSTOM_SCALE;
 }
 
 // Where Edit Scale's Back goes.
@@ -2632,7 +2648,8 @@ void menuUpdate(SavedConfig& cfg) {
                         break;
                     }
                     case LAYER_ITEM_EDIT_SCALE:
-                        scaleEditAux = false;
+                        scaleEditAux  = false;
+                        scaleEditSnap = lc;   // what Reset goes back to
                         enterState(MenuState::ScaleEditList, 0);
                         break;
                     case LAYER_ITEM_OCTAVE:
@@ -2769,8 +2786,9 @@ void menuUpdate(SavedConfig& cfg) {
                 needsRedraw = true;
             }
             if (press) {
-                if (cursor == SE_BACK)      scaleEditLeave();
-                else if (cursor == SE_SAVE) enterState(MenuState::ScaleSaveSelect, 0);
+                if (cursor == SE_BACK)       scaleEditLeave();
+                else if (cursor == SE_SAVE)  enterState(MenuState::ScaleSaveSelect, 0);
+                else if (cursor == SE_RESET) { scaleEditReset(cfg); needsRedraw = true; }
                 else { scaleEditSlot = cursor; enterState(MenuState::ScaleEditSlot); }
             }
             break;
