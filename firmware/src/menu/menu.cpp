@@ -1205,6 +1205,18 @@ static void backlightActivity(uint8_t lcdTimeout) {
     }
 }
 
+// --- LCD buffer -----------------------------------------------------------
+// Drawing writes into lcdWant; lcdFlush() sends the characters that differ
+// from what the LCD shows, a few per loop pass. Each character costs about a
+// millisecond on the I2C backpack, so a whole-screen redraw at once blocked
+// the loop for ~40 ms, and the hall sensors were not read meanwhile: notes
+// stuttered while scrolling a menu.
+static const uint8_t LCD_FLUSH_CHARS = 2;   // characters sent per loop pass
+static char lcdWant[2][16];
+static char lcdShown[2][16];
+static bool lcdKnown[2][16];                // false: the LCD's content is unknown
+static int8_t lcdAtRow = -1, lcdAtCol = 0;  // where the LCD cursor is, -1 unknown
+
 static void lcdLine(uint8_t row, const char* fmt, ...) {
     char buf[17];
     va_list args;
@@ -1214,9 +1226,26 @@ static void lcdLine(uint8_t row, const char* fmt, ...) {
     // pad to 16
     int len = strlen(buf);
     while (len < 16) buf[len++] = ' ';
-    buf[16] = '\0';
-    lcd.setCursor(0, row);
-    lcd.print(buf);
+    memcpy(lcdWant[row & 1], buf, 16);
+}
+
+// Sends up to `maxChars` changed characters; 0 sends them all (for screens
+// shown just before blocking work, which would otherwise sit half drawn).
+static void lcdFlush(uint8_t maxChars) {
+    uint8_t sent = 0;
+    for (uint8_t r = 0; r < 2; r++) {
+        for (uint8_t c = 0; c < 16; c++) {
+            if (lcdKnown[r][c] && lcdShown[r][c] == lcdWant[r][c]) continue;
+            if (maxChars && sent >= maxChars) return;
+            if (lcdAtRow != r || lcdAtCol != c) lcd.setCursor(c, r);
+            lcd.write((uint8_t)lcdWant[r][c]);
+            lcdShown[r][c] = lcdWant[r][c];
+            lcdKnown[r][c] = true;
+            lcdAtRow = r;
+            lcdAtCol = c + 1;   // the LCD moves on by itself
+            sent++;
+        }
+    }
 }
 
 static void buildVolBar(char* out, float vol, bool muted) {
@@ -2004,6 +2033,7 @@ static void playWelcomeTune(const SavedConfig& cfg) {
 
     lcdLine(0, "  Music  Table  ");
     lcdLine(1, "~~~~~~~~~~~~~~~~");
+    lcdFlush(0);   // the tune blocks the loop, which would flush it
 
     // Each step is what that sensor plays on Layer A, key, octave, Track
     // Shift, Wrap and Low Note included, so the tune previews the table. A
@@ -2048,6 +2078,7 @@ static void playWelcomeTune(const SavedConfig& cfg) {
 
 void menuInit(const SavedConfig& cfg) {
     lcd.init();
+    memset(lcdWant, ' ', sizeof(lcdWant));
 
 
     CHANNEL_ITEMS[0] = "Auto";
@@ -2095,9 +2126,11 @@ void menuInit(const SavedConfig& cfg) {
     else                 enterState(MenuState::Status);
 }
 
+// Shown at once: callers block (delay, calibration) right after.
 void menuMessage(const char* line1, const char* line2) {
     lcdLine(0, "%-16s", line1);
     lcdLine(1, "%-16s", line2);
+    lcdFlush(0);
 }
 
 void menuUpdate(SavedConfig& cfg) {
@@ -3918,4 +3951,6 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
         }
     }
+
+    lcdFlush(LCD_FLUSH_CHARS);
 }
