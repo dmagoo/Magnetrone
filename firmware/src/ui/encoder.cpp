@@ -8,11 +8,16 @@ static Encoder encSpeed (PIN_SPEED_A, PIN_SPEED_B);
 static Encoder encVol   (PIN_VOL_A,   PIN_VOL_B);
 static Encoder encAux   (PIN_AUX_ENC_A, PIN_AUX_ENC_B);
 
-// Raw count at the last reported click. An EC11 gives 4 counts per detent, and
-// the count starts at 0 on the detent the knob rests on at power-up. A click is
-// reported only once the count has moved a full 4 from the last one, so a
-// wiggle within a detent is ignored. (Dividing the raw count by 4 put the
-// rounding edge right on each detent, so a one-count wiggle read as a turn.)
+// Detent position at the last reported click. An EC11 gives 4 counts per
+// detent, and the count starts at 0 on the detent the knob rests on at
+// power-up. A click is reported once the count is CLICK_COUNTS from the last
+// detent, and the last detent then moves a full 4, so a wiggle of up to two
+// counts within a detent is ignored. (Dividing the raw count by 4 put the
+// rounding edge right on each detent, so a one-count wiggle read as a turn.
+// Needing all 4 dropped turns whenever a count was missed, since the detents
+// then sat one count short of where the knob was expected to stop.)
+constexpr long COUNTS_PER_DETENT = 4;
+constexpr long CLICK_COUNTS      = 3;
 static long lastMenu  = 0;
 static long lastSpeed = 0;
 static long lastVol   = 0;
@@ -20,8 +25,9 @@ static long lastAux   = 0;
 
 static long takeClicks(Encoder& enc, long& last) {
     long raw    = enc.read();
-    long clicks = (raw - last) / 4;   // whole clicks only, toward zero
-    last += clicks * 4;
+    long clicks = 0;
+    while (raw - last >= CLICK_COUNTS)  { last += COUNTS_PER_DETENT; clicks++; }
+    while (last - raw >= CLICK_COUNTS)  { last -= COUNTS_PER_DETENT; clicks--; }
     return clicks;
 }
 
