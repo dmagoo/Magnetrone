@@ -20,7 +20,8 @@ the implementation guide for the feature, not for playing the table: see the
 - **The dump leaves out factory values** for you, so a dumped scene already
   holds only its changes. Prune further by hand.
 - **Demos must not use Custom 1 to 8.** Those are edited by the player, so a
-  demo would change under them. Use a scene voice (`sceneVoice`) instead.
+  demo would change under them. Use a scene voice (`sceneVoice`) instead, or
+  for a scale, the layer's own `custom`.
 
 ## Scene
 
@@ -31,6 +32,7 @@ the implementation guide for the feature, not for playing the table: see the
 | `balance` | A/B Balance, -10 (all A) to 10 (all B). Factory 0. |
 | `layerA`, `layerB` | The two layers, below. |
 | `customVoices` | Dump only, printed on its own after the scenes: Custom 1 to 8 (`custom1` ... `custom8`), each a voice as below. They are shared by every scene, not part of one, so a demo cannot have this. |
+| `customScales` | Dump only, like `customVoices`: the saved Custom scales 1 to 8 (`custom1` ... `custom8`), each a list of steps as `custom` below. |
 
 ## Layer
 
@@ -41,8 +43,9 @@ the implementation guide for the feature, not for playing the table: see the
 | `sceneVoice` | The layer's own voice, a voice as below. Used when `voice` is `sceneVoice`. |
 | `channel` | `auto` (follows the voice), or a MIDI channel 1 to 16. |
 | `root` | `c`, `c#`, `d`, `d#`, `e`, `f`, `f#`, `g`, `g#`, `a`, `a#`, `b`. |
-| `scale` | `major`, `minor`, `pentatonicMajor`, `pentatonicMinor`, `blues`, `chromatic`, `dorian`, `mixolydian`, `learned`. |
+| `scale` | `major`, `minor`, `pentatonicMajor`, `pentatonicMinor`, `blues`, `chromatic`, `dorian`, `mixolydian`, `learned`, `custom`. |
 | `learned` | The Learned scale: semitones above the root, 0 to 11. Empty if none (then `learned` plays as major). |
+| `custom` | The Custom scale (Edit Scale): one note per track, slot 1 first, as 8 steps in semitones from the root, -12 to 35 (12 is the octave above). Left out if none (then `custom` plays as major). |
 | `octave` | 0 to 7. |
 | `level` | 0 to 100 (percent). |
 | `shift` | Track Shift, 0 to 7. |

@@ -20,9 +20,11 @@ VOICE_ENUM = ["Piano", "Strings", "Leads", "Bass", "Drums", "None"]
 BASE_VOICES = ["piano", "strings", "leads", "bass", "drums"]
 ROOTS = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"]
 SCALES = ["major", "minor", "pentatonicmajor", "pentatonicminor", "blues",
-          "chromatic", "dorian", "mixolydian", "learned"]
+          "chromatic", "dorian", "mixolydian", "learned", "custom"]
 SCALE_ENUM = ["Major", "Minor", "PentatonicMajor", "PentatonicMinor", "Blues",
-              "Chromatic", "Dorian", "Mixolydian", "Learned"]
+              "Chromatic", "Dorian", "Mixolydian", "Learned", "Custom"]
+CUSTOM_SLOTS = 8           # CUSTOM_SCALE_SLOTS in scale.h
+CUSTOM_MIN, CUSTOM_MAX = -12, 35
 MODES = {"on": "On", "off": "Off", "sameasa": "SameAsA", "stack": "Stack"}
 WAVES = ["sine", "triangle", "saw", "square"]
 WAVE_ENUM = ["Sine", "Triangle", "Saw", "Square"]
@@ -174,7 +176,7 @@ def fx_code(path, key, fx, is_b, out, tgt):
 
 def layer_code(path, lay, l, out):
     is_b = l == 1
-    keys = {"mode", "voice", "sceneVoice", "channel", "root", "scale", "learned",
+    keys = {"mode", "voice", "sceneVoice", "channel", "root", "scale", "learned", "custom",
             "octave", "level", "shift", "wrap", "lowNote", "tone", "chorus", "delay", "reverb"}
     if is_b:
         keys |= {"shiftSameAsA", "lowNoteSameAsA", "turns"}
@@ -223,6 +225,13 @@ def layer_code(path, lay, l, out):
         if mask:
             mask |= 1   # the root is always in the scale
         out.append("%s.learned = 0x%03X;" % (t, mask))
+    if "custom" in lay:
+        cs = lay["custom"]
+        if not isinstance(cs, list) or len(cs) != CUSTOM_SLOTS:
+            fail(path + ".custom", "must be a list of %d semitone steps" % CUSTOM_SLOTS)
+        for i, n in enumerate(cs):
+            out.append("%s.custom[%d] = %d;" % (t, i, integer("%s.custom[%d]" % (path, i), n,
+                                                                CUSTOM_MIN, CUSTOM_MAX)))
     for key, lo, hi in (("octave", 0, 7), ("level", 0, 100), ("shift", 0, 7)):
         if key in lay:
             out.append("%s.%s = %d;" % (t, key, integer(path + "." + key, lay[key], lo, hi)))
@@ -241,9 +250,12 @@ def layer_code(path, lay, l, out):
 
 
 def demo_code(path, d):
-    check_keys(path, d, {"name", "pitch", "balance", "layerA", "layerB", "customVoices"})
+    check_keys(path, d, {"name", "pitch", "balance", "layerA", "layerB", "customVoices",
+                         "customScales"})
     if "customVoices" in d:
         fail(path + ".customVoices", "demos must not use Custom 1 to 8 (dump only)")
+    if "customScales" in d:
+        fail(path + ".customScales", "demos must not use Custom 1 to 8 (dump only)")
     n = d.get("name")
     if not isinstance(n, str) or not n.strip():
         fail(path + ".name", "missing")

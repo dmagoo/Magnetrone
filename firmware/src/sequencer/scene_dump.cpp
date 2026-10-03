@@ -11,13 +11,23 @@ static const char* VOICE_KEYS[VOICE_COUNT] = { "piano", "strings", "leads", "bas
 static const char* ROOT_KEYS[12] = { "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" };
 static const char* SCALE_KEYS[(uint8_t)Scale::COUNT] = {
     "major", "minor", "pentatonicMajor", "pentatonicMinor", "blues",
-    "chromatic", "dorian", "mixolydian", "learned"
+    "chromatic", "dorian", "mixolydian", "learned", "custom"
 };
 static const char* MODE_KEYS[] = { "on", "off", "sameAsA", "stack" };
 static const char* WAVE_KEYS[WAVE_COUNT] = { "sine", "triangle", "saw", "square" };
 
 static const char* pick(const char* const* keys, uint8_t n, uint8_t i) {
     return keys[i < n ? i : 0];
+}
+
+// A Custom scale's steps, "[0, 4, 7, 12, ...]".
+static String stepsList(const int8_t* steps) {
+    String t = "[";
+    for (uint8_t i = 0; i < CUSTOM_SCALE_SLOTS; i++) {
+        if (i) t += ", ";
+        t += (int)steps[i];
+    }
+    return t + "]";
 }
 
 // One JSON object, built as text so an object with nothing in it can be
@@ -140,6 +150,7 @@ static Obj layerObj(const LayerCfg& a, const LayerCfg& f, const VoiceSlot& sv,
         }
         o.raw("learned", l + "]");
     }
+    if (scaleCustomSet(a.custom)) o.raw("custom", stepsList(a.custom));
     if (a.octave != f.octave) o.num("octave", a.octave);
     if (a.level  != f.level)  o.num("level",  a.level);
     if (a.shift  != f.shift)  o.num("shift",  a.shift);
@@ -218,6 +229,20 @@ void sceneDump(const SavedConfig& cfg) {
         Obj o(0);
         o.obj("customVoices", customs);
         Serial.println("--- Custom voices ---");
+        Serial.println(o.text());
+    }
+
+    Obj scales(1);
+    for (uint8_t i = 0; i < NUM_CUSTOM_SCALES; i++) {
+        if (!cfg.customScales[i].used) continue;
+        char key[10];
+        snprintf(key, sizeof(key), "custom%u", (unsigned)(i + 1));
+        scales.raw(key, stepsList(cfg.customScales[i].steps));
+    }
+    if (!scales.empty()) {
+        Obj o(0);
+        o.obj("customScales", scales);
+        Serial.println("--- Custom scales ---");
         Serial.println(o.text());
     }
     Serial.println("--- End ---");

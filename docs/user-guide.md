@@ -86,7 +86,8 @@ The table keeps track of where the start mark is (StartPos), so external MIDI
 gear starts its bars there. It remembers this when the table is turned off with
 the platter stopped. If the power goes off while the platter is spinning, the
 table shows **StartPos unknown** at power-up. Choose **Find** to set it again,
-or **Skip**. Turning the platter by hand while the table is off moves the mark
+or **Skip** to use wherever the platter is now as the start (bars, scene loads
+and Layer Turns then count from there). Turning the platter by hand while the table is off moves the mark
 without the table knowing.
 
 **Menu > Tools > Calib. StartPos** sets it again without a full calibration:
@@ -159,7 +160,7 @@ the Speed knob moves the platter.
 
 ```
 Sound Defaults   Layer A, Layer B
-Play Setup       Beats/Rev, Pitch Step, Aux Fn, MIDI Fn, MIDI CC
+Play Setup       Beats/Rev, Pitch Step, Aux Fn, Scene Load, MIDI Fn, MIDI CC
 Tools            calibration and maintenance
 System           LCD Timeout, Menu Timeout, Welcome Tune, StartPos Check, Magnet Pole
 Exit
@@ -195,7 +196,7 @@ The function list:
 | Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Edit Scale, Octave, Shift, Low Note, Wrap, Mode, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
 | Layer Turns | Together or Alternate: whether the layers take turns by revolution. See [Playing](#playing). |
-| Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
+| Load Scene | Loads a scene at the next bar (or at once, with Scene Load on Now). See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
 | Reset All | Undoes every Aux change. |
 | Exit | Back to the home screen. |
@@ -322,7 +323,8 @@ Using them:
 - **Load Scene** (an Aux function): turn the Aux knob to step through the
   scenes. The one you land on loads at the start of the next bar, when the
   start mark passes the arm, so you can pick it any time and it lands on the
-  downbeat. With the platter stopped it loads at once.
+  downbeat. With the platter stopped it loads at once. To load scenes as soon
+  as you pick them, set **Menu > Play Setup > Scene Load** to **Now**.
 
 Each slot shows Layer A's root and scale, such as `2: D Minor`, or `3: (empty)`.
 
@@ -395,7 +397,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Effects     | Layer  | Some | Tone, Chorus, Delay and Reverb. See [Effects](#effects). | All off |
 | Pitch       | Aux only | Yes | Moves both layers together, root and octave as one, so turning up always raises the pitch. Step size is set by Pitch Step. Drums ignore it. | 0 |
 | A/B Balance | Aux only | Yes | Crossfades between the layers. Centre is both at full level. | Centre |
-| Load Scene  | Aux only | Yes | Loads a scene at the next bar. See [Scenes](#scenes). | - |
+| Load Scene  | Aux only | Yes | Loads a scene at the next bar, or at once with Scene Load on Now. See [Scenes](#scenes). | - |
 
 When Layer B is on **Same as A**, the Aux knob shows **Layer B is Same as A**
 instead of changing B's settings. Mode is the exception, so you can switch B
@@ -417,6 +419,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Beats/Rev    | Play Setup | Beats per revolution, 1 to 32. Sets the BPM shown and the MIDI clock, and the beats Placement Mode snaps to. | 8 |
 | Pitch Step   | Play Setup | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | 1 semitone |
 | Aux Fn       | Play Setup | Which function the Aux knob controls. | Layer A Voice |
+| Scene Load   | Play Setup | When a picked scene loads: Next Bar (on the downbeat) or Now. See [Scenes](#scenes). | Next Bar |
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
 | MIDI CC      | Play Setup | On: MIDI controllers can change the effects. Off keeps settings you dialed in from changing unexpectedly. See [MIDI In](#midi-in). | Off |
 | LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 30 s |

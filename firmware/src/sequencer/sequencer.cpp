@@ -97,7 +97,7 @@ static void noteOn(const SavedConfig& cfg, uint8_t l, uint8_t i, uint32_t now) {
         // whatever the layer's Wrap setting: one drum per sensor.
         notes[l][i].note = midiDrumOn(channel, degree, velocity);
     } else {
-        uint8_t note = scaleNote(layer.root, layer.scale, layer.learned, degree,
+        uint8_t note = scaleNote(layer.root, layer.scale, layer.learned, layer.custom, degree,
                                  (uint8_t)constrain(layer.octave, 0, 9));
         notes[l][i].note = midiNoteOn(l, channel, note, velocity);
     }

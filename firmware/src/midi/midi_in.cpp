@@ -98,7 +98,7 @@ static void keyShift(SavedConfig& cfg, uint8_t layers, uint8_t note) {
         uint8_t best = 0, bestDist = 12;
         for (uint8_t s = 0; s < NUM_HALL_SENSORS; s++) {
             // Degree s is what the low track plays at shift s.
-            uint8_t pc   = scaleNote(lc.root, lc.scale, lc.learned, s, 0) % 12;
+            uint8_t pc   = scaleNote(lc.root, lc.scale, lc.learned, lc.custom, s, 0) % 12;
             uint8_t d    = (uint8_t)((pc + 12 - want) % 12);
             uint8_t dist = min(d, (uint8_t)(12 - d));
             if (dist < bestDist) { bestDist = dist; best = s; }

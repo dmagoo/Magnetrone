@@ -53,10 +53,7 @@ struct SavedConfigV15 {
 static_assert(sizeof(SavedConfig) <= E2END + 1, "SavedConfig does not fit the EEPROM");
 static_assert(NUM_SAVED_VOICES == NUM_CUSTOM_VOICES, "custom voice counts differ");
 static_assert(NUM_SLOT_HARMONICS == NUM_HARMONICS, "harmonic counts differ");
-// Version 22 put Layer Turns in a padding byte, so the layout around it did
-// not move.
-static_assert(sizeof(LayerCfg) == 32 && offsetof(LayerCfg, fx) == 16,
-              "LayerCfg moved: version 21 layers no longer read as version 22");
+static_assert(CUSTOM_SCALE_SLOTS == NUM_HALL_SENSORS, "a Custom scale holds one note per track");
 
 // Version 22 added the Layer Turns Aux Fn after Load Scene (number 3), so
 // every saved binding from 3 on moves up one.
@@ -179,6 +176,87 @@ static VoiceSlot fromV19(const VoiceSlotV19& o) {
     return s;
 }
 
+// The version 20 to 22 layout: the layers have no Custom scale and there are
+// no saved scales. Kept whole, since the layers grew and moved everything
+// after them. Versions 20 and 21 have padding where Layer Turns sits.
+struct LayerCfgV22 {
+    LayerMode  mode;
+    uint8_t    voice, channel;
+    RootNote   root;
+    Scale      scale;
+    uint16_t   learned;
+    uint8_t    octave, level, shift;
+    bool       wrap, shiftSameAsA;
+    uint8_t    lowNote;
+    bool       lowNoteSameAsA;
+    LayerTurns turns;
+    LayerFx    fx;
+};
+static_assert(sizeof(LayerCfgV22) == 32 && offsetof(LayerCfgV22, fx) == 16,
+              "the version 22 layer no longer matches versions 20 and 21");
+struct SceneV22 {
+    LayerCfgV22 layer[NUM_LAYERS];
+    int8_t      balance;
+    float       pitch;
+};
+struct SavedConfigV22 {
+    uint16_t magic;
+    uint8_t  version;
+    bool     calibrated;
+    uint16_t hallThreshold;
+    uint16_t hallBaseline[NUM_HALL_SENSORS];
+    float    rpmCorrection;
+    int8_t   magnetPolarity;
+    int32_t  barPhase;
+    bool     barPhaseValid;
+    float    volume, rpm;
+    bool     muted;
+    bool     playWelcomeTune;
+    uint8_t  lcdTimeout, menuTimeout;
+    bool     startCheck;
+    uint8_t  beatsPerRev, auxFn, pitchStepDiv, midiFn;
+    uint8_t  midiInChannel[NUM_LAYERS];
+    LayerCfgV22 layer[NUM_LAYERS];
+    SceneV22    scenes[NUM_SCENES];
+    bool        sceneUsed[NUM_SCENES];
+    uint8_t     currentScene;
+    VoiceSlot   customVoices[NUM_SAVED_VOICES];
+    VoiceSlot   sceneVoices[NUM_SCENES][NUM_LAYERS];
+    uint32_t    frontPhase;
+    bool        frontKnown;
+    bool        midiCc;                               // version 20
+    uint16_t    hallNoise[NUM_HALL_SENSORS];          // version 21
+};
+static_assert(offsetof(SavedConfigV22, layer) == offsetof(SavedConfig, layer),
+              "the version 23 header no longer matches version 22");
+
+static void customUnset(int8_t custom[CUSTOM_SCALE_SLOTS]) {
+    custom[0] = CUSTOM_UNSET;
+    for (uint8_t i = 1; i < CUSTOM_SCALE_SLOTS; i++) custom[i] = 0;
+}
+
+// An old layer has no Custom scale.
+static LayerCfg fromV22(const LayerCfgV22& o) {
+    LayerCfg l{};
+    l.mode           = o.mode;
+    l.voice          = o.voice;
+    l.channel        = o.channel;
+    l.root           = o.root;
+    l.scale          = o.scale;
+    l.learned        = o.learned;
+    l.octave         = o.octave;
+    l.level          = o.level;
+    l.shift          = o.shift;
+    l.wrap           = o.wrap;
+    l.shiftSameAsA   = o.shiftSameAsA;
+    l.lowNote        = o.lowNote;
+    l.lowNoteSameAsA = o.lowNoteSameAsA;
+    l.turns          = o.turns;
+    l.fx             = o.fx;
+    customUnset(l.custom);
+    return l;
+}
+
 // An old layer gets the factory effects: all Off.
 static LayerCfg fromV19(const LayerCfgV19& o) {
     LayerCfg l{};
@@ -197,6 +275,7 @@ static LayerCfg fromV19(const LayerCfgV19& o) {
     l.lowNoteSameAsA = o.lowNoteSameAsA;
     l.turns          = LayerTurns::Together;
     l.fx             = storageFactoryFx();
+    customUnset(l.custom);
     return l;
 }
 
@@ -235,6 +314,7 @@ Scene storageFactoryScene() {
     a.lowNoteSameAsA = false;
     a.turns          = LayerTurns::Together;
     a.fx             = storageFactoryFx();
+    customUnset(a.custom);
 
     // Layer B plays its own voice out of the box, drums, with nothing bound
     // to A: undoing Same as A by hand everywhere was clunky.
@@ -281,6 +361,7 @@ SavedConfig storageDefaults() {
     c.midiInChannel[LAYER_A] = DEFAULT_MIDI_IN_CHANNEL_A;
     c.midiInChannel[LAYER_B] = DEFAULT_MIDI_IN_CHANNEL_B;
     c.midiCc          = DEFAULT_MIDI_CC;
+    c.sceneLoadNow    = DEFAULT_SCENE_LOAD_NOW;
 
     Scene f = storageFactoryScene();
     for (uint8_t i = 0; i < NUM_SCENES; i++) {
@@ -350,25 +431,79 @@ static void fromV16to19(SavedConfig& cfg) {
     storageSave(cfg);
 }
 
+// Versions 20 to 22 keep everything. Version 20 has no noise, 21 no Layer
+// Turns (and the Aux Fns from Layer A Voice on one number lower), and none of
+// them has the Custom scales.
+static void fromV20to22(SavedConfig& cfg) {
+    SavedConfigV22 old;
+    EEPROM.get(EEPROM_ADDRESS, old);
+    if (old.version == 20) {
+        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) old.hallNoise[i] = HALL_NOISE_DEFAULT;
+    }
+    if (old.version <= 21) {
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+            old.layer[l].turns = LayerTurns::Together;
+            for (uint8_t i = 0; i < NUM_SCENES; i++) old.scenes[i].layer[l].turns = LayerTurns::Together;
+        }
+        old.auxFn = auxFnFromV21(old.auxFn);
+    }
+
+    SavedConfig c = storageDefaults();
+    c.calibrated      = old.calibrated;
+    c.hallThreshold   = old.hallThreshold;
+    for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
+        c.hallBaseline[i] = old.hallBaseline[i];
+        c.hallNoise[i]    = old.hallNoise[i];
+    }
+    c.rpmCorrection   = old.rpmCorrection;
+    c.magnetPolarity  = old.magnetPolarity;
+    c.barPhase        = old.barPhase;
+    c.barPhaseValid   = old.barPhaseValid;
+    c.volume          = old.volume;
+    c.rpm             = old.rpm;
+    c.muted           = old.muted;
+    c.playWelcomeTune = old.playWelcomeTune;
+    c.lcdTimeout      = old.lcdTimeout;
+    c.menuTimeout     = old.menuTimeout;
+    c.startCheck      = old.startCheck;
+    c.beatsPerRev     = old.beatsPerRev;
+    c.auxFn           = old.auxFn;
+    c.pitchStepDiv    = old.pitchStepDiv;
+    c.midiFn          = old.midiFn;
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        c.midiInChannel[l] = old.midiInChannel[l];
+        c.layer[l]         = fromV22(old.layer[l]);
+    }
+    for (uint8_t i = 0; i < NUM_SCENES; i++) {
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+            c.scenes[i].layer[l] = fromV22(old.scenes[i].layer[l]);
+            c.sceneVoices[i][l]  = old.sceneVoices[i][l];
+        }
+        c.scenes[i].balance = old.scenes[i].balance;
+        c.scenes[i].pitch   = old.scenes[i].pitch;
+        c.sceneUsed[i]      = old.sceneUsed[i];
+    }
+    c.currentScene = old.currentScene;
+    for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++) c.customVoices[i] = old.customVoices[i];
+    c.frontPhase = old.frontPhase;
+    c.frontKnown = old.frontKnown;
+    c.midiCc     = old.midiCc;
+    cfg = c;
+    storageSave(cfg);
+}
+
 void storageLoad(SavedConfig& cfg) {
     EEPROM.get(EEPROM_ADDRESS, cfg);
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 16 && cfg.version <= 19) {
         fromV16to19(cfg);
     }
-    // Version 20 is version 21 without the noise at the end.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version == 20) {
-        for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) cfg.hallNoise[i] = HALL_NOISE_DEFAULT;
-        cfg.version = 21;
+    if (cfg.magic == EEPROM_MAGIC && cfg.version >= 20 && cfg.version <= 22) {
+        fromV20to22(cfg);
     }
-    // Version 21 is this layout with padding where Layer Turns now sits, and
-    // the Aux Fns from Layer A Voice on one number lower.
-    if (cfg.magic == EEPROM_MAGIC && cfg.version == 21) {
-        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-            cfg.layer[l].turns = LayerTurns::Together;
-            for (uint8_t i = 0; i < NUM_SCENES; i++) cfg.scenes[i].layer[l].turns = LayerTurns::Together;
-        }
-        cfg.auxFn   = auxFnFromV21(cfg.auxFn);
-        cfg.version = EEPROM_VERSION;
+    // Version 23 is this layout without Scene Load at the end.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 23) {
+        cfg.sceneLoadNow = DEFAULT_SCENE_LOAD_NOW;
+        cfg.version      = EEPROM_VERSION;
         storageSave(cfg);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {

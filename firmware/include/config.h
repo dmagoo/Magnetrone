@@ -45,6 +45,7 @@ constexpr uint8_t   MIDI_CC_VOLUME            = 7;    // the standard volume CC
 constexpr uint8_t   MIDI_CC_OCTAVE            = 20;   // no standard; unassigned
 // Effects CCs, the General MIDI numbers. Only while Play Setup > MIDI CC is On.
 constexpr bool      DEFAULT_MIDI_CC           = false;
+constexpr bool      DEFAULT_SCENE_LOAD_NOW    = false;   // scene loads wait for the next bar
 constexpr uint8_t   MIDI_CC_RESONANCE         = 71;
 constexpr uint8_t   MIDI_CC_CUTOFF            = 74;
 constexpr uint8_t   MIDI_CC_REVERB            = 91;

@@ -1,6 +1,7 @@
 #include "scenes.h"
 #include <Arduino.h>
 #include <math.h>
+#include <string.h>
 #include "layers.h"
 #include "audio/voice.h"
 #include "pitch.h"
@@ -92,6 +93,10 @@ static void apply(SavedConfig& cfg, uint8_t slot) {
 
 void sceneQueue(SavedConfig& cfg, uint8_t slot) {
     if (!sceneUsed(cfg, slot)) return;
+    if (cfg.sceneLoadNow) {   // Play Setup > Scene Load: Now
+        sceneLoadNow(cfg, slot);
+        return;
+    }
     pending   = slot;
     lastPhase = barPhase();
 }
@@ -159,6 +164,7 @@ static bool layerEqual(const LayerCfg& a, const LayerCfg& b) {
     return a.mode == b.mode && a.voice == b.voice && a.channel == b.channel &&
            a.root == b.root && a.scale == b.scale && a.octave == b.octave &&
            (a.scale != Scale::Learned || a.learned == b.learned) &&
+           (a.scale != Scale::Custom || memcmp(a.custom, b.custom, sizeof(a.custom)) == 0) &&
            a.level == b.level && a.shift == b.shift && a.wrap == b.wrap &&
            a.shiftSameAsA == b.shiftSameAsA && a.lowNote == b.lowNote &&
            a.lowNoteSameAsA == b.lowNoteSameAsA && a.turns == b.turns &&

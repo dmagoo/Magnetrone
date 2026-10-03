@@ -52,6 +52,7 @@ enum class MenuState : uint8_t {
     FxParamEdit,    //   one setting's value
     MidiFnSetting,
     MidiCcSetting,
+    SceneLoadSetting,
     WelcomeTune,
     LcdTimeout,
     MenuTimeout,
@@ -329,10 +330,16 @@ static const char* SOUND_ITEMS[NUM_LAYERS + 1];
 static const uint8_t SOUND_COUNT = NUM_LAYERS + 1;   // + Back
 
 // Play Setup: how the controls and MIDI in behave while playing.
-static const char* PLAY_ITEMS[] = { "Beats/Rev","Pitch Step","Aux Fn","MIDI Fn","MIDI CC","Back" };
-static const uint8_t PLAY_COUNT = 6;
+static const char* PLAY_ITEMS[] = {
+    "Beats/Rev","Pitch Step","Aux Fn","Scene Load","MIDI Fn","MIDI CC","Back"
+};
+static const uint8_t PLAY_COUNT = 7;
 enum : uint8_t { PLAY_ITEM_BEATS, PLAY_ITEM_PITCH_STEP, PLAY_ITEM_AUX_FN,
-                 PLAY_ITEM_MIDI_FN, PLAY_ITEM_MIDI_CC, PLAY_ITEM_BACK };
+                 PLAY_ITEM_SCENE_LOAD, PLAY_ITEM_MIDI_FN, PLAY_ITEM_MIDI_CC, PLAY_ITEM_BACK };
+
+// Play Setup > Scene Load. Index 0 = Next Bar.
+static const char*   SCENE_LOAD_ITEMS[] = { "Next Bar","Now","Back" };
+static const uint8_t SCENE_LOAD_COUNT = 3;
 
 // System: set once and forgotten, nothing to do with the performance.
 static const char* SYSTEM_ITEMS[] = {
@@ -2578,6 +2585,9 @@ void menuUpdate(SavedConfig& cfg) {
                     case PLAY_ITEM_MIDI_CC:
                         enterState(MenuState::MidiCcSetting, cfg.midiCc ? 0 : 1);
                         break;
+                    case PLAY_ITEM_SCENE_LOAD:
+                        enterState(MenuState::SceneLoadSetting, cfg.sceneLoadNow ? 1 : 0);
+                        break;
                     default: enterState(MenuState::MainMenu, MAIN_ITEM_PLAY); break;
                 }
             }
@@ -3029,6 +3039,22 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
+        // When a picked scene loads: at the next bar start (on the downbeat)
+        // or straight away.
+        case MenuState::SceneLoadSetting:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + SCENE_LOAD_COUNT) % SCENE_LOAD_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < SCENE_LOAD_COUNT - 1) {   // last entry is Back
+                    cfg.sceneLoadNow = (cursor == 1);
+                    storageSave(cfg);
+                }
+                enterState(MenuState::PlaySetup, PLAY_ITEM_SCENE_LOAD);
+            }
+            break;
+
         case MenuState::WelcomeTune:
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + WELCOME_COUNT) % WELCOME_COUNT;
@@ -3247,8 +3273,15 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuDelta) { cursor = (cursor + 1) % 2; needsRedraw = true; }
             if (ev.menuPressed) {
                 fromBoot = true;
-                if (cursor == 0) enterState(MenuState::StartPosMode);
-                else             leaveTo(TOOL_CALIB_START);
+                if (cursor == 0) {
+                    enterState(MenuState::StartPosMode);
+                } else {
+                    // Skip: the platter's position now becomes StartPos, so
+                    // bars, scene loads and Layer Turns have a start to count
+                    // from. It is saved at rest like any StartPos.
+                    barSetStart(stepperPosition());
+                    leaveTo(TOOL_CALIB_START);
+                }
             }
             break;
 
@@ -3658,6 +3691,9 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::MidiFnSetting:
                 drawList(MIDI_FN_ITEMS, MIDI_FN_COUNT, cursor);
+                break;
+            case MenuState::SceneLoadSetting:
+                drawList(SCENE_LOAD_ITEMS, SCENE_LOAD_COUNT, cursor);
                 break;
             case MenuState::MidiCcSetting:
                 drawList(WELCOME_ITEMS, WELCOME_COUNT, cursor);

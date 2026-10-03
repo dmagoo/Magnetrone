@@ -5,7 +5,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 22;
+constexpr uint8_t  EEPROM_VERSION = 24;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -90,6 +90,8 @@ struct LayerCfg {
     bool      lowNoteSameAsA; // Layer B only: play A's Low Note
     LayerTurns turns;         // Layer B only (added in version 22, in what was padding)
     LayerFx   fx;             // added in version 20
+    // Scale::Custom's notes, one per track (scale.h). Added in version 23.
+    int8_t    custom[CUSTOM_SCALE_SLOTS];
 };
 
 // A scene: the whole sound of the table, both layers plus the Pitch offset
@@ -125,6 +127,14 @@ struct VoiceSlot {
     VoiceFilter filter;                        // added in version 20
 };
 constexpr uint8_t NUM_SAVED_VOICES = 8;   // = NUM_CUSTOM_VOICES in voice.h
+
+// A saved Custom scale, Custom 1-8 in the scale lists. Picking one copies it
+// into the layer, so changing a slot later never changes a scene.
+struct CustomScaleSlot {
+    bool   used;
+    int8_t steps[CUSTOM_SCALE_SLOTS];
+};
+constexpr uint8_t NUM_CUSTOM_SCALES = 8;
 
 struct SavedConfig {
     uint16_t magic;
@@ -193,6 +203,13 @@ struct SavedConfig {
     // from its baseline while calibration sampled the clear platter. Sets the
     // minimum drop that counts as a peak (hallSetCalibration()).
     uint16_t hallNoise[NUM_HALL_SENSORS];
+
+    // Added in version 23. Custom Scale 1-8, shared by every scene.
+    CustomScaleSlot customScales[NUM_CUSTOM_SCALES];
+
+    // Added in version 24. Play Setup > Scene Load: true loads a scene as
+    // soon as it is picked, false waits for the next bar start.
+    bool     sceneLoadNow;
 };
 
 void storageLoad(SavedConfig& cfg);

@@ -15,7 +15,10 @@ uint16_t scaleMaskClean(uint16_t mask) {
     return (uint16_t)((mask | 1) & 0x0FFF);
 }
 
-uint8_t scaleNote(RootNote root, Scale scale, uint16_t learned, uint8_t degree, uint8_t octave) {
+int scaleStep(Scale scale, uint16_t learned, const int8_t* custom, uint8_t degree) {
+    if (scale == Scale::Custom && scaleCustomSet(custom)) {
+        return custom[degree % CUSTOM_SCALE_SLOTS] + 12 * (degree / CUSTOM_SCALE_SLOTS);
+    }
     ScaleInfo l = { "Learned", { 0 }, 0 };
     const ScaleInfo* s;
     if (scale == Scale::Learned && learned) {
@@ -25,13 +28,28 @@ uint8_t scaleNote(RootNote root, Scale scale, uint16_t learned, uint8_t degree, 
         }
         s = &l;
     } else {
+        // Learned with none learned, or Custom with none set, plays as Major.
         uint8_t i = static_cast<uint8_t>(scale);
         s = &SCALES[i < SCALE_BUILTIN_COUNT ? i : 0];
     }
-    uint8_t octaveOffset = degree / s->length;
-    uint8_t interval     = s->intervals[degree % s->length];
+    return s->intervals[degree % s->length] + 12 * (degree / s->length);
+}
+
+void scaleToCustom(Scale scale, uint16_t learned, const int8_t* custom,
+                   int8_t out[CUSTOM_SCALE_SLOTS]) {
+    int8_t steps[CUSTOM_SCALE_SLOTS];
+    for (uint8_t d = 0; d < CUSTOM_SCALE_SLOTS; d++) {
+        int st = scaleStep(scale, learned, custom, d);
+        steps[d] = (int8_t)(st < CUSTOM_STEP_MIN ? CUSTOM_STEP_MIN
+                          : st > CUSTOM_STEP_MAX ? CUSTOM_STEP_MAX : st);
+    }
+    for (uint8_t d = 0; d < CUSTOM_SCALE_SLOTS; d++) out[d] = steps[d];
+}
+
+uint8_t scaleNote(RootNote root, Scale scale, uint16_t learned, const int8_t* custom,
+                  uint8_t degree, uint8_t octave) {
     // MIDI note: C4 = 60, octave 0 = C0 = 12
-    return 12 + (octave + octaveOffset) * 12
-              + static_cast<uint8_t>(root)
-              + interval;
+    int note = 12 + octave * 12 + static_cast<uint8_t>(root)
+             + scaleStep(scale, learned, custom, degree);
+    return (uint8_t)(note < 0 ? 0 : note > 127 ? 127 : note);
 }
