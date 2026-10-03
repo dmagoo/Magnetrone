@@ -54,6 +54,11 @@ turning physical arrangement into musical pattern.
   only, on top of the current scene. Read-only demo scenes are built into the
   firmware from JSON files (docs/scene-format.md), and a `scenes` serial
   command prints the saved scenes in that format
+- Scene Codes (Aux > Scene Codes): a code of up to 10 characters for the
+  current sound's main settings (each layer's root, octave, scale, voice,
+  shift, Low Note, Wrap and mode, plus Layer Turns), to enter on another
+  table or after a firmware update. Fields at their defaults cost nothing, so
+  a code changing only the roots is 3 characters
 - MIDI beat clock driven by platter position, with Song Position Pointer so
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
@@ -67,7 +72,8 @@ turning physical arrangement into musical pattern.
   press resumes the last speed
 - Aux knob changes one bound function live (Pitch, A/B Balance, Layer Turns, Load Scene,
   or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode,
-  Tone Cutoff, Delay Mix, Delay Feedback or Reverb Mix)
+  Tone Cutoff, Delay Mix, Delay Feedback or Reverb Mix); its list also holds
+  Save Scene, Scene Codes and Reset All
 - Menu knob opens the main menu from the home screen by turning or pressing;
   the Menu button leaves the Aux screens straight back to the home screen, and
   the Aux button leaves the main menu (prompts excepted)

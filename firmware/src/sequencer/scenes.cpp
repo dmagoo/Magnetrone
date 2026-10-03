@@ -14,6 +14,7 @@
 static const uint32_t SAVE_DELAY_MS = 500;
 
 static const uint8_t NONE = 0xFF;
+static const uint8_t CODE = 0xFE;   // pending: the Scene Code in codeScene
 
 static uint8_t  pending      = NONE;   // queued to load at the next bar
 static uint32_t lastPhase    = 0;
@@ -25,6 +26,9 @@ static uint32_t saveAtMs     = 0;
 static Scene     demoScene;
 static VoiceSlot demoVoices[NUM_LAYERS];
 static uint8_t   demoBuilt = NONE;
+
+// The Scene Code queued to load.
+static Scene     codeScene;
 
 bool sceneIsSlot(uint8_t id) {
     return id < NUM_SCENES;
@@ -62,18 +66,32 @@ static VoiceSlot sceneVoiceOf(const SavedConfig& cfg, uint8_t id, uint8_t l) {
 }
 
 uint8_t sceneSelected(const SavedConfig& cfg) {
-    return (pending != NONE) ? pending : cfg.currentScene;
+    return (pending != NONE && pending != CODE) ? pending : cfg.currentScene;
+}
+
+// Makes `s` the live sound, with `voices` as its own voices.
+static void putScene(SavedConfig& cfg, const Scene& s, const VoiceSlot voices[NUM_LAYERS]) {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.layer[l] = s.layer[l];
+    pitchSetOffset(s.pitch);
+    layerSetBalance(s.balance);
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) layerSetSceneVoice(l, voices[l]);
+    layersResetVoices();   // Voice Edit tweaks are not part of a scene
+    layersApply(cfg);
 }
 
 // Makes the scene in `slot` the live sound, its own voices included.
 static void put(SavedConfig& cfg, uint8_t slot) {
-    const Scene& s = sceneGet(cfg, slot);
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) cfg.layer[l] = s.layer[l];
-    pitchSetOffset(s.pitch);
-    layerSetBalance(s.balance);
-    for (uint8_t l = 0; l < NUM_LAYERS; l++) layerSetSceneVoice(l, sceneVoiceOf(cfg, slot, l));
-    layersResetVoices();   // Voice Edit tweaks are not part of a scene
-    layersApply(cfg);
+    VoiceSlot voices[NUM_LAYERS];
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) voices[l] = sceneVoiceOf(cfg, slot, l);
+    putScene(cfg, sceneGet(cfg, slot), voices);
+}
+
+// A Scene Code lands in the live sound only: the current scene stays, shown
+// as changed, and nothing is saved.
+static void applyCode(SavedConfig& cfg) {
+    VoiceSlot none[NUM_LAYERS] = {};
+    putScene(cfg, codeScene, none);
+    changed = true;
 }
 
 void scenesInit(SavedConfig& cfg) {
@@ -106,6 +124,17 @@ void sceneLoadNow(SavedConfig& cfg, uint8_t slot) {
     apply(cfg, slot);
 }
 
+void sceneQueueCode(SavedConfig& cfg, const Scene& s) {
+    codeScene = s;
+    if (cfg.sceneLoadNow) {   // Play Setup > Scene Load: Now
+        pending = NONE;
+        applyCode(cfg);
+        return;
+    }
+    pending   = CODE;
+    lastPhase = barPhase();
+}
+
 void scenesUpdate(SavedConfig& cfg) {
     if (saveDue && (int32_t)(millis() - saveAtMs) >= 0) {
         saveDue = false;
@@ -127,7 +156,8 @@ void scenesUpdate(SavedConfig& cfg) {
         if (land) {
             uint8_t slot = pending;
             pending = NONE;
-            apply(cfg, slot);
+            if (slot == CODE) applyCode(cfg);
+            else              apply(cfg, slot);
         }
     }
     lastPhase = phase;

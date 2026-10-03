@@ -18,6 +18,7 @@
 #include "motion/bar.h"
 #include "sequencer/scenes.h"
 #include "sequencer/demos.h"
+#include "sequencer/scene_code.h"
 #include "midi/midi_in.h"
 #include "sequencer/sequencer.h"
 
@@ -76,6 +77,11 @@ enum class MenuState : uint8_t {
     AuxParam,       // aux knob: modulate the chosen parameter, live
     SceneSaveSelect,  // aux knob: pick the scene slot to save to
     SceneSaveConfirm, // aux knob: overwrite a used slot?
+    SceneCodeMenu,    // aux knob: Scene Codes, Get or Enter
+    SceneCodeGet,     //   the live sound's code
+    SceneCodeEnter,   //   enter a code, a character at a time
+    SceneCodeInvalid, //   the code entered is not one
+    SceneCodePreview, //   what a valid code holds; click loads it
     CalClearPrompt,     // calibration step 1: clear the platter
     CalSampling,        //   blocking: baselines
     CalMagnetPrompt,    // calibration step 2: one magnet on the start mark
@@ -435,14 +441,15 @@ static AuxFn   auxLayerFn(AuxKind k, uint8_t layer) {
 // scene Fn, then three actions. Layer entries open the per-layer list below.
 static const char* AUX_TOP_LABELS[] = {
     "Pitch","Layer A","Layer B","A/B Balance","Layer Turns","Load Scene",
-    "Save Scene","Reset All","Exit"
+    "Save Scene","Scene Codes","Reset All","Exit"
 };
 enum : uint8_t { AUXT_PITCH, AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE, AUXT_TURNS,
-                 AUXT_LOAD_SCENE, AUXT_SAVE_SCENE, AUXT_RESET, AUXT_EXIT, AUXT_COUNT };
+                 AUXT_LOAD_SCENE, AUXT_SAVE_SCENE, AUXT_CODES, AUXT_RESET, AUXT_EXIT,
+                 AUXT_COUNT };
 // The Fn behind each top entry; COUNT where the entry is not a Fn.
 static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
     AuxFn::Pitch, AuxFn::COUNT, AuxFn::COUNT, AuxFn::Balance, AuxFn::Turns,
-    AuxFn::LoadScene, AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
+    AuxFn::LoadScene, AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
 };
 
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
@@ -691,6 +698,29 @@ static char        SCENE_LABEL_BUF[LOAD_COUNT][16];
 static const char* LOAD_ITEMS[LOAD_COUNT];
 static const char* SAVE_ITEMS[NUM_SCENES];
 static const uint8_t SAVE_COUNT = NUM_SCENES;   // 8 slots + Back
+
+// Scene Codes (scene_code.h). Entering one is arcade style: the aux knob
+// turns the character at the end of the code, through the 32 code
+// characters, then Back (deletes the last one) and End (done); a click
+// takes it. A full code is checked at once.
+static const char*   CODE_MENU_ITEMS[] = { "Get","Enter","Back" };
+static const uint8_t CODE_MENU_COUNT = 3;
+enum : uint8_t { CODE_MENU_GET, CODE_MENU_ENTER };
+static const uint8_t CODE_PICK_BACK = 32;
+static const uint8_t CODE_PICK_END  = 33;
+static const uint8_t CODE_PICKS     = 34;
+static char    codeBuf[SCENE_CODE_MAX + 1];   // Get: the code shown. Enter: so far.
+static uint8_t codeLen  = 0;
+static uint8_t codePick = 0;                  // the character being turned
+static Scene   codeScene;                     // what the entered code holds
+
+// Enter: takes the last character back off the code, into the pick.
+static void codeUntake() {
+    if (codeLen == 0) { codePick = 0; return; }
+    codeLen--;
+    codePick = (uint8_t)(strchr(SCENE_CODE_ALPHABET, codeBuf[codeLen]) - SCENE_CODE_ALPHABET);
+    codeBuf[codeLen] = '\0';
+}
 
 // How far one aux step moves Pitch, as a divisor of a semitone.
 static const uint8_t PITCH_STEP_VALUES[] = { 1, 2, 3, 4, 8 };
@@ -2273,6 +2303,11 @@ void menuUpdate(SavedConfig& cfg) {
                   state == MenuState::AuxParam ||
                   state == MenuState::SceneSaveSelect ||
                   state == MenuState::SceneSaveConfirm ||
+                  state == MenuState::SceneCodeMenu ||
+                  state == MenuState::SceneCodeGet ||
+                  state == MenuState::SceneCodeEnter ||
+                  state == MenuState::SceneCodeInvalid ||
+                  state == MenuState::SceneCodePreview ||
                   (scaleEditAux && (state == MenuState::ScaleEditList ||
                                     state == MenuState::ScaleEditSlot ||
                                     state == MenuState::ScaleSaveSelect ||
@@ -2353,6 +2388,8 @@ void menuUpdate(SavedConfig& cfg) {
                     uint8_t cur = cfg.currentScene;
                     bool    slot = sceneIsSlot(cur) && cur != SCENE_DEFAULTS;
                     enterState(MenuState::SceneSaveSelect, slot ? cur - 1 : 0);
+                } else if (cursor == AUXT_CODES) {
+                    enterState(MenuState::SceneCodeMenu, 0);
                 } else if (cursor == AUXT_RESET) {
                     // Throw away every live tweak at once and drop back to the
                     // live display: the current scene, as saved. Nothing is
@@ -2566,6 +2603,74 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.auxPressed) {
                 if (cursor == 0) saveScene(cfg, saveSlot);
                 else             enterState(MenuState::SceneSaveSelect, saveSlot - 1);
+            }
+            break;
+
+        case MenuState::SceneCodeMenu:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) {
+                cursor = (uint8_t)((cursor + ev.auxDelta + CODE_MENU_COUNT) % CODE_MENU_COUNT);
+                needsRedraw = true;
+            }
+            if (ev.auxPressed) {
+                if (cursor == CODE_MENU_GET) {
+                    sceneCodeEncode(cfg, codeBuf);
+                    enterState(MenuState::SceneCodeGet);
+                } else if (cursor == CODE_MENU_ENTER) {
+                    codeLen    = 0;
+                    codeBuf[0] = '\0';
+                    codePick   = 0;
+                    enterState(MenuState::SceneCodeEnter);
+                } else {
+                    enterState(MenuState::AuxFnSelect, AUXT_CODES);
+                }
+            }
+            break;
+
+        case MenuState::SceneCodeGet:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxPressed) enterState(MenuState::SceneCodeMenu, CODE_MENU_GET);
+            break;
+
+        case MenuState::SceneCodeEnter: {
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxDelta) {
+                codePick = (uint8_t)((codePick + ev.auxDelta % CODE_PICKS + CODE_PICKS) % CODE_PICKS);
+                needsRedraw = true;
+            }
+            if (!ev.auxPressed) break;
+            bool check = false;
+            if (codePick == CODE_PICK_BACK) {
+                if (codeLen == 0) { enterState(MenuState::SceneCodeMenu, CODE_MENU_ENTER); break; }
+                codeUntake();
+            } else if (codePick == CODE_PICK_END) {
+                check = true;
+            } else {
+                codeBuf[codeLen++] = SCENE_CODE_ALPHABET[codePick];
+                codeBuf[codeLen]   = '\0';
+                check = (codeLen == SCENE_CODE_MAX);
+            }
+            needsRedraw = true;
+            if (check) {
+                if (sceneCodeDecode(codeBuf, codeScene)) enterState(MenuState::SceneCodePreview);
+                else                                     enterState(MenuState::SceneCodeInvalid);
+            }
+            break;
+        }
+
+        case MenuState::SceneCodeInvalid:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxPressed) {
+                codeUntake();   // back to the entry, the last character in hand to fix
+                enterState(MenuState::SceneCodeEnter);
+            }
+            break;
+
+        case MenuState::SceneCodePreview:
+            if (ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (ev.auxPressed) {
+                sceneQueueCode(cfg, codeScene);
+                enterState(MenuState::Status);
             }
             break;
 
@@ -3836,6 +3941,46 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::SceneSaveSelect:
                 buildSceneLabels(cfg);
                 drawList(SAVE_ITEMS, SAVE_COUNT, cursor);
+                break;
+            case MenuState::SceneCodeMenu:
+                drawList(CODE_MENU_ITEMS, CODE_MENU_COUNT, cursor);
+                break;
+            case MenuState::SceneCodeGet:
+                lcdLine(0, "Scene Code");
+                lcdLine(1, "%s", codeBuf);
+                break;
+            case MenuState::SceneCodeEnter: {
+                char pick = codePick == CODE_PICK_BACK ? (char)LCD_ARROW_LEFT
+                          : codePick == CODE_PICK_END  ? (char)LCD_BLOCK
+                          : SCENE_CODE_ALPHABET[codePick];
+                // A full code is checked as its last character is taken, so
+                // the pick always has a place.
+                lcdLine(0, "Code:%s%c", codeBuf, pick);
+                if (codePick == CODE_PICK_END)       lcdLine(1, "Click: done");
+                else if (codePick != CODE_PICK_BACK) lcdLine(1, "Click: next");
+                else if (codeLen > 0)                lcdLine(1, "Click: delete");
+                else                                 lcdLine(1, "Click: exit");
+                break;
+            }
+            case MenuState::SceneCodeInvalid:
+                lcdLine(0, "Invalid Code");
+                lcdLine(1, "Click: fix it");
+                break;
+            case MenuState::SceneCodePreview:
+                // Each layer's key and voice; click loads.
+                for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+                    const LayerCfg& c = codeScene.layer[l];
+                    char name = l == LAYER_A ? 'A' : 'B';
+                    if (c.mode == LayerMode::Off) {
+                        lcdLine(l, "%c off", name);
+                    } else if (c.mode == LayerMode::SameAsA) {
+                        lcdLine(l, "%c same as A", name);
+                    } else {
+                        lcdLine(l, "%c %-2s %-7s %.3s", name, ROOT_ITEMS[(uint8_t)c.root % 12],
+                                SCALE_NAMES[(uint8_t)c.scale % (uint8_t)Scale::COUNT],
+                                voiceIdName(c.voice));
+                    }
+                }
                 break;
             case MenuState::SceneSaveConfirm:
                 lcdLine(0, "Overwrite %u?", (unsigned)saveSlot);

@@ -50,6 +50,11 @@ void    sceneQueue(SavedConfig& cfg, uint8_t slot);
 // Loads `slot` at once, dropping any queued load.
 void    sceneLoadNow(SavedConfig& cfg, uint8_t slot);
 
+// Queues the scene a Scene Code holds (scene_code.h), the way sceneQueue()
+// does a slot. It replaces the live sound only: the current scene stays,
+// shown as changed, and nothing is saved.
+void    sceneQueueCode(SavedConfig& cfg, const Scene& s);
+
 // Saves the live sound to `slot` (1-8) and makes it the current scene. A
 // layer playing Scene Voice takes the voice along, so a demo saves whole.
 void    sceneSave(SavedConfig& cfg, uint8_t slot);

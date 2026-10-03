@@ -198,6 +198,7 @@ The function list:
 | Layer Turns | Together or Alternate: whether the layers take turns by revolution. See [Playing](#playing). |
 | Load Scene | Loads a scene at the next bar (or at once, with Scene Load on Now). See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
+| Scene Codes | Get a short code for the current sound, or enter one. See [Scene Codes](#scene-codes). |
 | Reset All | Undoes every Aux change. |
 | Exit | Back to the home screen. |
 
@@ -335,6 +336,35 @@ Scene list, as `Demo1: Drift` and so on, and load like any scene, power-up
 and Aux **Reset All** included. They cannot be changed or lost: to keep changes
 to one, save it to a slot. To make your own, or to copy your saved scenes off
 the table, see [Scene Format](scene-format.md).
+
+### Scene Codes
+
+A scene code is a short code, up to 10 characters, for the sound you are
+playing. Enter it on another table, or on this one later, to get the sound
+back. Find it under **Scene Codes** in the Aux function list.
+
+A code holds, for each layer: root, octave, scale, voice, shift, Low Note,
+Wrap and mode, plus Layer B's Same as A settings and Layer Turns. Everything
+else (effects, level, channel, Pitch, A/B Balance) loads as the factory sound.
+The more you have changed, the longer the code: changing only the roots makes
+a 3-character code.
+
+Codes hold the built-in voices and scales only. A Custom voice goes out as the
+built-in it was made from, and a Learned or Custom scale as Major.
+
+- **Get** shows the code for the current sound, Aux changes included.
+- **Enter** builds a code one character at a time. Turn the Aux knob to pick
+  the character at the end of the code and press to take it. Past the
+  characters are `<-` (press to delete the last one) and a block (press when
+  done). A 10-character code is checked as soon as it is complete. If the code
+  is not a valid one, the screen says `Invalid Code`; press to go back and fix
+  it. A valid code shows each layer's key and voice; press to load it.
+
+A code loads like a scene, at the next bar or at once with Scene Load on Now.
+It changes only the sound you are playing: the current scene stays, shown with
+`*`, and nothing is saved. To keep it, save it as a scene.
+
+Codes keep working after firmware updates.
 
 ## Effects
 

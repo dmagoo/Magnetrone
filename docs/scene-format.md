@@ -6,6 +6,10 @@ its saved scenes over USB serial. It is meant for whoever makes demos, and is
 the implementation guide for the feature, not for playing the table: see the
 [User Guide](user-guide.md) for that.
 
+To share a sound by hand instead, without a computer, use a Scene Code (see
+[Scene Codes](user-guide.md#scene-codes) in the User Guide). A code holds only
+each layer's main settings, not effects, levels or custom voices.
+
 ## Rules
 
 - **Leave out what you did not change.** Any field left out takes its factory
