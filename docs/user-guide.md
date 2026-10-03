@@ -452,7 +452,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Scene Load   | Play Setup | When a picked scene loads: Next Bar (on the downbeat) or Now. See [Scenes](#scenes). | Next Bar |
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
 | MIDI CC      | Play Setup | On: MIDI controllers can change the effects. Off keeps settings you dialed in from changing unexpectedly. See [MIDI In](#midi-in). | Off |
-| LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | 30 s |
+| LCD Timeout  | System | How long the backlight stays on after you touch a knob, from Always Off to Always On. | Always On |
 | Menu Timeout | System | How long a menu waits untouched before returning to the home screen: 5 s, 10 s, 30 s, 1 min or Never. | 30 s |
 | Welcome Tune | System | Plays each track's Layer A note at power-up, quickly, in sixteenth notes. Press the Menu button to skip it. Turning it on plays it once as a preview. | On |
 | StartPos Check | System | On: at power-up, offers to find the start mark if it was lost. Off: never asks. | On |

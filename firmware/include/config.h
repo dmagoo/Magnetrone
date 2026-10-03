@@ -164,8 +164,8 @@ constexpr uint8_t   MENU_TIMEOUT_NEVER   = 0;
 
 // LCD backlight timeout in seconds.
 // 0 = always off, 255 = always on, any other value = seconds of inactivity.
-constexpr uint8_t   DEFAULT_LCD_TIMEOUT  = 30;
-
 // Sentinel values for LCD timeout setting.
 constexpr uint8_t   LCD_TIMEOUT_ALWAYS_OFF = 0;
 constexpr uint8_t   LCD_TIMEOUT_ALWAYS_ON  = 255;
+
+constexpr uint8_t   DEFAULT_LCD_TIMEOUT  = LCD_TIMEOUT_ALWAYS_ON;
