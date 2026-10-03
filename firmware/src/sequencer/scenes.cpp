@@ -161,7 +161,7 @@ static bool layerEqual(const LayerCfg& a, const LayerCfg& b) {
            (a.scale != Scale::Learned || a.learned == b.learned) &&
            a.level == b.level && a.shift == b.shift && a.wrap == b.wrap &&
            a.shiftSameAsA == b.shiftSameAsA && a.lowNote == b.lowNote &&
-           a.lowNoteSameAsA == b.lowNoteSameAsA &&
+           a.lowNoteSameAsA == b.lowNoteSameAsA && a.turns == b.turns &&
            fxEqual(a.fx, b.fx);
 }
 

@@ -130,6 +130,13 @@ To play both layers from every magnet, set Layer B's Mode to **Stack**. Each
 magnet then plays its Layer A note and its Layer B note together, whichever way
 up it sits.
 
+To have the layers take turns, set Layer B's **Layer Turns** to **Alternate**.
+One revolution only the Layer A magnets play, the next only the Layer B
+magnets, switching each time the start mark passes the arm. Which layer goes
+first is not fixed. It works with any Mode: with Stack each turn plays both
+layers' notes, with Same as A the flipped magnets play like Layer A on their
+turn, and with Layer B Off every other revolution is a rest.
+
 ### Placement Mode
 
 **Menu > Tools > Placement Mode** turns the platter into a workbench for placing
@@ -187,6 +194,7 @@ The function list:
 | Pitch | Moves both layers together. |
 | Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
+| Layer Turns | Together or Alternate: whether the layers take turns by revolution. See [Playing](#playing). |
 | Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
 | Reset All | Undoes every Aux change. |
@@ -272,7 +280,7 @@ Saving a scene to another slot copies its Scene Voice along.
 ## Scenes
 
 A scene is the whole sound of the table: both layers (mode, voice, key, octave,
-level, shift, wrap, low note, channel, effects), Pitch and A/B Balance. The table always
+level, shift, wrap, low note, channel, effects), Layer Turns, Pitch and A/B Balance. The table always
 plays one scene, shown on the home screen, with any Aux changes on top.
 
 - **0: Defaults** is what **Sound Defaults** in the main menu edits. It is
@@ -348,6 +356,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Function    | Where  | Aux | What it does | Default |
 |-------------|--------|-----|--------------|---------|
 | Mode        | Layer  | Yes | On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits. Off silences every magnet that way up. | On |
+| Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
 | Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, or a scale learned from MIDI (see [MIDI In](#midi-in)). Drums ignore it. | Major |
@@ -487,8 +496,8 @@ Not yet: following an external clock.
 
 Most of these are built in as [demos](#scenes), each changing only what the
 idea needs: **Thirds**, **Key of G**, **Ladder** (double-length runs),
-**Mirror**, **Chords** (Thirds with Stack) and **Carousel** (Wrap on, for the
-rotating melody).
+**Mirror**, **Chords** (Thirds with Stack), **Carousel** (Wrap on, for the
+rotating melody) and **Turns** (two-revolution runs).
 
 ### With two layers
 
@@ -509,6 +518,10 @@ plays both, so each idea below becomes a two-note chord.
   flipped magnets.
 - **Mirror.** Set B's Low Note to Outer. A flipped magnet plays the note from
   the other end of the arm.
+- **Two-revolution runs.** Set B's Octave one above A's and its Layer Turns to
+  Alternate. The challenge: an arpeggio that climbs the arm on one revolution
+  with normal magnets, then carries on an octave higher on the next with
+  flipped ones, two octaves over two revolutions.
 
 ### With one layer
 

@@ -147,6 +147,8 @@ static Obj layerObj(const LayerCfg& a, const LayerCfg& f, const VoiceSlot& sv,
     if (isB && a.shiftSameAsA != f.shiftSameAsA) o.flag("shiftSameAsA", a.shiftSameAsA);
     if (a.lowNote != f.lowNote) o.str("lowNote", a.lowNote == (uint8_t)LowNote::Outer ? "outer" : "inner");
     if (isB && a.lowNoteSameAsA != f.lowNoteSameAsA) o.flag("lowNoteSameAsA", a.lowNoteSameAsA);
+    if (isB && a.turns != f.turns)
+        o.str("turns", a.turns == LayerTurns::Alternate ? "alternate" : "together");
 
     const LayerFx& x = a.fx;
     const LayerFx& y = f.fx;

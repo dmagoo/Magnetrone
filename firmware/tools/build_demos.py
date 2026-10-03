@@ -27,6 +27,7 @@ MODES = {"on": "On", "off": "Off", "sameasa": "SameAsA", "stack": "Stack"}
 WAVES = ["sine", "triangle", "saw", "square"]
 WAVE_ENUM = ["Sine", "Triangle", "Saw", "Square"]
 LOW_NOTES = {"inner": "Inner", "outer": "Outer"}
+TURNS = {"together": "Together", "alternate": "Alternate"}
 DELAY_MODES = {"sync": "Sync", "free": "Free"}
 # Order is the stored position, as SYNC_TIMES in layers.cpp.
 SYNC_TIMES = ["1", "1/2", "3/8", "1/3", "1/4", "1/5", "1/6", "3/16", "1/8",
@@ -176,7 +177,7 @@ def layer_code(path, lay, l, out):
     keys = {"mode", "voice", "sceneVoice", "channel", "root", "scale", "learned",
             "octave", "level", "shift", "wrap", "lowNote", "tone", "chorus", "delay", "reverb"}
     if is_b:
-        keys |= {"shiftSameAsA", "lowNoteSameAsA"}
+        keys |= {"shiftSameAsA", "lowNoteSameAsA", "turns"}
     check_keys(path, lay, keys)
     t = "s.layer[%d]" % l
     if "mode" in lay:
@@ -231,6 +232,9 @@ def layer_code(path, lay, l, out):
     if "lowNote" in lay:
         n = name(path + ".lowNote", lay["lowNote"], LOW_NOTES)
         out.append("%s.lowNote = (uint8_t)LowNote::%s;" % (t, LOW_NOTES[n]))
+    if "turns" in lay:
+        n = name(path + ".turns", lay["turns"], TURNS)
+        out.append("%s.turns = LayerTurns::%s;" % (t, TURNS[n]))
     for key in ("tone", "chorus", "delay", "reverb"):
         if key in lay:
             fx_code(path + "." + key, key, lay[key], is_b, out, t)

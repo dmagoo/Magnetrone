@@ -5,7 +5,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 21;
+constexpr uint8_t  EEPROM_VERSION = 22;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -16,6 +16,14 @@ enum class LayerMode : uint8_t {
     Off,
     SameAsA,   // Layer B only: reversed magnets play exactly like normal ones
     Stack,     // Layer B only: every magnet, either pole, plays A and B
+};
+
+// Layer B's Layer Turns. Together: both layers play every revolution.
+// Alternate: they take turns, one revolution each, flipping at the start
+// mark; a magnet whose layer is not on turn is not heard.
+enum class LayerTurns : uint8_t {
+    Together,
+    Alternate,
 };
 
 constexpr uint8_t LAYER_A     = 0;
@@ -80,6 +88,7 @@ struct LayerCfg {
     bool      shiftSameAsA;   // Layer B only: play A's shift and Wrap
     uint8_t   lowNote;        // LowNote
     bool      lowNoteSameAsA; // Layer B only: play A's Low Note
+    LayerTurns turns;         // Layer B only (added in version 22, in what was padding)
     LayerFx   fx;             // added in version 20
 };
 

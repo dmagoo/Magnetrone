@@ -32,6 +32,7 @@ enum class MenuState : uint8_t {
     System,
     LayerMenu,      // one layer's submenu; which one is editLayer
     LayerMode,
+    LayerTurns,     // Layer B only
     LayerVoice,
     LayerChannel,
     LayerRoot,
@@ -134,16 +135,29 @@ static const uint8_t OCTAVE_COUNT = 9;
 // Layer A and Layer B share one submenu; editLayer says which is open.
 static uint8_t editLayer = LAYER_A;
 
+// Layer Turns is Layer B's only: Layer A's list skips it (layerMenuItem()).
 static const char* LAYER_ITEMS[] = {
-    "Mode","Voice","Channel","Root Note","Scale","Octave","Level","Shift","Wrap",
-    "Low Note","Effects","MIDI In","Back"
+    "Mode","Layer Turns","Voice","Channel","Root Note","Scale","Octave","Level",
+    "Shift","Wrap","Low Note","Effects","MIDI In","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 13;
-enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
+static const uint8_t LAYER_ITEMS_COUNT = 14;
+enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_TURNS, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
                  LAYER_ITEM_ROOT, LAYER_ITEM_SCALE, LAYER_ITEM_OCTAVE,
                  LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT, LAYER_ITEM_WRAP,
                  LAYER_ITEM_LOW_NOTE, LAYER_ITEM_EFFECTS, LAYER_ITEM_MIDI_IN,
                  LAYER_ITEM_BACK };
+
+// The open layer's list: how many entries, which item sits at a position,
+// and where an item sits. Layer A's list has no Layer Turns.
+static uint8_t layerMenuCount() {
+    return (editLayer == LAYER_B) ? LAYER_ITEMS_COUNT : LAYER_ITEMS_COUNT - 1;
+}
+static uint8_t layerMenuItem(uint8_t pos) {
+    return (editLayer == LAYER_A && pos >= LAYER_ITEM_TURNS) ? pos + 1 : pos;
+}
+static uint8_t layerMenuPos(uint8_t item) {
+    return (editLayer == LAYER_A && item > LAYER_ITEM_TURNS) ? item - 1 : item;
+}
 
 // The layer submenu as drawn: each entry with the layer's cue, if any (see
 // layerCue()). Rebuilt before each draw.
@@ -160,6 +174,10 @@ static const char* MODE_ITEMS_A[] = { "On","Off","Back" };
 static const char* MODE_ITEMS_B[] = { "On","Off","Same as A","Stack","Back" };
 static const uint8_t MODE_COUNT_A = 3;
 static const uint8_t MODE_COUNT_B = 5;
+
+// Order matches LayerTurns.
+static const char* TURNS_ITEMS[] = { "Together","Alternate","Back" };
+static const uint8_t TURNS_COUNT = 3;
 
 // Auto, then channels 1-16, then Back. Index == stored value. Filled in by
 // menuInit().
@@ -379,6 +397,7 @@ static const uint8_t POLE_COUNT = 3;   // 2 options + Back
 // the order on screen is set by the lists below. The per-layer Fns come in
 // A/B pairs, in AuxKind order, from VoiceA on.
 enum class AuxFn : uint8_t { Pitch, Balance, LoadScene,
+                             Turns,   // version 22: saved bindings from VoiceA on moved up one
                              VoiceA, VoiceB, RootA, RootB, ScaleA, ScaleB,
                              OctaveA, OctaveB, ShiftA, ShiftB, LowNoteA, LowNoteB,
                              WrapA, WrapB,   // appended, so saved bindings keep their numbers
@@ -404,18 +423,19 @@ static AuxFn   auxLayerFn(AuxKind k, uint8_t layer) {
     return (AuxFn)((uint8_t)AuxFn::VoiceA + (uint8_t)k * NUM_LAYERS + layer);
 }
 
-// The Aux list, as shown: Pitch, a submenu per layer, Balance, the scene Fn,
-// then three actions. Layer entries open the per-layer list below.
+// The Aux list, as shown: Pitch, a submenu per layer, Balance and Layer
+// Turns (both about the two layers together, so not inside either), the
+// scene Fn, then three actions. Layer entries open the per-layer list below.
 static const char* AUX_TOP_LABELS[] = {
-    "Pitch","Layer A","Layer B","A/B Balance","Load Scene","Save Scene",
-    "Reset All","Exit"
+    "Pitch","Layer A","Layer B","A/B Balance","Layer Turns","Load Scene",
+    "Save Scene","Reset All","Exit"
 };
-enum : uint8_t { AUXT_PITCH, AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE,
+enum : uint8_t { AUXT_PITCH, AUXT_LAYER_A, AUXT_LAYER_B, AUXT_BALANCE, AUXT_TURNS,
                  AUXT_LOAD_SCENE, AUXT_SAVE_SCENE, AUXT_RESET, AUXT_EXIT, AUXT_COUNT };
 // The Fn behind each top entry; COUNT where the entry is not a Fn.
 static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
-    AuxFn::Pitch, AuxFn::COUNT, AuxFn::COUNT, AuxFn::Balance, AuxFn::LoadScene,
-    AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
+    AuxFn::Pitch, AuxFn::COUNT, AuxFn::COUNT, AuxFn::Balance, AuxFn::Turns,
+    AuxFn::LoadScene, AuxFn::COUNT, AuxFn::COUNT, AuxFn::COUNT
 };
 
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
@@ -626,7 +646,7 @@ static bool voiceEditable(const SavedConfig& cfg, uint8_t l) {
 // the effect Fns in an Effects group so it stays manageable. Order matches
 // AuxFn up to the effects.
 static const char* AUX_FN_MENU_LABELS[] = {
-    "Pitch","A/B Balance","Load Scene",
+    "Pitch","A/B Balance","Load Scene","Layer Turns",
     "Layer A Voice","Layer B Voice","Layer A Root","Layer B Root",
     "Layer A Scale","Layer B Scale","Layer A Octave","Layer B Octave",
     "Layer A Shift","Layer B Shift","Layer A Low","Layer B Low",
@@ -1064,13 +1084,16 @@ static void buildSoundLabels(const SavedConfig& cfg) {
     SOUND_ITEMS[NUM_LAYERS] = "Back";
 }
 
-// Mode is what the cue is about, and Back is not a setting: neither is tagged.
+// Mode is what the cue is about, Layer Turns counts whatever the mode, and
+// Back is not a setting: none of them is tagged.
 static void buildLayerLabels(const SavedConfig& cfg) {
     const char* cue = layerCue(cfg, editLayer);
-    for (uint8_t i = 0; i < LAYER_ITEMS_COUNT; i++) {
-        bool tag = (i != LAYER_ITEM_MODE && i != LAYER_ITEM_BACK);
+    for (uint8_t i = 0; i < layerMenuCount(); i++) {
+        uint8_t item = layerMenuItem(i);
+        bool tag = (item != LAYER_ITEM_MODE && item != LAYER_ITEM_TURNS &&
+                    item != LAYER_ITEM_BACK);
         snprintf(LAYER_LABEL_BUF[i], sizeof(LAYER_LABEL_BUF[i]), "%s%s",
-                 LAYER_ITEMS[i], tag ? cue : "");
+                 LAYER_ITEMS[item], tag ? cue : "");
         LAYER_LABELS[i] = LAYER_LABEL_BUF[i];
     }
 }
@@ -1310,6 +1333,13 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
         case AuxFn::Balance:
             layerSetBalance(layerBalance() + delta);           // clamp: a range
             return;
+        case AuxFn::Turns: {
+            // Kept in Layer B, but about both layers, so it turns whatever
+            // B's mode.
+            int v = (int)cfg.layer[LAYER_B].turns + delta;
+            cfg.layer[LAYER_B].turns = (LayerTurns)constrain(v, 0, TURNS_COUNT - 2);   // clamp: a list
+            return;
+        }
         case AuxFn::LoadScene: {
             // Steps through the used scenes, wrapping, and queues the one
             // landed on to load at the next bar start. Defaults is always
@@ -1670,6 +1700,9 @@ static void drawAuxParam(const SavedConfig& cfg) {
             lcdLine(1, "%s", bar);
             break;
         }
+        case AuxFn::Turns:
+            drawList(TURNS_ITEMS, TURNS_COUNT - 1, (uint8_t)cfg.layer[LAYER_B].turns);   // - Back
+            break;
         case AuxFn::LoadScene:
             buildSceneLabels(cfg);
             drawList(LOAD_ITEMS, LOAD_COUNT, sceneSelected(cfg));
@@ -2375,16 +2408,18 @@ void menuUpdate(SavedConfig& cfg) {
 
         case MenuState::LayerMenu:
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + LAYER_ITEMS_COUNT) % LAYER_ITEMS_COUNT;
+                cursor = (cursor + ev.menuDelta + layerMenuCount()) % layerMenuCount();
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
                 // The cursor lands on the Defaults scene's value: that is what
                 // this menu edits.
                 const LayerCfg& lc = cfg.scenes[SCENE_DEFAULTS].layer[editLayer];
-                switch (cursor) {
+                switch (layerMenuItem(cursor)) {
                     case LAYER_ITEM_MODE:
                         enterState(MenuState::LayerMode, (uint8_t)lc.mode); break;
+                    case LAYER_ITEM_TURNS:
+                        enterState(MenuState::LayerTurns, (uint8_t)lc.turns); break;
                     case LAYER_ITEM_VOICE:
                         enterState(MenuState::LayerVoice,
                                    voiceChoicePos(lc.voice, buildVoiceChoices(cfg, editLayer, false)));
@@ -2442,10 +2477,23 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor < count - 1) {   // last entry is Back
                     editDefaults(cfg, [](LayerCfg& c) { c.mode = (LayerMode)cursor; });
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_MODE);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_MODE));
             }
             break;
         }
+
+        case MenuState::LayerTurns:
+            if (ev.menuDelta) {
+                cursor = (cursor + ev.menuDelta + TURNS_COUNT) % TURNS_COUNT;
+                needsRedraw = true;
+            }
+            if (ev.menuPressed) {
+                if (cursor < TURNS_COUNT - 1) {   // last entry is Back
+                    editDefaults(cfg, [](LayerCfg& c) { c.turns = (LayerTurns)cursor; });
+                }
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_TURNS));
+            }
+            break;
 
         case MenuState::LayerVoice: {
             uint8_t n = buildVoiceChoices(cfg, editLayer, false);
@@ -2458,7 +2506,7 @@ void menuUpdate(SavedConfig& cfg) {
                     uint8_t id = voiceChoiceIds[cursor];
                     editDefaults(cfg, [id](LayerCfg& c) { c.voice = id; });
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_VOICE);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_VOICE));
             }
             break;
         }
@@ -2472,7 +2520,7 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor < CHANNEL_COUNT - 1) {   // last entry is Back
                     editDefaults(cfg, [](LayerCfg& c) { c.channel = cursor; });   // 0 = Auto
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_CHANNEL);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_CHANNEL));
             }
             break;
 
@@ -2483,7 +2531,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < 12) editDefaults(cfg, [](LayerCfg& c) { c.root = (RootNote)cursor; });
-                enterState(MenuState::LayerMenu, LAYER_ITEM_ROOT);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_ROOT));
             }
             break;
 
@@ -2494,7 +2542,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < SCALE_COUNT - 1) editDefaults(cfg, [](LayerCfg& c) { c.scale = (Scale)cursor; });
-                enterState(MenuState::LayerMenu, LAYER_ITEM_SCALE);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_SCALE));
             }
             break;
 
@@ -2505,7 +2553,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < OCTAVE_COUNT - 1) editDefaults(cfg, [](LayerCfg& c) { c.octave = cursor; });
-                enterState(MenuState::LayerMenu, LAYER_ITEM_OCTAVE);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_OCTAVE));
             }
             break;
 
@@ -2518,7 +2566,7 @@ void menuUpdate(SavedConfig& cfg) {
                 if (cursor < LEVEL_COUNT - 1) {   // last entry is Back
                     editDefaults(cfg, [](LayerCfg& c) { c.level = cursor * 10; });
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_LEVEL);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_LEVEL));
             }
             break;
 
@@ -2535,7 +2583,7 @@ void menuUpdate(SavedConfig& cfg) {
                 } else if (editLayer == LAYER_B && cursor == SHIFT_ITEM_SAME_AS_A) {
                     editDefaults(cfg, [](LayerCfg& c) { c.shiftSameAsA = true; });
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_SHIFT);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_SHIFT));
             }
             break;
         }
@@ -2551,7 +2599,7 @@ void menuUpdate(SavedConfig& cfg) {
                     // until unbound, as B's other settings are under Same as A.
                     editDefaults(cfg, [](LayerCfg& c) { c.wrap = (cursor == 0); });
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_WRAP);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_WRAP));
             }
             break;
 
@@ -2568,7 +2616,7 @@ void menuUpdate(SavedConfig& cfg) {
                 } else if (editLayer == LAYER_B && cursor == LOW_NOTE_ITEM_SAME_AS_A) {
                     editDefaults(cfg, [](LayerCfg& c) { c.lowNoteSameAsA = true; });
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_LOW_NOTE);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_LOW_NOTE));
             }
             break;
         }
@@ -2585,7 +2633,7 @@ void menuUpdate(SavedConfig& cfg) {
                     cfg.midiInChannel[editLayer] = cursor;   // 0 = Off
                     storageSave(cfg);
                 }
-                enterState(MenuState::LayerMenu, LAYER_ITEM_MIDI_IN);
+                enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_MIDI_IN));
             }
             break;
 
@@ -2600,7 +2648,7 @@ void menuUpdate(SavedConfig& cfg) {
                     fxMenuEffect = FX_MENU[cursor];
                     enterState(MenuState::FxParamList, 0);
                 } else {
-                    enterState(MenuState::LayerMenu, LAYER_ITEM_EFFECTS);
+                    enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_EFFECTS));
                 }
             }
             break;
@@ -3213,7 +3261,10 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::LayerMenu:
                 buildLayerLabels(cfg);
-                drawList(LAYER_LABELS, LAYER_ITEMS_COUNT, cursor);
+                drawList(LAYER_LABELS, layerMenuCount(), cursor);
+                break;
+            case MenuState::LayerTurns:
+                drawList(TURNS_ITEMS, TURNS_COUNT, cursor);
                 break;
             case MenuState::LayerMode:
                 if (editLayer == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A, cursor);

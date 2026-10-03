@@ -4,6 +4,8 @@
 #include "layers.h"
 #include "sensors/hall.h"
 #include "midi/midi.h"
+#include "motion/bar.h"
+#include "motion/stepper.h"
 #include "config.h"
 
 struct NoteState {
@@ -48,14 +50,19 @@ void sequencerUpdate(const SavedConfig& cfg) {
     }
 
     // check for new triggers. A magnet plays the layer of its pole, or both
-    // layers when Layer B is on Stack.
-    bool stack = (cfg.layer[LAYER_B].mode == LayerMode::Stack);
+    // layers when Layer B is on Stack. With Layer Turns on Alternate, only
+    // the magnets of the layer whose revolution it is are heard: A on even
+    // revolutions, B on odd.
+    bool    stack     = (cfg.layer[LAYER_B].mode == LayerMode::Stack);
+    bool    alternate = (cfg.layer[LAYER_B].turns == LayerTurns::Alternate);
+    uint8_t turn      = barOddRevAt(stepperPosition()) ? LAYER_B : LAYER_A;
     for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) {
         HallPole pole = hallTrigger(i);
         if (pole == HallPole::None) continue;
         if (!(trackMask & (1u << i))) continue;   // muted in Placement Mode
 
         uint8_t poleLayer = (pole == HallPole::Normal) ? LAYER_A : LAYER_B;
+        if (alternate && poleLayer != turn) continue;
         for (uint8_t l = 0; l < NUM_LAYERS; l++) {
             if (stack || l == poleLayer) noteOn(cfg, l, i, now);
         }

@@ -53,6 +53,16 @@ struct SavedConfigV15 {
 static_assert(sizeof(SavedConfig) <= E2END + 1, "SavedConfig does not fit the EEPROM");
 static_assert(NUM_SAVED_VOICES == NUM_CUSTOM_VOICES, "custom voice counts differ");
 static_assert(NUM_SLOT_HARMONICS == NUM_HARMONICS, "harmonic counts differ");
+// Version 22 put Layer Turns in a padding byte, so the layout around it did
+// not move.
+static_assert(sizeof(LayerCfg) == 32 && offsetof(LayerCfg, fx) == 16,
+              "LayerCfg moved: version 21 layers no longer read as version 22");
+
+// Version 22 added the Layer Turns Aux Fn after Load Scene (number 3), so
+// every saved binding from 3 on moves up one.
+static uint8_t auxFnFromV21(uint8_t fn) {
+    return fn >= 3 ? fn + 1 : fn;
+}
 
 LayerFx storageFactoryFx() {
     LayerFx f{};
@@ -185,6 +195,7 @@ static LayerCfg fromV19(const LayerCfgV19& o) {
     l.shiftSameAsA   = o.shiftSameAsA;
     l.lowNote        = o.lowNote;
     l.lowNoteSameAsA = o.lowNoteSameAsA;
+    l.turns          = LayerTurns::Together;
     l.fx             = storageFactoryFx();
     return l;
 }
@@ -222,6 +233,7 @@ Scene storageFactoryScene() {
     a.shiftSameAsA   = false;
     a.lowNote        = (uint8_t)(DEFAULT_LOW_NOTE_OUTER ? LowNote::Outer : LowNote::Inner);
     a.lowNoteSameAsA = false;
+    a.turns          = LayerTurns::Together;
     a.fx             = storageFactoryFx();
 
     // Layer B plays its own voice out of the box, drums, with nothing bound
@@ -314,7 +326,7 @@ static void fromV16to19(SavedConfig& cfg) {
     c.menuTimeout     = old.menuTimeout;
     c.startCheck      = old.startCheck;
     c.beatsPerRev     = old.beatsPerRev;
-    c.auxFn           = old.auxFn;
+    c.auxFn           = auxFnFromV21(old.auxFn);
     c.pitchStepDiv    = old.pitchStepDiv;
     c.midiFn          = old.midiFn;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
@@ -343,9 +355,19 @@ void storageLoad(SavedConfig& cfg) {
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 16 && cfg.version <= 19) {
         fromV16to19(cfg);
     }
-    // Version 20 is this layout without the noise at the end.
+    // Version 20 is version 21 without the noise at the end.
     if (cfg.magic == EEPROM_MAGIC && cfg.version == 20) {
         for (uint8_t i = 0; i < NUM_HALL_SENSORS; i++) cfg.hallNoise[i] = HALL_NOISE_DEFAULT;
+        cfg.version = 21;
+    }
+    // Version 21 is this layout with padding where Layer Turns now sits, and
+    // the Aux Fns from Layer A Voice on one number lower.
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 21) {
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+            cfg.layer[l].turns = LayerTurns::Together;
+            for (uint8_t i = 0; i < NUM_SCENES; i++) cfg.scenes[i].layer[l].turns = LayerTurns::Together;
+        }
+        cfg.auxFn   = auxFnFromV21(cfg.auxFn);
         cfg.version = EEPROM_VERSION;
         storageSave(cfg);
     }

@@ -50,6 +50,7 @@ the implementation guide for the feature, not for playing the table: see the
 | `shiftSameAsA` | Layer B only: play A's Shift and Wrap. |
 | `lowNote` | `inner` or `outer`. |
 | `lowNoteSameAsA` | Layer B only: play A's Low Note. |
+| `turns` | Layer B only: Layer Turns, `together` or `alternate`. |
 | `tone`, `chorus`, `delay`, `reverb` | The layer's effects, below. |
 
 ## Effects
@@ -193,6 +194,7 @@ would leave out everything here that matches the factory values.
     "shiftSameAsA": false,
     "lowNote": "inner",
     "lowNoteSameAsA": false,
+    "turns": "together",
     "tone":   { "sameAsA": false, "cutoff": "off", "resonance": 0 },
     "chorus": { "sameAsA": false, "rate": 30, "depth": 50, "mix": "off" },
     "delay":  { "sameAsA": false, "mode": "sync", "sync": "1/2", "time": 300, "feedback": 30, "mix": "off" },

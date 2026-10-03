@@ -18,7 +18,8 @@ turning physical arrangement into musical pattern.
   its first 16 harmonics, and its own filter with a filter envelope; Save As keeps them in Custom 1-8 (shared by all
   scenes) or as the current scene's own Scene Voice
 - Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B
-  (or both, with Layer B's Mode on Stack),
+  (or both, with Layer B's Mode on Stack, or taking turns by revolution, with
+  Layer Turns on Alternate),
   each with its own voice, MIDI channel, root note, scale, octave, level, Track
   Shift, Wrap and Low Note
 - Per-layer effects, in a fixed chain: Tone (low-pass Cutoff and Resonance),
@@ -60,7 +61,7 @@ turning physical arrangement into musical pattern.
   either one returns to the home screen from any menu (prompts excepted).
   From a stop, turning Speed starts from zero in the turned direction; a
   press resumes the last speed
-- Aux knob changes one bound function live (Pitch, A/B Balance, Load Scene,
+- Aux knob changes one bound function live (Pitch, A/B Balance, Layer Turns, Load Scene,
   or a layer's Voice, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode,
   Tone Cutoff, Delay Mix, Delay Feedback or Reverb Mix)
 - Menu knob opens the main menu from the home screen by turning or pressing;

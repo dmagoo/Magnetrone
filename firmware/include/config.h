@@ -27,7 +27,7 @@ constexpr bool      DEFAULT_LOW_NOTE_OUTER = false;  // per layer: Low Note Inne
 // Which parameter the aux knob modulates. Index into the Fn list in menu.cpp.
 // This binding is saved; the VALUES it modulates are live performance state and
 // deliberately are not.
-constexpr uint8_t   DEFAULT_AUX_FN       = 3;   // Layer A Voice (AuxFn::VoiceA)
+constexpr uint8_t   DEFAULT_AUX_FN       = 4;   // Layer A Voice (AuxFn::VoiceA)
 
 // Pitch step size, stored as a divisor of one semitone: 1 = a half step,
 // 2 = a quarter tone, and so on. Anything above 1 is microtonal -- exact on the

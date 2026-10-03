@@ -31,6 +31,16 @@ uint32_t barPhaseAt(int32_t pos) {
     return (uint32_t)(m < 0 ? m + n : m);
 }
 
+bool barOddRevAt(int32_t pos) {
+    // Whole revolutions past the start mark, rounded down, so it steps at
+    // the mark in either direction. Before the start is known the origin is
+    // where the platter sat at power-up, which is as good as any.
+    int32_t n = (int32_t)barStepsPerRev();
+    int32_t d = pos - origin;
+    int32_t r = (d >= 0) ? d / n : -((-d + n - 1) / n);
+    return r & 1;
+}
+
 void barSetStart(int32_t pos) {
     origin    = pos;
     known     = true;
@@ -46,10 +56,11 @@ void barForget(SavedConfig& cfg) {
 
 void barUpdate(SavedConfig& cfg) {
     // Keep the origin near the position so the int32 difference never
-    // overflows on a long run (it would after ~17 hours at MAX_RPM).
+    // overflows on a long run (it would after ~17 hours at MAX_RPM). It moves
+    // by an even number of revolutions, so barOddRevAt() does not flip.
     int32_t n = (int32_t)barStepsPerRev();
     int32_t d = stepperPosition() - origin;
-    if (d > n * 1000 || d < -n * 1000) origin += (d / n) * n;
+    if (d > n * 1000 || d < -n * 1000) origin += (d / (2 * n)) * 2 * n;
 
     if (!known) return;
 
