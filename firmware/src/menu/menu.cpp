@@ -37,6 +37,10 @@ enum class MenuState : uint8_t {
     LayerChannel,
     LayerRoot,
     LayerScale,
+    ScaleEditList,  // Edit Scale: the layer's eight notes (Sound Defaults or Aux)
+    ScaleEditSlot,  //   one note
+    ScaleSaveSelect,  // Edit Scale > Save As: pick Custom 1-8
+    ScaleSaveConfirm, //   overwrite a used one?
     LayerOctave,
     LayerLevel,
     LayerShift,
@@ -113,18 +117,14 @@ static const char* ROOT_ITEMS[] = {
 };
 static const uint8_t ROOT_COUNT = 13;
 
-// A layer's scale, from the menu. No Learned: it can only be learned, from
-// MIDI keys.
-static const char* SCALE_ITEMS[] = {
-    "Major","Minor","PMajor","PMinor","Blues","Chromat","Dorian","Mixolyd","Back"
-};
-static const uint8_t SCALE_COUNT = 9;
-
-// Every scale's name, Learned included, for the live display, scenes and the
-// Aux Scale Fns.
+// Every scale's name, Learned and Custom included, for the scale lists, the
+// live display and scenes.
 static const char* SCALE_NAMES[] = {
-    "Major","Minor","PMajor","PMinor","Blues","Chromat","Dorian","Mixolyd","Learned"
+    "Major","Minor","PMajor","PMinor","Blues","Chromat","Dorian","Mixolyd","Learned",
+    "Custom"
 };
+static_assert(sizeof(SCALE_NAMES) / sizeof(SCALE_NAMES[0]) == (uint8_t)Scale::COUNT,
+              "a scale has no name");
 
 static const char* OCTAVE_ITEMS[] = {
     "0","1","2","3","4","5","6","7","Back"
@@ -137,12 +137,12 @@ static uint8_t editLayer = LAYER_A;
 
 // Layer Turns is Layer B's only: Layer A's list skips it (layerMenuItem()).
 static const char* LAYER_ITEMS[] = {
-    "Mode","Layer Turns","Voice","Channel","Root Note","Scale","Octave","Level",
-    "Shift","Wrap","Low Note","Effects","MIDI In","Back"
+    "Mode","Layer Turns","Voice","Channel","Root Note","Scale","Edit Scale","Octave",
+    "Level","Shift","Wrap","Low Note","Effects","MIDI In","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 14;
+static const uint8_t LAYER_ITEMS_COUNT = 15;
 enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_TURNS, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
-                 LAYER_ITEM_ROOT, LAYER_ITEM_SCALE, LAYER_ITEM_OCTAVE,
+                 LAYER_ITEM_ROOT, LAYER_ITEM_SCALE, LAYER_ITEM_EDIT_SCALE, LAYER_ITEM_OCTAVE,
                  LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT, LAYER_ITEM_WRAP,
                  LAYER_ITEM_LOW_NOTE, LAYER_ITEM_EFFECTS, LAYER_ITEM_MIDI_IN,
                  LAYER_ITEM_BACK };
@@ -439,14 +439,15 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
 };
 
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
-// Voice Edit after Voice, then Effects and Back.
+// Voice Edit after Voice and Edit Scale after Scale, then Effects and Back.
 static const char* AUX_LAYER_LABELS[] = {
-    "Voice","Voice Edit","Root Note","Scale","Octave","Shift","Low Note","Wrap","Mode",
-    "Effects","Back"
+    "Voice","Voice Edit","Root Note","Scale","Edit Scale","Octave","Shift","Low Note",
+    "Wrap","Mode","Effects","Back"
 };
-static const uint8_t AUX_LAYER_COUNT      = AUX_LAYER_KIND_COUNT + 3;   // + Voice Edit, Effects, Back
+static const uint8_t AUX_LAYER_COUNT      = AUX_LAYER_KIND_COUNT + 4;   // + Voice Edit, Edit Scale, Effects, Back
 static const uint8_t AUX_LAYER_VOICE_EDIT = 1;
-static const uint8_t AUX_LAYER_EFFECTS    = AUX_LAYER_KIND_COUNT + 1;
+static const uint8_t AUX_LAYER_EDIT_SCALE = 4;
+static const uint8_t AUX_LAYER_EFFECTS    = AUX_LAYER_KIND_COUNT + 2;
 
 // Inside Layer A/B > Effects: the effect Fns, in chain order, then Back.
 // Each is one effect setting, from FX_PARAMS.
@@ -475,10 +476,12 @@ static uint8_t auxLayer = LAYER_A;   // which layer's list is open
 // under Effects.
 static uint8_t auxKindPos(AuxKind k) {
     if (auxKindIsFx(k)) return AUX_LAYER_EFFECTS;
-    return (k == AuxKind::Voice) ? 0 : (uint8_t)k + 1;
+    if (k == AuxKind::Voice) return 0;
+    return (k <= AuxKind::Scale) ? (uint8_t)k + 1 : (uint8_t)k + 2;
 }
 static AuxKind auxPosKind(uint8_t pos) {
-    return (pos == 0) ? AuxKind::Voice : (AuxKind)(pos - 1);
+    if (pos == 0) return AuxKind::Voice;
+    return (pos < AUX_LAYER_EDIT_SCALE) ? (AuxKind)(pos - 1) : (AuxKind)(pos - 2);
 }
 
 // --- Voice Edit -------------------------------------------------------------
@@ -724,9 +727,12 @@ static void auxBind(SavedConfig& cfg, AuxFn fn) {
 }
 
 // Beats per platter revolution. 4 = one revolution is one 4/4 bar.
-static const uint8_t BEATS_VALUES[] = { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32 };
-static const char*   BEATS_LABELS[] = { "1","2","3","4","6","8","12","16","24","32","Back" };
-static const uint8_t BEATS_COUNT = 11;   // 10 options + Back
+// Every count from 1 to BEATS_MAX, then Back; index + 1 == the value. Filled
+// in by menuInit().
+static const uint8_t BEATS_MAX   = 32;
+static char          BEATS_LABEL_BUF[BEATS_MAX][3];
+static const char*   BEATS_LABELS[BEATS_MAX + 1];
+static const uint8_t BEATS_COUNT = BEATS_MAX + 1;   // + Back
 
 static const char* WELCOME_ITEMS[] = { "On", "Off", "Back" };
 static const uint8_t WELCOME_COUNT = 3;
@@ -784,6 +790,183 @@ static void editDefaults(SavedConfig& cfg, F set) {
     set(cfg.layer[editLayer]);
     storageSave(cfg);
     layersApply(cfg);
+}
+
+// --- Scale lists and Edit Scale ---------------------------------------------
+// The scale lists: the built-ins, Learned (Aux only, once learned), Custom
+// (the layer's own), then each saved Custom 1-8. A list entry is a Scale, or
+// SCALE_CHOICE_SLOT + n for Custom n+1. Picking Custom n+1 copies it into the
+// layer, so the layer plays Custom from then on.
+static const uint8_t SCALE_CHOICE_SLOT = (uint8_t)Scale::COUNT;
+static const uint8_t SCALE_CHOICE_MAX  = (uint8_t)Scale::COUNT + NUM_CUSTOM_SCALES + 1;   // + Back
+static uint8_t     scaleChoiceIds[SCALE_CHOICE_MAX];
+static const char* scaleChoiceLabels[SCALE_CHOICE_MAX];
+static const char* CUSTOM_SCALE_NAMES[NUM_CUSTOM_SCALES] = {
+    "Custom 1","Custom 2","Custom 3","Custom 4","Custom 5","Custom 6","Custom 7","Custom 8"
+};
+
+// Which Custom n each layer last picked, so the list can sit on it while
+// the layer still plays it unchanged. RAM only.
+static const uint8_t NO_CUSTOM_SCALE = 0xFF;
+static uint8_t customScaleFrom[NUM_LAYERS] = { NO_CUSTOM_SCALE, NO_CUSTOM_SCALE };
+
+// Fills the list for a layer; returns the count, Back not included (the
+// labels end with it).
+static uint8_t buildScaleChoices(const SavedConfig& cfg, const LayerCfg& lc, bool aux) {
+    uint8_t n = 0;
+    for (uint8_t i = 0; i < SCALE_BUILTIN_COUNT; i++) scaleChoiceIds[n++] = i;
+    if (aux && lc.learned) scaleChoiceIds[n++] = (uint8_t)Scale::Learned;
+    scaleChoiceIds[n++] = (uint8_t)Scale::Custom;
+    for (uint8_t i = 0; i < NUM_CUSTOM_SCALES; i++) {
+        if (cfg.customScales[i].used) scaleChoiceIds[n++] = SCALE_CHOICE_SLOT + i;
+    }
+    for (uint8_t i = 0; i < n; i++) {
+        uint8_t id = scaleChoiceIds[i];
+        scaleChoiceLabels[i] = (id >= SCALE_CHOICE_SLOT) ? CUSTOM_SCALE_NAMES[id - SCALE_CHOICE_SLOT]
+                                                         : SCALE_NAMES[id];
+    }
+    scaleChoiceLabels[n] = "Back";
+    return n;
+}
+
+// Where the layer's scale sits in the list just built; `missing` if not in it
+// (a Learned scale in the menu's list).
+static uint8_t scaleChoicePos(const SavedConfig& cfg, const LayerCfg& lc, uint8_t l,
+                              uint8_t n, uint8_t missing) {
+    uint8_t id = (uint8_t)lc.scale;
+    uint8_t from = customScaleFrom[l];
+    if (lc.scale == Scale::Custom && from < NUM_CUSTOM_SCALES && cfg.customScales[from].used &&
+        memcmp(lc.custom, cfg.customScales[from].steps, CUSTOM_SCALE_SLOTS) == 0) {
+        id = SCALE_CHOICE_SLOT + from;
+    }
+    for (uint8_t i = 0; i < n; i++) if (scaleChoiceIds[i] == id) return i;
+    return missing;
+}
+
+// Sets a layer to a list entry. Custom with none set yet starts from the
+// layer's current scale, so nothing changes until it is edited.
+static void scaleChoose(const SavedConfig& cfg, LayerCfg& c, uint8_t id) {
+    if (id >= SCALE_CHOICE_SLOT) {
+        memcpy(c.custom, cfg.customScales[id - SCALE_CHOICE_SLOT].steps, CUSTOM_SCALE_SLOTS);
+        c.scale = Scale::Custom;
+    } else if (id == (uint8_t)Scale::Custom) {
+        if (!scaleCustomSet(c.custom)) scaleToCustom(c.scale, c.learned, c.custom, c.custom);
+        c.scale = Scale::Custom;
+    } else {
+        c.scale = (Scale)id;
+    }
+}
+
+// Edit Scale runs from Sound Defaults (menu knob, editing the Defaults scene)
+// or from the Aux (aux knob, editing the live sound); this says which.
+static bool    scaleEditAux    = false;
+static uint8_t scaleEditSlot   = 0;   // which note ScaleEditSlot changes
+static uint8_t scaleSaveTarget = 0;   // Custom n for ScaleSaveConfirm
+
+static uint8_t scaleEditLayer() {
+    return scaleEditAux ? auxLayer : editLayer;
+}
+static const LayerCfg& scaleEditCfg(const SavedConfig& cfg) {
+    return scaleEditAux ? cfg.layer[auxLayer] : cfg.scenes[SCENE_DEFAULTS].layer[editLayer];
+}
+// On the Aux, Layer B in Same as A plays A's scale: leave B's alone.
+static bool scaleEditBlocked(const SavedConfig& cfg) {
+    return scaleEditAux && auxLayer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA;
+}
+
+// The notes Edit Scale shows: the layer's Custom scale, or until it plays
+// one, its current scale's first eight notes.
+static void scaleEditSteps(const LayerCfg& lc, int8_t out[CUSTOM_SCALE_SLOTS]) {
+    scaleToCustom(lc.scale, lc.learned, lc.custom, out);
+}
+
+// A step as a note in the layer's key, with its octave from the layer's
+// Octave: "E+0", "C+1", "B-1".
+static void scaleStepName(const LayerCfg& lc, int8_t step, char* out, size_t len) {
+    int n   = (int)lc.root + step;
+    int oct = (n >= 0) ? n / 12 : -((11 - n) / 12);
+    snprintf(out, len, "%s%+d", ROOT_ITEMS[n - oct * 12], oct);
+}
+
+// The Edit Scale list: "1: C+0" to "8: C+1", Save As, Back.
+static const uint8_t SE_SAVE  = CUSTOM_SCALE_SLOTS;
+static const uint8_t SE_BACK  = CUSTOM_SCALE_SLOTS + 1;
+static const uint8_t SE_COUNT = CUSTOM_SCALE_SLOTS + 2;
+static char        SE_BUF[CUSTOM_SCALE_SLOTS][12];
+static const char* SE_ITEMS[SE_COUNT];
+static void buildScaleEditItems(const SavedConfig& cfg) {
+    const LayerCfg& lc = scaleEditCfg(cfg);
+    int8_t steps[CUSTOM_SCALE_SLOTS];
+    scaleEditSteps(lc, steps);
+    for (uint8_t i = 0; i < CUSTOM_SCALE_SLOTS; i++) {
+        char name[8];
+        scaleStepName(lc, steps[i], name, sizeof(name));
+        snprintf(SE_BUF[i], sizeof(SE_BUF[i]), "%u: %s", (unsigned)(i + 1), name);
+        SE_ITEMS[i] = SE_BUF[i];
+    }
+    SE_ITEMS[SE_SAVE] = "Save As";
+    SE_ITEMS[SE_BACK] = "Back";
+}
+
+// Changes the layer's scale: the live sound on the Aux, the Defaults scene
+// (and the live sound) from Sound Defaults. From Sound Defaults it is saved
+// with `save`, so turning a note does not write the EEPROM on every click.
+template <typename F>
+static void scaleEditSet(SavedConfig& cfg, F set, bool save) {
+    if (!scaleEditAux) set(cfg.scenes[SCENE_DEFAULTS].layer[editLayer]);
+    set(cfg.layer[scaleEditLayer()]);
+    if (!scaleEditAux && save) storageSave(cfg);
+}
+
+// One click on a note. The first edit turns the layer's scale into a Custom
+// one with the same notes.
+static void scaleEditStep(SavedConfig& cfg, int8_t delta) {
+    uint8_t s = scaleEditSlot;
+    scaleEditSet(cfg, [s, delta](LayerCfg& c) {
+        scaleToCustom(c.scale, c.learned, c.custom, c.custom);
+        c.scale = Scale::Custom;
+        c.custom[s] = (int8_t)constrain((int)c.custom[s] + delta, CUSTOM_STEP_MIN, CUSTOM_STEP_MAX);
+    }, false);
+    customScaleFrom[scaleEditLayer()] = NO_CUSTOM_SCALE;
+}
+
+// The Save As list: "Custom 1" or "Custom 1 empty" to Custom 8, then Back.
+static const uint8_t SCALE_SAVE_COUNT = NUM_CUSTOM_SCALES + 1;
+static char        SCALE_SAVE_BUF[NUM_CUSTOM_SCALES][16];
+static const char* SCALE_SAVE_ITEMS[SCALE_SAVE_COUNT];
+static void buildScaleSaveItems(const SavedConfig& cfg) {
+    for (uint8_t i = 0; i < NUM_CUSTOM_SCALES; i++) {
+        snprintf(SCALE_SAVE_BUF[i], sizeof(SCALE_SAVE_BUF[i]), "%s%s", CUSTOM_SCALE_NAMES[i],
+                 cfg.customScales[i].used ? "" : " empty");
+        SCALE_SAVE_ITEMS[i] = SCALE_SAVE_BUF[i];
+    }
+    SCALE_SAVE_ITEMS[NUM_CUSTOM_SCALES] = "Back";
+}
+
+// Save As: the notes shown into Custom n, and the layer set to play them as
+// Custom (it sounds the same). Then says so and goes back to the list.
+static void scaleSaveCustom(SavedConfig& cfg, uint8_t n) {
+    int8_t steps[CUSTOM_SCALE_SLOTS];
+    scaleEditSteps(scaleEditCfg(cfg), steps);
+    cfg.customScales[n].used = true;
+    memcpy(cfg.customScales[n].steps, steps, CUSTOM_SCALE_SLOTS);
+    scaleEditSet(cfg, [&steps](LayerCfg& c) {
+        memcpy(c.custom, steps, CUSTOM_SCALE_SLOTS);
+        c.scale = Scale::Custom;
+    }, false);
+    customScaleFrom[scaleEditLayer()] = n;
+    storageSave(cfg);
+    char msg[17];
+    snprintf(msg, sizeof(msg), "Saved %s", CUSTOM_SCALE_NAMES[n]);
+    menuMessage(msg, "");
+    delay(1000);
+    enterState(MenuState::ScaleEditList, SE_SAVE);
+}
+
+// Where Edit Scale's Back goes.
+static void scaleEditLeave() {
+    if (scaleEditAux) enterState(MenuState::AuxLayerSelect, AUX_LAYER_EDIT_SCALE);
+    else              enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_EDIT_SCALE));
 }
 
 // Ends a calibration or StartPos flow: back to the live display if it began
@@ -1273,7 +1456,7 @@ static void trackNotesRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
         if (kit) {
             name = DRUM_LETTERS[d % NUM_HALL_SENSORS];
         } else {
-            int note = scaleNote(lc.root, lc.scale, lc.learned, d, (uint8_t)constrain(lc.octave, 0, 9))
+            int note = scaleNote(lc.root, lc.scale, lc.learned, lc.custom, d, (uint8_t)constrain(lc.octave, 0, 9))
                      + pitchNoteShift();
             name = names[(note % 12 + 12) % 12];
         }
@@ -1382,11 +1565,14 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             break;
         }
         case AuxKind::Scale: {
-            // Learned is in the list only once this layer has learned one.
-            int n = lc.learned ? (int)Scale::COUNT : (int)SCALE_BUILTIN_COUNT;
-            int v = ((int)lc.scale + delta) % n;
+            // Learned is in the list only once this layer has learned one;
+            // Custom and the saved Custom 1-8 follow.
+            int n = buildScaleChoices(cfg, lc, true);
+            int v = ((int)scaleChoicePos(cfg, lc, l, n, 0) + delta) % n;
             if (v < 0) v += n;
-            lc.scale = (Scale)v;                               // wrap: a list
+            uint8_t id = scaleChoiceIds[v];                    // wrap: a list
+            scaleChoose(cfg, lc, id);
+            customScaleFrom[l] = (id >= SCALE_CHOICE_SLOT) ? id - SCALE_CHOICE_SLOT : NO_CUSTOM_SCALE;
             break;
         }
         case AuxKind::Octave: {
@@ -1474,8 +1660,8 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
             drawList(ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
             break;
         case AuxKind::Scale: {
-            uint8_t n = lc.learned ? (uint8_t)Scale::COUNT : SCALE_BUILTIN_COUNT;
-            drawList(SCALE_NAMES, n, (uint8_t)constrain((uint8_t)lc.scale, 0, n - 1));
+            uint8_t n = buildScaleChoices(cfg, lc, true);
+            drawList(scaleChoiceLabels, n, scaleChoicePos(cfg, lc, l, n, 0));
             break;
         }
         case AuxKind::Octave:
@@ -1766,7 +1952,7 @@ static void playWelcomeTune(const SavedConfig& cfg) {
             cancelled = tuneWait(noteMs);
             midiDrumOff(channel, sounded);
         } else {
-            uint8_t note = scaleNote(a.root, a.scale, a.learned, degree, octave);
+            uint8_t note = scaleNote(a.root, a.scale, a.learned, a.custom, degree, octave);
             uint8_t sounded = midiNoteOn(LAYER_A, channel, note, 100);
             cancelled = tuneWait(noteMs);
             midiNoteOff(LAYER_A, channel, sounded);
@@ -1803,6 +1989,12 @@ void menuInit(const SavedConfig& cfg) {
         CHANNEL_ITEMS[c] = CHANNEL_LABEL_BUF[c - 1];
     }
     CHANNEL_ITEMS[17] = "Back";
+
+    for (uint8_t b = 1; b <= BEATS_MAX; b++) {
+        snprintf(BEATS_LABEL_BUF[b - 1], sizeof(BEATS_LABEL_BUF[0]), "%u", b);
+        BEATS_LABELS[b - 1] = BEATS_LABEL_BUF[b - 1];
+    }
+    BEATS_LABELS[BEATS_MAX] = "Back";
 
     for (uint8_t i = 0; i < DELAY_FREE_COUNT; i++) {
         snprintf(FREE_TIME_BUF[i], sizeof(FREE_TIME_BUF[i]), "%u ms", (unsigned)delayFreeMs(i));
@@ -1980,7 +2172,11 @@ void menuUpdate(SavedConfig& cfg) {
                   state == MenuState::VoiceSaveConfirm ||
                   state == MenuState::AuxParam ||
                   state == MenuState::SceneSaveSelect ||
-                  state == MenuState::SceneSaveConfirm);
+                  state == MenuState::SceneSaveConfirm ||
+                  (scaleEditAux && (state == MenuState::ScaleEditList ||
+                                    state == MenuState::ScaleEditSlot ||
+                                    state == MenuState::ScaleSaveSelect ||
+                                    state == MenuState::ScaleSaveConfirm)));
 
     // A scene load landed on the bar: the status line (or the scene list)
     // shows it.
@@ -2084,6 +2280,9 @@ void menuUpdate(SavedConfig& cfg) {
                                auxLayer == LAYER_A ? AUXT_LAYER_A : AUXT_LAYER_B);
                 } else if (cursor == AUX_LAYER_VOICE_EDIT) {
                     enterState(MenuState::VoiceEditList, 0);
+                } else if (cursor == AUX_LAYER_EDIT_SCALE) {
+                    scaleEditAux = true;
+                    enterState(MenuState::ScaleEditList, 0);
                 } else if (cursor == AUX_LAYER_EFFECTS) {
                     enterState(MenuState::AuxFxSelect, 0);
                 } else {
@@ -2340,11 +2539,8 @@ void menuUpdate(SavedConfig& cfg) {
                 switch (cursor) {
                     case PLAY_ITEM_BEATS: {
                         // Land the cursor on the stored value, not the top.
-                        uint8_t idx = 3;  // default to 4 beats if not found
-                        for (uint8_t i = 0; i < 6; i++) {
-                            if (BEATS_VALUES[i] == cfg.beatsPerRev) { idx = i; break; }
-                        }
-                        enterState(MenuState::BeatsPerRev, idx);
+                        enterState(MenuState::BeatsPerRev,
+                                   (uint8_t)constrain(cfg.beatsPerRev, 1, BEATS_MAX) - 1);
                         break;
                     }
                     case PLAY_ITEM_PITCH_STEP: {
@@ -2429,11 +2625,15 @@ void menuUpdate(SavedConfig& cfg) {
                                    (uint8_t)constrain(lc.channel, 0, 16)); break;
                     case LAYER_ITEM_ROOT:
                         enterState(MenuState::LayerRoot, (uint8_t)lc.root % 12); break;
-                    case LAYER_ITEM_SCALE:
+                    case LAYER_ITEM_SCALE: {
                         // A learned scale is not in the menu list: land on Back.
-                        enterState(MenuState::LayerScale,
-                                   (uint8_t)lc.scale < SCALE_BUILTIN_COUNT ? (uint8_t)lc.scale
-                                                                           : SCALE_COUNT - 1);
+                        uint8_t n = buildScaleChoices(cfg, lc, false);
+                        enterState(MenuState::LayerScale, scaleChoicePos(cfg, lc, editLayer, n, n));
+                        break;
+                    }
+                    case LAYER_ITEM_EDIT_SCALE:
+                        scaleEditAux = false;
+                        enterState(MenuState::ScaleEditList, 0);
                         break;
                     case LAYER_ITEM_OCTAVE:
                         enterState(MenuState::LayerOctave, (uint8_t)constrain(lc.octave, 0, 7)); break;
@@ -2535,16 +2735,91 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
-        case MenuState::LayerScale:
+        case MenuState::LayerScale: {
+            uint8_t n = buildScaleChoices(cfg, cfg.scenes[SCENE_DEFAULTS].layer[editLayer], false);
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + SCALE_COUNT) % SCALE_COUNT;
+                cursor = (cursor + ev.menuDelta + n + 1) % (n + 1);
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < SCALE_COUNT - 1) editDefaults(cfg, [](LayerCfg& c) { c.scale = (Scale)cursor; });
+                if (cursor < n) {   // last entry is Back
+                    uint8_t id = scaleChoiceIds[cursor];
+                    editDefaults(cfg, [&cfg, id](LayerCfg& c) { scaleChoose(cfg, c, id); });
+                    customScaleFrom[editLayer] =
+                        (id >= SCALE_CHOICE_SLOT) ? id - SCALE_CHOICE_SLOT : NO_CUSTOM_SCALE;
+                }
                 enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_SCALE));
             }
             break;
+        }
+
+        // Edit Scale: the knob of the menu it was opened from picks and
+        // changes, its button chooses or goes back. From the Aux the menu
+        // button goes home; from Sound Defaults the aux button does (above).
+        case MenuState::ScaleEditList: {
+            int8_t delta = scaleEditAux ? ev.auxDelta : ev.menuDelta;
+            bool   press = scaleEditAux ? ev.auxPressed : ev.menuPressed;
+            if (scaleEditAux && ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (scaleEditBlocked(cfg)) {
+                if (press) scaleEditLeave();
+                break;
+            }
+            if (delta) {
+                cursor = (uint8_t)((cursor + delta + SE_COUNT) % SE_COUNT);
+                needsRedraw = true;
+            }
+            if (press) {
+                if (cursor == SE_BACK)      scaleEditLeave();
+                else if (cursor == SE_SAVE) enterState(MenuState::ScaleSaveSelect, 0);
+                else { scaleEditSlot = cursor; enterState(MenuState::ScaleEditSlot); }
+            }
+            break;
+        }
+
+        case MenuState::ScaleEditSlot: {
+            int8_t delta = scaleEditAux ? ev.auxDelta : ev.menuDelta;
+            bool   press = scaleEditAux ? ev.auxPressed : ev.menuPressed;
+            if (scaleEditAux && ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (scaleEditBlocked(cfg)) { enterState(MenuState::ScaleEditList, scaleEditSlot); break; }
+            if (delta) { scaleEditStep(cfg, delta); needsRedraw = true; }
+            if (press) {
+                if (!scaleEditAux) storageSave(cfg);
+                enterState(MenuState::ScaleEditList, scaleEditSlot);
+            }
+            break;
+        }
+
+        case MenuState::ScaleSaveSelect: {
+            int8_t delta = scaleEditAux ? ev.auxDelta : ev.menuDelta;
+            bool   press = scaleEditAux ? ev.auxPressed : ev.menuPressed;
+            if (scaleEditAux && ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (delta) {
+                cursor = (uint8_t)((cursor + delta + SCALE_SAVE_COUNT) % SCALE_SAVE_COUNT);
+                needsRedraw = true;
+            }
+            if (press) {
+                if (cursor == SCALE_SAVE_COUNT - 1) {
+                    enterState(MenuState::ScaleEditList, SE_SAVE);
+                } else {
+                    scaleSaveTarget = cursor;
+                    if (cfg.customScales[cursor].used) enterState(MenuState::ScaleSaveConfirm, 1);
+                    else                               scaleSaveCustom(cfg, cursor);
+                }
+            }
+            break;
+        }
+
+        case MenuState::ScaleSaveConfirm: {
+            int8_t delta = scaleEditAux ? ev.auxDelta : ev.menuDelta;
+            bool   press = scaleEditAux ? ev.auxPressed : ev.menuPressed;
+            if (scaleEditAux && ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (delta) { cursor = (cursor + 1) % CONFIRM_COUNT; needsRedraw = true; }
+            if (press) {
+                if (cursor == 0) scaleSaveCustom(cfg, scaleSaveTarget);
+                else             enterState(MenuState::ScaleSaveSelect, scaleSaveTarget);
+            }
+            break;
+        }
 
         case MenuState::LayerOctave:
             if (ev.menuDelta) {
@@ -2797,7 +3072,7 @@ void menuUpdate(SavedConfig& cfg) {
             }
             if (ev.menuPressed) {
                 if (cursor < BEATS_COUNT - 1) {   // last entry is Back
-                    cfg.beatsPerRev = BEATS_VALUES[cursor];
+                    cfg.beatsPerRev = cursor + 1;
                     storageSave(cfg);
                 }
                 enterState(MenuState::PlaySetup, PLAY_ITEM_BEATS);
@@ -3210,6 +3485,9 @@ void menuUpdate(SavedConfig& cfg) {
                         // Scenes 1-8 can use the custom voices: keep them.
                         for (uint8_t i = 0; i < NUM_SAVED_VOICES; i++)
                             d.customVoices[i] = cfg.customVoices[i];
+                        // And the custom scales, which are yours as the voices are.
+                        for (uint8_t i = 0; i < NUM_CUSTOM_SCALES; i++)
+                            d.customScales[i] = cfg.customScales[i];
                     }
                     cfg = d;
                     storageSave(cfg);
@@ -3292,8 +3570,39 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::LayerRoot:
                 drawList(ROOT_ITEMS, ROOT_COUNT, cursor);
                 break;
-            case MenuState::LayerScale:
-                drawList(SCALE_ITEMS, SCALE_COUNT, cursor);
+            case MenuState::LayerScale: {
+                uint8_t n = buildScaleChoices(cfg, cfg.scenes[SCENE_DEFAULTS].layer[editLayer], false);
+                drawList(scaleChoiceLabels, n + 1, cursor);
+                break;
+            }
+            case MenuState::ScaleEditList:
+                if (scaleEditBlocked(cfg)) {
+                    lcdLine(0, "Layer B is");
+                    lcdLine(1, "Same as A");
+                } else {
+                    buildScaleEditItems(cfg);
+                    drawList(SE_ITEMS, SE_COUNT, cursor);
+                }
+                break;
+            case MenuState::ScaleEditSlot: {
+                const LayerCfg& lc = scaleEditCfg(cfg);
+                int8_t steps[CUSTOM_SCALE_SLOTS];
+                scaleEditSteps(lc, steps);
+                char name[8];
+                scaleStepName(lc, steps[scaleEditSlot], name, sizeof(name));
+                lcdLine(0, "Slot %u", (unsigned)(scaleEditSlot + 1));
+                lcdLine(1, "%s", name);
+                break;
+            }
+            case MenuState::ScaleSaveSelect:
+                buildScaleSaveItems(cfg);
+                drawList(SCALE_SAVE_ITEMS, SCALE_SAVE_COUNT, cursor);
+                break;
+            case MenuState::ScaleSaveConfirm:
+                lcdLine(0, "Overwrite?");
+                lcdLine(1, "%c Yes  %c Back",
+                    cursor == 0 ? LCD_ARROW_RIGHT : ' ',
+                    cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
             case MenuState::LayerOctave:
                 drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);

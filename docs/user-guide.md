@@ -192,7 +192,7 @@ The function list:
 | Entry | What it does |
 |-------|--------------|
 | Pitch | Moves both layers together. |
-| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Octave, Shift, Low Note, Wrap, Mode, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
+| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Edit Scale, Octave, Shift, Low Note, Wrap, Mode, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
 | Layer Turns | Together or Alternate: whether the layers take turns by revolution. See [Playing](#playing). |
 | Load Scene | Loads a scene at the next bar. See [Scenes](#scenes). |
@@ -277,6 +277,29 @@ list:
 
 Saving a scene to another slot copies its Scene Voice along.
 
+### Edit Scale
+
+**Edit Scale** sets the note each track plays: one note per track, instead of
+a scale the tracks climb through. It sits under Scale in **Sound Defaults >
+Layer A** (or Layer B), on the Menu knob, and in **Aux > Layer A > Edit
+Scale**, on the Aux knob, to change it live.
+
+The list shows the eight notes, slot 1 first, such as `1: C+0`. Slot 1 is the
+inner track until Shift or Low Note moves it. The number after the note is its
+octave from the layer's Octave, so `C+1` is the C above. Press a slot and turn
+to move its note a semitone at a time, from one octave below to two above.
+Until you change a note, the list shows the layer's current scale; the first
+change turns it into **Custom**, starting from the same notes.
+
+The notes count from the root, so Root Note transposes them. Shift and Wrap
+work as with any scale; with No Wrap, notes past slot 8 repeat an octave up.
+
+Custom is saved with the scene like any other setting. To use it in other
+scenes, choose **Save As** at the bottom of the list and pick **Custom 1** to
+**Custom 8**. These appear in every Scale list. Choosing one copies its notes
+into the layer, so changing a saved one later never changes a scene. Saving
+over a used one asks first.
+
 ## Scenes
 
 A scene is the whole sound of the table: both layers (mode, voice, key, octave,
@@ -359,7 +382,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
 | Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
-| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, or a scale learned from MIDI (see [MIDI In](#midi-in)). Drums ignore it. | Major |
+| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, a scale learned from MIDI (see [MIDI In](#midi-in)), Custom (one note per track, see [Edit Scale](#edit-scale)), or a saved Custom 1 to 8. Drums ignore it. | Major |
 | Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
 | Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. On Layer B, Same as A follows A's shift. On Drums it moves each drum to another track. | 0 |
 | Wrap        | Layer  | Yes | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
@@ -387,7 +410,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 |--------------|-------|--------------|---------|
 | Channel      | Layer | MIDI channel. Auto follows the voice (see [Voices and Drums](#voices-and-drums)), or pick 1 to 16. Saved in scenes. | Auto |
 | MIDI In      | Layer | The MIDI channel this layer listens on, or Off. Not part of scenes. | A: 1, B: 2 |
-| Beats/Rev    | Play Setup | Beats per revolution (1, 2, 3, 4, 6, 8, 12, 16, 24 or 32). Sets the BPM shown and the MIDI clock. | 8 |
+| Beats/Rev    | Play Setup | Beats per revolution, 1 to 32. Sets the BPM shown and the MIDI clock, and the beats Placement Mode snaps to. | 8 |
 | Pitch Step   | Play Setup | How far one Aux click moves Pitch, from 1 semitone down to 1/8. Small steps give detuned, alien tunings. | 1 semitone |
 | Aux Fn       | Play Setup | Which function the Aux knob controls. | Layer A Voice |
 | MIDI Fn      | Play Setup | What keys on an attached MIDI keyboard do. See [MIDI In](#midi-in). | Off |
@@ -406,9 +429,9 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Machine Info    | Tools | Read-only pages, turned through with the Menu knob: RPM, belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
 | Sensor Timing   | Tools | One sensor per page, turned through with the Menu knob. Notes play when a magnet is centered on its sensor, and each sensor learns how far the platter turns from first sensing the magnet to its center. Top line: the sensor, how many of the last 8 passes it has learned from, **F** (how many of those had no clear center: a magnet too strong, too weak, or at the wrong height), and that angle. Bottom line: **Pk**, the last pass's strongest reading; **N**, the sensor's resting noise from calibration; **S**, how many readings the last pass lasted. Relearned every power-up, after a few turns. | - |
-| Track Notes     | Tools | What each track plays right now, Layer A on the top line and Layer B below, inner track on the left, two characters per track (`C D E F G A B C`). Includes everything that moves the notes: root, scale, octave, Pitch, Shift, Wrap and Low Note. Sharps or flats follow the key (D Minor shows Bb); Chromatic and Learned scales use sharps. Drums show a letter per drum: **X** crash, **t** low tom, **T** high tom, **C** clap, **O** open hat, **S** snare, **K** kick, **H** closed hat. Turn the Menu knob to see each layer's key instead (`A: G Blues`). | - |
-| Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices. Asks first. | - |
-| Factory Reset   | Tools | Erases everything, scenes, saved voices and calibration included. Asks first. | - |
+| Track Notes     | Tools | What each track plays right now, Layer A on the top line and Layer B below, inner track on the left, two characters per track (`C D E F G A B C`). Includes everything that moves the notes: root, scale, octave, Pitch, Shift, Wrap and Low Note. Sharps or flats follow the key (D Minor shows Bb); Chromatic, Learned and Custom scales use sharps. Drums show a letter per drum: **X** crash, **t** low tom, **T** high tom, **C** clap, **O** open hat, **S** snare, **K** kick, **H** closed hat. Turn the Menu knob to see each layer's key instead (`A: G Blues`). | - |
+| Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices and scales. Asks first. | - |
+| Factory Reset   | Tools | Erases everything, scenes, saved voices and scales, and calibration included. Asks first. | - |
 
 ## Voices and Drums
 
