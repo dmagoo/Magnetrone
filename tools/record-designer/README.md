@@ -86,17 +86,23 @@ A plays the first revolution.
 The **Songs** strip under the transport keeps saved songs as chips, in
 this browser's local storage.
 
-- **+ Save** names the song and keeps it as a chip. A chip is a snapshot:
-  editing after picking one changes only the current song, marked
-  "(edited)", until you save again (a new chip; unchanged, Save only
-  renames it).
+- **Save** keeps your changes in the chip you are on (it is greyed when
+  there is nothing to save). A song not saved yet (new, or started from
+  Empty) is named first and becomes a chip. Until you save, the chip shows
+  "(edited)".
+- **Save as new** makes a new chip and leaves the one you are on as it was.
+  The name is pre-filled with a copy number, "My tune (2)"; only a
+  trailing "(n)" counts up, so "Waltz no. 3" becomes "Waltz no. 3 (2)".
+- **Revert** discards your edits and goes back to the saved chip (asks
+  first; greyed when there is nothing to revert). Clicking the edited chip
+  does the same.
 - Click a chip to switch to it. Playing carries on into the new song. If
   the current song has unsaved changes, it asks first.
 - Double-click a chip to rename it; x removes it. **Empty** is always
   there: the factory scene on an empty grid.
 - The link button beside the Scene Code copies a link holding the whole
   song and its name: grid, scene, BPM and template settings. It asks for a
-  name if the song has none, and keeps the song as a chip.
+  name if the song has none, and saves the song as Save does.
 - Opening a link adds its song as a chip (or picks the chip it already is),
   so you can always get back to it. It points at this page's address, so
   it opens the song for anyone who has the page there, such as the hosted

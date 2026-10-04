@@ -88,7 +88,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .chip.on { background: var(--text); border-color: var(--text); }
 .chip.on button { color: var(--panel); }
 .chip .edited { font-style: italic; }
-#saveSong { flex: none; }
+#saveSong, #saveAsSong, #revertSong { flex: none; }
 
 /* Grid */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 14px; }
@@ -195,7 +195,9 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
     <section class="card songs">
       <span class="muted small">Songs:</span>
       <div id="chips" class="chips"></div>
-      <button id="saveSong" class="small" title="Save this song as a chip">+ Save</button>
+      <button id="saveSong" class="small">Save</button>
+      <button id="saveAsSong" class="small" title="Save as a new chip, keeping the one you are on">Save as new</button>
+      <button id="revertSong" class="small">Revert</button>
     </section>
 
     <section class="card">
@@ -1271,7 +1273,12 @@ function selectSong(id) {
   const chip = chipById(id);
   if (!chip) return;
   if (id === state.songId && !songEdited()) return;
-  if (songEdited() && !confirm("This song has changes that are not saved. Switch anyway? (+ Save keeps them as a chip.)")) return;
+  if (songEdited()) {
+    const ask = id === state.songId
+      ? `Discard your edits and go back to the saved "${chip.name}"?`
+      : "This song has changes that are not saved. Switch anyway? (Save keeps them.)";
+    if (!confirm(ask)) return;
+  }
   const song = songDecode(chip.song);
   recordGrid();
   Object.assign(state, song);
@@ -1280,32 +1287,66 @@ function selectSong(id) {
   changed();   // playing carries on, into the new song
 }
 
-// Save: a new chip, unless the song is unchanged from its chip (then it is
-// only renamed).
+// The chip being edited, if it is a saved song (not Empty).
+const savedChip = () => { const c = chipById(state.songId); return c && c.id !== EMPTY_ID ? c : null; };
+
+// Save: updates the chip the song came from. A song with no chip yet (new,
+// or from Empty) is named and becomes one.
 function saveSong() {
-  const name = askName(defaultName(state));
-  if (name === null) return;
-  state.name = name;
-  const chip = chipById(state.songId);
-  if (chip && chip.id !== EMPTY_ID && !songEdited()) {
-    chip.name = name;
+  const chip = savedChip();
+  if (chip) {
+    chip.song = songEncode(state);
+    state.name = chip.name;
   } else {
-    const c = { id: newSongId(), name, song: songEncode(state) };
-    state.songs.push(c);
-    state.songId = c.id;
+    const name = askName(defaultName(state));
+    if (name === null) return;
+    addChip(name);
   }
   changed();
 }
 
+// Save as new: a new chip, the one being edited left as it was. The name
+// is pre-filled with a copy number, "Name (2)", counting up from a trailing
+// "(n)" so a title that ends in a number is left alone.
+function saveAsSong() {
+  const n = prompt("Name the new song:", copyName(state.name || defaultName(state)));
+  if (n === null) return;
+  addChip(n.trim() || copyName(state.name || defaultName(state)));
+  changed();
+}
+
+function copyName(name) {
+  const m = name.match(/^(.*) \((\d+)\)$/);
+  const base = m ? m[1] : name;
+  let k = m ? +m[2] + 1 : 2;
+  while (state.songs.some((c) => c.name === `${base} (${k})`)) k++;
+  return `${base} (${k})`;
+}
+
+function addChip(name) {
+  const c = { id: newSongId(), name, song: songEncode(state) };
+  state.songs.push(c);
+  state.songId = c.id;
+  state.name = name;
+}
+
 function renderSongs() {
-  const edited = songEdited();
+  const edited = songEdited(), chip = savedChip();
+  $("saveSong").disabled = !!chip && !edited;
+  $("saveSong").title = chip ? (edited ? `Save the changes to "${chip.name}"` : "No changes to save") : "Save this song as a chip";
+  // Revert: back to the chip the song came from (Empty included).
+  const from = chipById(state.songId);
+  $("revertSong").disabled = !from || !edited;
+  $("revertSong").title = from && edited ? `Discard your edits and go back to the saved "${from.name}"` : "No edits to revert";
   const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   $("chips").innerHTML = [emptyChip, ...state.songs].map((c) => {
     const on = c.id === state.songId;
     const label = esc(c.name) + (on && edited ? ' <span class="edited">(edited)</span>' : "");
     const x = c.id === EMPTY_ID ? "" :
       `<button class="x" data-x="${c.id}" title="Remove ${esc(c.name)}" aria-label="Remove ${esc(c.name)}">\u00d7</button>`;
-    return `<div class="chip${on ? " on" : ""}"><button data-id="${c.id}" title="${c.id === EMPTY_ID ? "Start a new song" : "Switch to this song. Double-click to rename."}">${label}</button>${x}</div>`;
+    const tip = on && edited ? "Revert to the saved version (discards your edits)"
+      : c.id === EMPTY_ID ? "Start a new song" : "Switch to this song. Double-click to rename.";
+    return `<div class="chip${on ? " on" : ""}"><button data-id="${c.id}" title="${tip}">${label}</button>${x}</div>`;
   }).join("");
 }
 
@@ -1336,22 +1377,20 @@ $("chips").addEventListener("dblclick", (e) => {
 });
 
 $("saveSong").addEventListener("click", saveSong);
+$("saveAsSong").addEventListener("click", saveAsSong);
+$("revertSong").addEventListener("click", () => selectSong(state.songId));
 
-// Copy link: names the song first if it has no name, and keeps it as a chip.
+// Copy link: names the song first if it has no name, and saves it.
 $("copyLink").addEventListener("click", () => {
   if (!state.name) {
     const n = askName(defaultName(state));
     if (n === null) return;
     state.name = n;
   }
-  const cur = songEncode(state), chip = chipById(state.songId);
-  if (chip && chip.id !== EMPTY_ID && chip.song === cur) {
-    chip.name = state.name;
-  } else {
-    const c = { id: newSongId(), name: state.name, song: cur };
-    state.songs.push(c);
-    state.songId = c.id;
-  }
+  // Kept as Save does: the chip being edited is updated, or a new one made.
+  const chip = savedChip();
+  if (chip) { chip.song = songEncode(state); chip.name = state.name; }
+  else addChip(state.name);
   changed();
   copyText(location.href.split("#")[0] + "#" + songLink(state), "Link copied");
 });
