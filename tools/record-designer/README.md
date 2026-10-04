@@ -9,7 +9,8 @@ in a browser straight from disk (no install, no internet). Work is kept in
 the browser's local storage.
 
 Two views, picked at the top right: **Sequence** (grid, playback, scene)
-and **Template** (preview and export).
+and **Template** (preview and export). The button left of them picks the
+theme: Auto (follows your system), Light or Dark.
 
 ## Grid
 
@@ -30,6 +31,7 @@ and **Template** (preview and export).
   be used; hover one to see which. With it off, overlapping magnets are
   outlined in red. The check uses the larger of the magnet diameter and the
   magnet hole.
+- The toolbar counts the magnets placed, in all and per layer.
 - Undo and Redo (Ctrl+Z, Ctrl+Y) cover grid edits: slots, Clear and step
   count changes. The history lasts until the page is closed.
 - Each magnet shows what it plays with the current scene: a note ("C3"),

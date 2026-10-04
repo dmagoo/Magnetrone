@@ -11,13 +11,22 @@
   --a: #89CFF0; --a-text: #1d1d1b;   /* Layer A magnet */
   --b: #1D1D1B; --b-text: #ffffff;   /* Layer B magnet */
   --cs: 48px;                        /* grid cell size */
+  color-scheme: light;
 }
+/* Dark: from the system unless the theme button picks Light, or picked. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
     --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
     --b: #D0D0CC; --b-text: #1d1d1b;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+    --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
+    --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
+    --b: #D0D0CC; --b-text: #1d1d1b;
+    color-scheme: dark;
 }
 @media (max-width: 600px) { :root { --cs: 36px; } }
 
@@ -47,6 +56,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 
 /* Header and tabs */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+.topright { display: flex; align-items: center; gap: 10px; }
 .tabs { display: flex; gap: 4px; background: var(--slot); border-radius: 8px; padding: 3px; }
 .tabs button { border: 0; border-radius: 6px; padding: 5px 16px; color: var(--muted); }
 .tabs button[aria-selected=true] { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
@@ -130,10 +140,13 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 <header>
   <div class="wrap topbar">
     <h1>Magnetrone Record Designer</h1>
+    <div class="topright">
+    <button id="theme" class="icon" aria-label="Theme"></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="sequence">Sequence</button>
       <button role="tab" data-view="template">Template</button>
     </nav>
+    </div>
   </div>
 </header>
 
@@ -173,6 +186,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
           <span id="stepsInfo" class="muted small"></span>
         </div>
         <label><input type="checkbox" id="block"> Block collisions</label>
+        <span id="magnetCount" class="small"></span>
         <span class="spacer"></span>
         <div class="group">
           <button id="undo" class="icon" title="Undo (Ctrl+Z)" aria-label="Undo">
@@ -984,6 +998,8 @@ function renderGrid() {
   g.innerHTML = html;
   placeBand();
   $("stepsInfo").textContent = `= ${N} steps`;
+  const flat = state.cells.flat(), nA = flat.filter((v) => v === 1).length, nB = flat.filter((v) => v === 2).length;
+  $("magnetCount").innerHTML = `<b>${nA + nB}</b> magnet${nA + nB === 1 ? "" : "s"} <span class="muted">(${nA} A, ${nB} B)</span>`;
   $("undo").disabled = !undoStack.length;
   $("redo").disabled = !redoStack.length;
 }
@@ -1541,6 +1557,38 @@ function changed() {
 }
 
 bindSteps();
+// --- Theme ---------------------------------------------------------------------------------------
+// Auto follows the system; Light and Dark override it. Kept per browser,
+// apart from the song.
+const THEME_KEY = "magnetrone-record-designer-theme";
+const THEMES = {
+  auto:  { next: "light", label: "Theme: Auto (follows your system)",
+           icon: `<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>` },
+  light: { next: "dark", label: "Theme: Light",
+           icon: `<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>` },
+  dark:  { next: "auto", label: "Theme: Dark",
+           icon: `<svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>` },
+};
+
+function applyTheme(name) {
+  const t = THEMES[name] ? name : "auto";
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  $("theme").innerHTML = THEMES[t].icon;
+  $("theme").title = `${THEMES[t].label}. Click to change.`;
+  $("theme").dataset.theme = t;
+}
+
+$("theme").addEventListener("click", () => {
+  const next = THEMES[$("theme").dataset.theme].next;
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* not kept */ }
+});
+
+let savedTheme = "auto";
+try { savedTheme = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* default */ }
+applyTheme(savedTheme);
+
 bindSettings();
 showView();
 showTransport();
