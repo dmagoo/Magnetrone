@@ -53,6 +53,11 @@ option shows what the low track then plays ("1  D4", or "5  Snare" on
 Drums); Low Note's options say which track is low (Inner, track 1; Outer,
 track 8). Octave is a number box, 0 to 7.
 
+**Hear: A / B** (Scene header) plays that layer's tracks 1 to 8 up and
+back down in sixteenths, as the table plays its welcome tune at power-up
+(the table's tune is Layer A). With **Auto** on, changing a scene setting
+plays the changed layer's run, unless the grid is playing.
+
 The code shows beside Play, with a copy button, and updates as you change
 the settings. A code can be loaded back. Enter the
 code on the table under Aux > Scene Codes > Enter. Beats/Rev is not in the

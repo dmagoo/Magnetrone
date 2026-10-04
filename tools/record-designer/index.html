@@ -107,6 +107,10 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 /* Scene */
 .scenehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 14px; }
 .load { display: flex; align-items: center; gap: 6px; }
+.headleft { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.hear { display: flex; align-items: center; gap: 6px; }
+.hear button { padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.hear label { margin-left: 4px; }
 .load input { width: 9em; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
 .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; }
 .groups table { border-collapse: collapse; width: 100%; }
@@ -205,7 +209,15 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 
     <section class="card">
       <div class="scenehead">
-        <h2>Scene</h2>
+        <div class="headleft">
+          <h2>Scene</h2>
+          <div class="hear">
+            <span class="muted small">Hear:</span>
+            <button id="hearA" title="Hear Layer A: tracks 1 to 8 up and back down, as the table plays its welcome tune at power-up"><span class="dot a"></span>A</button>
+            <button id="hearB" title="Hear Layer B: tracks 1 to 8 up and back down, with Layer B's settings"><span class="dot b"></span>B</button>
+            <label class="small" title="When a scene setting changes, hear that layer's run (not while the grid plays)"><input type="checkbox" id="autoHear"> Auto</label>
+          </div>
+        </div>
         <div class="load">
           <input id="codeIn" placeholder="Scene Code" maxlength="10" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
           <button id="codeLoad">Load</button>
@@ -851,6 +863,7 @@ const DEFAULTS = {
   beats: 4, subdiv: 4, block: true,
   lastLayer: 1,   // layer of the last magnet placed (1 A, 2 B): new magnets start on it
   reverse: false, // play backwards, as the table does with Speed below zero
+  autoHear: false, // hear a layer's run when a scene setting changes
   bpm: 180,   // DEFAULT_RPM (45) in config.h at 4 beats/rev
   paper: "letter", hole: 11, forward: "cw",
 };
@@ -1170,6 +1183,7 @@ for (const id of ["gSound", "gArrange", "gLayers"]) {
     state.scene[l][k] = v;
     $("codeMsg").textContent = "";
     changed();
+    if (state.autoHear && !timer) hearLayer(l === "A" ? 0 : 1);
   });
 }
 
@@ -1316,7 +1330,7 @@ function newBus() {
   sounding.clear();
 }
 
-function playTone(note, voice, t, key) {
+function playTone(note, voice, t, key, dest = bus, noteMs = null) {
   const v = VOICE_SOUNDS[voice];
   const osc = ac.createOscillator(), env = ac.createGain(), cut = ac.createGain();
   osc.type = v.wave;
@@ -1327,8 +1341,8 @@ function playTone(note, voice, t, key) {
     lp.type = "lowpass"; lp.frequency.value = 3000;
     osc.connect(lp); node = lp;
   }
-  node.connect(env); env.connect(cut); cut.connect(bus);
-  const peak = 0.25, a = v.a / 1000, d = v.d / 1000, sus = v.s * peak, r = v.r / 1000, on = v.ms / 1000;
+  node.connect(env); env.connect(cut); cut.connect(dest);
+  const peak = 0.25, a = v.a / 1000, d = v.d / 1000, sus = v.s * peak, r = v.r / 1000, on = (noteMs ?? v.ms) / 1000;
   const g = env.gain, off = t + on;
   g.setValueAtTime(0, t);
   if (on <= a) {
@@ -1350,41 +1364,80 @@ function playTone(note, voice, t, key) {
   sounding.set(key, { cut, end });
 }
 
-function noiseHit(t, dur, type, freq, peak) {
+function noiseHit(t, dur, type, freq, peak, dest = bus) {
   const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   src.buffer = noiseBuf;
   f.type = type; f.frequency.value = freq;
-  src.connect(f); f.connect(g); g.connect(bus);
+  src.connect(f); f.connect(g); g.connect(dest);
   g.gain.setValueAtTime(peak, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   src.start(t); src.stop(t + dur + 0.02);
 }
 
-function sweepHit(t, f0, f1, dur, peak, type = "sine") {
+function sweepHit(t, f0, f1, dur, peak, type = "sine", dest = bus) {
   const o = ac.createOscillator(), g = ac.createGain();
   o.type = type;
   o.frequency.setValueAtTime(f0, t);
   o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-  o.connect(g); g.connect(bus);
+  o.connect(g); g.connect(dest);
   g.gain.setValueAtTime(peak, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.start(t); o.stop(t + dur + 0.02);
 }
 
 // Approximate kit, one sound per slot (kit.h order).
-function playDrum(slot, t) {
+function playDrum(slot, t, dest = bus) {
   switch (slot) {
-    case 0: noiseHit(t, 1.2, "highpass", 5000, 0.25); break;                       // Crash
-    case 1: sweepHit(t, 130, 80, 0.35, 0.6); break;                                 // Low Tom
-    case 2: sweepHit(t, 220, 150, 0.3, 0.5); break;                                 // High Tom
-    case 3: for (const o of [0, 0.012, 0.024]) noiseHit(t + o, 0.03, "bandpass", 1200, 0.5);
-            noiseHit(t + 0.036, 0.15, "bandpass", 1200, 0.4); break;                // Clap
-    case 4: noiseHit(t, 0.35, "highpass", 7000, 0.22); break;                       // Open Hat
-    case 5: noiseHit(t, 0.2, "bandpass", 1800, 0.4); sweepHit(t, 200, 160, 0.1, 0.3, "triangle"); break; // Snare
-    case 6: sweepHit(t, 150, 45, 0.3, 0.9); break;                                  // Kick
-    case 7: noiseHit(t, 0.05, "highpass", 7000, 0.22); break;                       // Closed Hat
+    case 0: noiseHit(t, 1.2, "highpass", 5000, 0.25, dest); break;                       // Crash
+    case 1: sweepHit(t, 130, 80, 0.35, 0.6, "sine", dest); break;                         // Low Tom
+    case 2: sweepHit(t, 220, 150, 0.3, 0.5, "sine", dest); break;                         // High Tom
+    case 3: for (const o of [0, 0.012, 0.024]) noiseHit(t + o, 0.03, "bandpass", 1200, 0.5, dest);
+            noiseHit(t + 0.036, 0.15, "bandpass", 1200, 0.4, dest); break;                // Clap
+    case 4: noiseHit(t, 0.35, "highpass", 7000, 0.22, dest); break;                       // Open Hat
+    case 5: noiseHit(t, 0.2, "bandpass", 1800, 0.4, dest);
+            sweepHit(t, 200, 160, 0.1, 0.3, "triangle", dest); break;                     // Snare
+    case 6: sweepHit(t, 150, 45, 0.3, 0.9, "sine", dest); break;                          // Kick
+    case 7: noiseHit(t, 0.05, "highpass", 7000, 0.22, dest); break;                       // Closed Hat
   }
 }
+
+// --- Hear a layer ---------------------------------------------------------------------------
+// The table's welcome tune (playWelcomeTune() in firmware/src/menu/menu.cpp):
+// each track's note in turn, tracks 1 to 8, a sixteenth's rest, then 8 to 1,
+// in sixteenths at the BPM (kept to 40 to 200), each note at most a sixteenth
+// long. The table plays it for Layer A; here either layer can be heard, with
+// that layer's settings, whether or not the layer is On. A new run cuts off
+// the one before. It has its own output, so the grid playing is left alone.
+let hearBus = null;
+
+function hearLayer(l) {
+  ensureAudio();
+  if (hearBus) {
+    const old = hearBus, now = ac.currentTime;
+    old.gain.setValueAtTime(old.gain.value, now);
+    old.gain.linearRampToValueAtTime(0, now + 0.02);
+    setTimeout(() => old.disconnect(), 100);
+  }
+  hearBus = ac.createGain();
+  hearBus.connect(master);
+  const r = resolveLayer(state.scene, l);
+  if (r.silent) return;   // voice None: the table keeps time in silence
+  const bpm = Math.min(Math.max(Math.trunc(state.bpm), 40), 200);
+  const step = 60 / bpm / 4;
+  const noteMs = r.kit ? null : Math.min(VOICE_SOUNDS[r.voice].ms, step * 1000);
+  const order = [0, 1, 2, 3, 4, 5, 6, 7, null, 7, 6, 5, 4, 3, 2, 1, 0];
+  const t0 = ac.currentTime + 0.03;
+  order.forEach((track, i) => {
+    if (track === null) return;
+    const t = t0 + i * step, d = r.degree(track);
+    if (r.kit) playDrum(d, t, hearBus);
+    else playTone(scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave), r.voice, t, `hear:${i}`, hearBus, noteMs);
+  });
+}
+
+$("hearA").addEventListener("click", () => hearLayer(0));
+$("hearB").addEventListener("click", () => hearLayer(1));
+$("autoHear").addEventListener("change", (e) => { state.autoHear = e.target.checked; save(); });
 
 // One step, as sequencerUpdate() and noteOn() would play its magnets.
 function scheduleStep(step, revolution, t) {
@@ -1546,6 +1599,7 @@ function syncInputs() {
   $("beats").value = state.beats;
   $("subdiv").value = state.subdiv;
   $("block").checked = state.block;
+  $("autoHear").checked = state.autoHear;
   $("bpm").value = state.bpm;
   $("paper").value = state.paper;
   $("hole").value = state.hole;
