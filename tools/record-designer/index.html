@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnetrone Record Designer</title>
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #d8d8d2;
+  --cell: #ececE8; --cell-beat: #c4c4bc; --a: #2f6fd6; --b: #d6762f; --blocked: #bdbdb6;
+  --warn: #d22; --play: #f3d84b; --accent: #1d1d1b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a19; --panel: #242423; --text: #ececE8; --muted: #9a9a94; --line: #3a3a38;
+    --cell: #2e2e2c; --cell-beat: #555550; --a: #5b93ee; --b: #ee9a5b; --blocked: #4a4a46;
+    --warn: #ff5a5a; --play: #8a7a1c; --accent: #ececE8;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+header { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 18px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; min-width: 0; }
+#editor { grid-column: 1; }
+#scene { grid-column: 2; grid-row: 1 / span 2; }
+#template { grid-column: 1; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } #editor, #scene, #template { grid-column: 1; grid-row: auto; } }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 10px; }
+input[type=number] { width: 4.5em; }
+input, select, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
+button { cursor: pointer; padding: 4px 10px; }
+button:hover { border-color: var(--muted); }
+.muted { color: var(--muted); }
+.hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+#gridWrap { overflow-x: auto; padding-bottom: 4px; }
+#grid { display: grid; gap: 2px; user-select: none; }
+#grid .lbl { font-size: 11px; white-space: nowrap; padding-right: 6px; display: flex; flex-direction: column; justify-content: center; }
+#grid .lbl b { font-size: 12px; }
+#grid .hdr { font-size: 10px; color: var(--muted); text-align: center; align-self: end; }
+#grid .hdr.beat { color: var(--text); font-weight: 600; }
+#grid .c { height: 26px; border-radius: 3px; background: var(--cell); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; }
+#grid .c.beat { box-shadow: inset 2px 0 0 var(--cell-beat); }
+#grid .c.a { background: var(--a); }
+#grid .c.b { background: var(--b); }
+#grid .c.blocked { background: repeating-linear-gradient(45deg, var(--cell), var(--cell) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
+#grid .c.overlap { outline: 2px solid var(--warn); outline-offset: -2px; }
+#grid .c.ph { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--play); }
+#grid .hdr.ph { color: var(--text); background: var(--play); border-radius: 3px; }
+table.scene { border-collapse: collapse; width: 100%; }
+table.scene th, table.scene td { text-align: left; padding: 3px 4px; vertical-align: top; }
+table.scene th { font-weight: 600; }
+table.scene td select { width: 100%; }
+table.scene label { font-size: 12px; display: block; margin-top: 2px; }
+.code { font: 700 28px/1.2 ui-monospace, Consolas, monospace; letter-spacing: 3px; margin: 12px 0 4px; }
+#codeMsg { font-size: 12px; min-height: 1.4em; }
+#preview { width: 100%; max-width: 560px; aspect-ratio: 1; margin-top: 8px; }
+#preview svg { width: 100%; height: 100%; display: block; background: #fff; border-radius: 4px; }
+.legend span { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 10px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<header><h1>Magnetrone Record Designer</h1></header>
+<main>
+  <section id="editor">
+    <div class="bar">
+      <label>Beats/Rev <input type="number" id="beats" min="1" max="32"></label>
+      <label>Subdivisions <input type="number" id="subdiv" min="1" max="8"></label>
+      <span id="stepsInfo" class="muted"></span>
+      <label><input type="checkbox" id="block"> Block collisions</label>
+      <label><input type="checkbox" id="showB"> Show Layer B</label>
+      <button id="clear">Clear grid</button>
+    </div>
+    <div class="bar">
+      <button id="play">Play</button>
+      <label>BPM <input type="number" id="bpm" min="1" step="1"></label>
+      <span id="rpm" class="muted"></span>
+      <span id="turn"></span>
+    </div>
+    <div id="gridWrap"><div id="grid"></div></div>
+    <p class="hint">Click a cell to cycle it: empty, A (normal pole, Layer A), B (reversed pole, Layer B).
+      Track 1 (inner) is the bottom row. Step 1 is at the start mark. Striped cells would overlap a placed magnet.</p>
+  </section>
+
+  <section id="scene">
+    <h2>Scene</h2>
+    <table class="scene" id="sceneTable"></table>
+    <div class="code" id="code"></div>
+    <div class="bar">
+      <input id="codeIn" placeholder="Enter a code" maxlength="10" size="12" spellcheck="false">
+      <button id="codeLoad">Load code</button>
+    </div>
+    <div id="codeMsg" class="muted"></div>
+  </section>
+
+  <section id="template">
+    <h2>Template</h2>
+    <div class="bar">
+      <label>Paper <select id="paper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
+      <label>Magnet hole <input type="number" id="hole" min="5" max="20" step="0.1"> mm</label>
+      <label>Platter forward, seen from above
+        <select id="forward"><option value="cw">Clockwise</option><option value="ccw">Counterclockwise</option></select></label>
+    </div>
+    <div class="bar">
+      <button id="exportSvg">Export SVG</button>
+      <button id="exportPdf">Export PDF</button>
+      <span class="legend muted"><span style="background:#FF0000"></span>cut<span style="background:#00FF00"></span>A holes<span style="background:#FF00FF"></span>B holes<span style="background:#0000FF"></span>score<span style="background:#000"></span>labels</span>
+    </div>
+    <p class="hint">Print at 100% (actual size, no fit to page) and check the 100 mm bar. Steps run around the
+      template in the order they pass the sensor arm, so the rotation setting must match the table.</p>
+    <div id="preview"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+// CORE-BEGIN (pure functions, no DOM; the test harness loads this part)
+
+// --- Dimensions (mm) -----------------------------------------------------------
+// From firmware/include/config.h (TRACK_RADIUS_MM, MAGNET_DIAMETER_MM), which
+// match the platter CAD. Track 1 (index 0) is innermost.
+const TRACK_RADIUS_MM = [12.5, 23.9, 35.3, 46.7, 58.1, 69.5, 80.9, 92.3];
+const MAGNET_DIAMETER_MM = 10.0;
+const NUM_TRACKS = 8;
+// From hardware/cad/platter/dxf/Platter - Disc.dxf.
+const TEMPLATE_DIAMETER_MM = 200;
+const CENTER_HOLE_DIAMETER_MM = 14;
+
+const PAGES = { letter: { w: 215.9, h: 279.4, name: "Letter" }, a4: { w: 210, h: 297, name: "A4" } };
+const COLOR_CUT = "#FF0000", COLOR_HOLE_A = "#00FF00", COLOR_HOLE_B = "#FF00FF", COLOR_SCORE = "#0000FF", COLOR_LABEL = "#000000";
+
+// --- Scene names (firmware order) ------------------------------------------------
+const ROOT_NAMES  = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const SCALE_NAMES = ["Major", "Minor", "Pent. Major", "Pent. Minor", "Blues", "Chromatic", "Dorian", "Mixolydian"];
+const VOICE_NAMES = ["Piano", "Strings", "Leads", "Bass", "Drums", "None"];
+const VOICE_DRUMS = 4, VOICE_NONE = 5;
+const MODE_ON = 0, MODE_OFF = 1, MODE_SAME_AS_A = 2, MODE_STACK = 3;
+const MODE_NAMES  = ["On", "Off", "Same as A", "Stack"];
+
+// firmware/src/sequencer/scale.cpp
+const SCALE_INTERVALS = [
+  [0, 2, 4, 5, 7, 9, 11],
+  [0, 2, 3, 5, 7, 8, 10],
+  [0, 2, 4, 7, 9],
+  [0, 3, 5, 7, 10],
+  [0, 3, 5, 6, 7, 10],
+  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  [0, 2, 3, 5, 7, 9, 10],
+  [0, 2, 4, 5, 7, 9, 10],
+];
+// firmware/src/audio/kit.h: slot 0 = hall 1 (innermost).
+const KIT_NAMES = ["Crash", "Low Tom", "High Tom", "Clap", "Open Hat", "Snare", "Kick", "Closed Hat"];
+
+// Factory scene, as Scene Code version 1 pins it (defaults of V1_FIELDS).
+function factoryScene() {
+  return {
+    A: { root: 0, octave: 4, scale: 0, voice: 0, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON },
+    B: { root: 0, octave: 3, scale: 0, voice: VOICE_DRUMS, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
+         shiftSameAsA: 0, lowNoteSameAsA: 0, turns: 0 },
+  };
+}
+
+// --- Scene Code: port of firmware/src/sequencer/scene_code.cpp ------------------
+const SCENE_CODE_ALPHABET = "AHJLMTWXY347CEFKNPR96DQGUVB8S5Z2";
+const SCENE_CODE_MAX = 10;
+const CODE_VERSION = 1, VERSION_BITS = 4, CHAR_BITS = 5, CODE_BITS = SCENE_CODE_MAX * CHAR_BITS;
+
+// Version 1, pinned: layer, field, bits, number of values, default (stored as 0).
+const V1_FIELDS = [
+  ["A", "root", 4, 12, 0], ["B", "root", 4, 12, 0],
+  ["A", "octave", 3, 8, 4], ["B", "octave", 3, 8, 3],
+  ["A", "scale", 3, 8, 0], ["B", "scale", 3, 8, 0],
+  ["A", "voice", 3, 6, 0], ["B", "voice", 3, 6, 4],
+  ["A", "shift", 3, 8, 0], ["B", "shift", 3, 8, 0],
+  ["A", "lowNote", 1, 2, 0], ["B", "lowNote", 1, 2, 0],
+  ["A", "wrap", 1, 2, 0], ["B", "wrap", 1, 2, 0],
+  ["B", "shiftSameAsA", 1, 2, 0],
+  ["B", "lowNoteSameAsA", 1, 2, 0],
+  ["A", "mode", 1, 2, 0],   // On, Off
+  ["B", "mode", 2, 4, 0],   // On, Off, Same as A, Stack
+  ["B", "turns", 1, 2, 0],  // Together, Alternate
+].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
+
+const atMost = (v, max) => (v > max ? max : v);
+
+// The value each field holds in the code, as sceneCodeEncode() takes it from the config.
+function codeFieldValue(s, f) {
+  const c = s[f.layer];
+  switch (f.key) {
+    case "root":   return (c.root | 0) % 12;
+    case "octave": return atMost(c.octave | 0, 7);
+    case "scale":  return (c.scale | 0) < 8 ? c.scale | 0 : 0;
+    case "voice":  return (c.voice | 0) < 6 ? c.voice | 0 : 0;
+    case "shift":  return atMost(c.shift | 0, NUM_TRACKS - 1);
+    case "mode":   return f.layer === "A" ? (c.mode === MODE_OFF ? 1 : 0) : atMost(c.mode | 0, 3);
+    case "turns":  return c.turns === 1 ? 1 : 0;
+    default:       return c[f.key] ? 1 : 0;   // lowNote, wrap, Same as A flags
+  }
+}
+
+function sceneCodeEncode(s) {
+  let acc = 0n, pos = 0;
+  const put = (value, bits) => {
+    acc |= BigInt(value) << BigInt(CODE_BITS - pos - bits);
+    pos += bits;
+  };
+  put(CODE_VERSION, VERSION_BITS);
+  for (const f of V1_FIELDS) put((codeFieldValue(s, f) + f.count - f.def) % f.count, f.bits);
+
+  let out = "", len = 0;
+  for (let i = 0; i < SCENE_CODE_MAX; i++) {
+    const c = Number((acc >> BigInt(CODE_BITS - CHAR_BITS * (i + 1))) & 31n);
+    out += SCENE_CODE_ALPHABET[c];
+    if (c) len = i + 1;   // trailing zero characters are dropped
+  }
+  return out.slice(0, len);
+}
+
+// The scene a code holds, or null if it is not a valid code.
+function sceneCodeDecode(code) {
+  const n = code.length;
+  if (n === 0 || n > SCENE_CODE_MAX) return null;
+  let acc = 0n;
+  for (let i = 0; i < n; i++) {
+    const p = SCENE_CODE_ALPHABET.indexOf(code[i]);
+    if (p < 0) return null;
+    acc |= BigInt(p) << BigInt(CODE_BITS - CHAR_BITS * (i + 1));
+  }
+  let pos = 0;
+  const get = (bits) => {
+    const v = Number((acc >> BigInt(CODE_BITS - pos - bits)) & ((1n << BigInt(bits)) - 1n));
+    pos += bits;
+    return v;
+  };
+  if (get(VERSION_BITS) !== 1) return null;
+  const s = factoryScene();
+  for (const f of V1_FIELDS) {
+    const e = get(f.bits);
+    if (e >= f.count) return null;
+    s[f.layer][f.key] = (e + f.def) % f.count;
+  }
+  if (pos < CODE_BITS && (acc & ((1n << BigInt(CODE_BITS - pos)) - 1n))) return null;   // padding
+  return s;
+}
+
+// --- Note mapping: port of layers.cpp and sequencer.cpp --------------------------
+// How a layer plays: what layerActive(), layerEffective(), layerVoice(),
+// layerShiftSource(), layerLowNoteSource(), layerWraps() and layerDegree() resolve to.
+function resolveLayer(s, l) {
+  const A = s.A, B = s.B, own = l === 0 ? A : B;
+  const sameAsA = l === 1 && B.mode === MODE_SAME_AS_A;
+  const eff = sameAsA ? A : own;
+  let mode = own.mode;
+  if (sameAsA) mode = A.mode;
+  const active = mode === MODE_ON || mode === MODE_STACK;
+  const voice = eff.voice;
+  const shiftSrc = l === 1 && (sameAsA || B.shiftSameAsA) ? A : own;
+  const lowSrc   = l === 1 && (sameAsA || B.lowNoteSameAsA) ? A : own;
+  const kit = voice === VOICE_DRUMS;
+  const wraps = kit || !!shiftSrc.wrap;
+  const degree = (sensor) => {
+    const base = lowSrc.lowNote ? NUM_TRACKS - 1 - sensor : sensor;
+    let d = base + (shiftSrc.shift % NUM_TRACKS);
+    if (wraps) d %= NUM_TRACKS;
+    return d;
+  };
+  return { active, voice, kit, silent: voice === VOICE_NONE, degree, eff };
+}
+
+function scaleStep(scale, degree) {
+  const iv = SCALE_INTERVALS[scale < SCALE_INTERVALS.length ? scale : 0];
+  return iv[degree % iv.length] + 12 * Math.floor(degree / iv.length);
+}
+
+// scaleNote(): MIDI note, C4 = 60.
+function scaleNote(root, scale, degree, octave) {
+  const n = 12 + Math.min(Math.max(octave, 0), 9) * 12 + root + scaleStep(scale, degree);
+  return n < 0 ? 0 : n > 127 ? 127 : n;
+}
+
+// What one layer plays for a track: { kit, slot } or { note }, or null if silent.
+function layerNoteFor(s, l, track) {
+  const r = resolveLayer(s, l);
+  if (!r.active || r.silent) return null;
+  const d = r.degree(track);
+  if (r.kit) return { kit: true, slot: d, voice: r.voice };
+  return { kit: false, note: scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave), voice: r.voice };
+}
+
+// Which layers a magnet of this pole plays (0 = A, normal; 1 = B, reversed),
+// and whether it is heard on revolution `rev` (Layer Turns: A on even, B on odd).
+function layersForPole(s, pole, rev) {
+  const stack = s.B.mode === MODE_STACK;
+  const alternate = s.B.turns === 1;
+  if (alternate && rev !== undefined && pole !== (rev % 2)) return [];
+  return [0, 1].filter((l) => stack || l === pole);
+}
+
+function noteName(n) {
+  return ROOT_NAMES[n % 12] + (Math.floor(n / 12) - 1);
+}
+
+// --- Magnet collisions -------------------------------------------------------------
+function clearanceMm(holeDiameter) {
+  return Math.max(MAGNET_DIAMETER_MM, holeDiameter);
+}
+
+function stepsCollide(track, s1, s2, steps, clearance) {
+  let d = Math.abs(s1 - s2);
+  d = Math.min(d, steps - d);
+  if (d === 0) return false;
+  const chord = 2 * TRACK_RADIUS_MM[track] * Math.sin(Math.PI * d / steps);
+  return chord < clearance - 1e-9;   // touching edge to edge fits
+}
+
+function cellOverlaps(cells, track, step, steps, clearance) {
+  const row = cells[track];
+  for (let s = 0; s < steps; s++) {
+    if (s !== step && row[s] && stepsCollide(track, step, s, steps, clearance)) return true;
+  }
+  return false;
+}
+
+// --- Single-stroke font ----------------------------------------------------------
+// Glyphs on a 4 x 6 grid (y up, baseline 0), advance 6. Polylines only.
+const O_SHAPE = [[1, 0], [0, 1], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0]];
+const P_SHAPE = [[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]];
+const FONT = {
+  A: [[[0, 0], [0, 4], [2, 6], [4, 4], [4, 0]], [[0, 3], [4, 3]]],
+  B: [[[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]], [[3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
+  C: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1]]],
+  D: [[[0, 0], [0, 6], [2, 6], [4, 4], [4, 2], [2, 0], [0, 0]]],
+  E: [[[4, 6], [0, 6], [0, 0], [4, 0]], [[0, 3], [3, 3]]],
+  F: [[[4, 6], [0, 6], [0, 0]], [[0, 3], [3, 3]]],
+  G: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 3], [2, 3]]],
+  H: [[[0, 0], [0, 6]], [[4, 0], [4, 6]], [[0, 3], [4, 3]]],
+  I: [[[1, 6], [3, 6]], [[2, 6], [2, 0]], [[1, 0], [3, 0]]],
+  J: [[[4, 6], [4, 1], [3, 0], [1, 0], [0, 1]]],
+  K: [[[0, 0], [0, 6]], [[4, 6], [0, 2]], [[1, 3], [4, 0]]],
+  L: [[[0, 6], [0, 0], [4, 0]]],
+  M: [[[0, 0], [0, 6], [2, 3], [4, 6], [4, 0]]],
+  N: [[[0, 0], [0, 6], [4, 0], [4, 6]]],
+  O: [O_SHAPE],
+  P: [P_SHAPE],
+  Q: [O_SHAPE, [[2, 2], [4, 0]]],
+  R: [P_SHAPE, [[2, 3], [4, 0]]],
+  S: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]]],
+  T: [[[0, 6], [4, 6]], [[2, 6], [2, 0]]],
+  U: [[[0, 6], [0, 1], [1, 0], [3, 0], [4, 1], [4, 6]]],
+  V: [[[0, 6], [2, 0], [4, 6]]],
+  W: [[[0, 6], [1, 0], [2, 4], [3, 0], [4, 6]]],
+  X: [[[0, 0], [4, 6]], [[0, 6], [4, 0]]],
+  Y: [[[0, 6], [2, 3], [4, 6]], [[2, 3], [2, 0]]],
+  Z: [[[0, 6], [4, 6], [0, 0], [4, 0]]],
+  0: [O_SHAPE, [[0, 1], [4, 5]]],
+  1: [[[1, 5], [2, 6], [2, 0]], [[1, 0], [3, 0]]],
+  2: [[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [0, 0], [4, 0]]],
+  3: [[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]], [[1, 3], [3, 3]]],
+  4: [[[3, 0], [3, 6], [0, 2], [4, 2]]],
+  5: [[[4, 6], [0, 6], [0, 3], [3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
+  6: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3], [0, 3]]],
+  7: [[[0, 6], [4, 6], [1, 0]]],
+  8: [[[1, 3], [0, 4], [0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [1, 3], [0, 2], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3]]],
+  9: [[[0, 1], [1, 0], [3, 0], [4, 1], [4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [4, 3]]],
+  "/": [[[0, 0], [4, 6]]],
+  ".": [[[2, 0], [2, 0.5]]],
+  ",": [[[2, 0.5], [1.5, -0.8]]],
+  ":": [[[2, 1], [2, 1.5]], [[2, 4], [2, 4.5]]],
+  "-": [[[1, 3], [3, 3]]],
+  "(": [[[3, 6], [2, 5], [2, 1], [3, 0]]],
+  ")": [[[1, 6], [2, 5], [2, 1], [1, 0]]],
+  "=": [[[1, 2], [3, 2]], [[1, 4], [3, 4]]],
+  "#": [[[1, 0], [1, 6]], [[3, 0], [3, 6]], [[0, 2], [4, 2]], [[0, 4], [4, 4]]],
+};
+
+function textWidth(str, h) {
+  return str.length ? (str.length * 6 - 2) * h / 6 : 0;
+}
+
+// Polylines for `str`, `h` mm tall; map(u, v) takes mm along the text (u)
+// and up from the baseline (v) to page coordinates.
+function textPaths(str, h, map) {
+  const k = h / 6, out = [];
+  [...str.toUpperCase()].forEach((ch, i) => {
+    for (const line of FONT[ch] || []) {
+      out.push(line.map(([x, y]) => map((i * 6 + x) * k, y * k)));
+    }
+  });
+  return out;
+}
+
+// --- Template geometry -------------------------------------------------------------
+// Page coordinates in mm, y down. Items: { kind: "circle", cx, cy, r, color }
+// or { kind: "path", pts, closed, color }.
+function stepAngle(step, steps, forward) {
+  // A platter turning clockwise (seen from above) carries the template past a
+  // fixed arm in counterclockwise order, and the other way round. Step 1 is at
+  // the top. Screen angles: y down, so clockwise is increasing.
+  const dir = forward === "cw" ? -1 : 1;
+  return -Math.PI / 2 + dir * 2 * Math.PI * step / steps;
+}
+
+function templateModel(d) {
+  const page = PAGES[d.paper] || PAGES.letter;
+  const steps = d.beats * d.subdiv;
+  const R = TEMPLATE_DIAMETER_MM / 2;
+  const cx = page.w / 2, cy = 12 + R;
+  const items = [];
+  const circle = (r, color, x = cx, y = cy) => items.push({ kind: "circle", cx: x, cy: y, r, color });
+  const path = (pts, color, closed = false) => items.push({ kind: "path", pts, closed, color });
+  const polar = (a, r) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+
+  // Through cuts.
+  circle(R, COLOR_CUT);
+  circle(CENTER_HOLE_DIAMETER_MM / 2, COLOR_CUT);
+
+  // Rings.
+  for (const r of TRACK_RADIUS_MM) circle(r, COLOR_SCORE);
+
+  // Magnet holes and pole marks.
+  const hole = d.hole, holeR = hole / 2;
+  const dirSign = d.forward === "cw" ? -1 : 1;
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const r = TRACK_RADIUS_MM[t];
+    const gap = Math.max(2 * r * Math.sin(Math.PI / steps) - hole, 0);   // to the next step's hole
+    const w = Math.min(Math.max(gap * 0.7, 0.8), 2.0);
+    const dist = holeR + Math.min(gap / 2, 0.6 + w / 2);
+    for (let s = 0; s < steps; s++) {
+      const cell = d.cells[t][s];
+      if (!cell) continue;
+      const a = stepAngle(s, steps, d.forward);
+      const [x, y] = polar(a, r);
+      circle(holeR, cell === 1 ? COLOR_HOLE_A : COLOR_HOLE_B, x, y);
+      // The mark sits just after its hole, in step order, upright facing out.
+      const am = a + dirSign * dist / r;
+      const [mx, my] = polar(am, r);
+      const up = [Math.cos(am), Math.sin(am)], right = [-up[1], up[0]];
+      const h = w * 1.5;
+      const map = (u, v) => [mx + (u - w / 2) * right[0] + (v - h / 2) * up[0],
+                             my + (u - w / 2) * right[1] + (v - h / 2) * up[1]];
+      for (const p of textPaths(cell === 1 ? "A" : "B", h, map)) path(p, COLOR_SCORE);
+    }
+  }
+
+  // The band outside the outer ring of holes holds the start mark (top) and
+  // the code (bottom).
+  const bandIn = TRACK_RADIUS_MM[NUM_TRACKS - 1] + clearanceMm(hole) / 2 + 0.3;
+  const bandOut = R - 0.4;
+  const top = -Math.PI / 2, half = 1.5 / R;
+  path([polar(top, bandIn), polar(top - half, R), polar(top + half, R)], COLOR_SCORE, true);
+
+  const codeText = `${d.code}  BEATS/REV ${d.beats}`;
+  const th = Math.min(2.5, Math.max(bandOut - bandIn, 0.8));
+  const tw = textWidth(codeText, th);
+  for (const p of textPaths(codeText, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
+    path(p, COLOR_SCORE);
+  }
+
+  // Labels below the disc: not part of the record.
+  let y = cy + R + 10;
+  const label = (str, h) => {
+    const x0 = cx - textWidth(str, h) / 2;
+    for (const p of textPaths(str, h, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
+    y += h + 3.5;
+  };
+  label(`MAGNETRONE RECORD   SCENE CODE ${d.code}   BEATS/REV ${d.beats}   ${steps} STEPS`, 3);
+  label(`PRINT AT 100 PERCENT (ACTUAL SIZE). THE BAR BELOW IS 100 MM.`, 2.5);
+  label(`RED: CUT   GREEN: A HOLES   MAGENTA: B HOLES, ${+hole.toFixed(2)} MM   BLUE: SCORE`, 2.5);
+  label(`BLACK: LABELS, NOT PART OF THE RECORD`, 2.5);
+  y += 2;
+  path([[cx - 50, y], [cx + 50, y]], COLOR_LABEL);
+  for (let i = 0; i <= 10; i++) {
+    const x = cx - 50 + i * 10, tick = i % 5 === 0 ? 3 : 1.5;
+    path([[x, y - tick], [x, y]], COLOR_LABEL);
+  }
+  y += 6;
+  for (const [x, str] of [[cx - 50, "0"], [cx, "50"], [cx + 50, "100 MM"]]) {
+    const x0 = x - textWidth(str[0] === "1" ? "100" : str, 2.5) / 2;
+    for (const p of textPaths(str, 2.5, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
+  }
+  return { w: page.w, h: page.h, items };
+}
+
+// --- SVG -------------------------------------------------------------------------
+const HAIRLINE_MM = 0.0254;   // 0.001 in
+const fmt = (n) => (Math.round(n * 1000) / 1000).toString();
+
+function svgString(model, previewStroke) {
+  const groups = [[COLOR_CUT, "cut"], [COLOR_HOLE_A, "holes-a"], [COLOR_HOLE_B, "holes-b"], [COLOR_SCORE, "score"], [COLOR_LABEL, "labels"]];
+  const sw = previewStroke || HAIRLINE_MM;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${model.w}mm" height="${model.h}mm" viewBox="0 0 ${model.w} ${model.h}">\n`;
+  for (const [color, id] of groups) {
+    out += `<g id="${id}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">\n`;
+    for (const it of model.items) {
+      if (it.color !== color) continue;
+      if (it.kind === "circle") {
+        out += `<circle cx="${fmt(it.cx)}" cy="${fmt(it.cy)}" r="${fmt(it.r)}"/>\n`;
+      } else {
+        const d = it.pts.map(([x, y], i) => `${i ? "L" : "M"}${fmt(x)} ${fmt(y)}`).join(" ");
+        out += `<path d="${d}${it.closed ? " Z" : ""}"/>\n`;
+      }
+    }
+    out += `</g>\n`;
+  }
+  return out + `</svg>\n`;
+}
+
+// --- PDF (written by hand: one page, vector paths only) ----------------------------
+function pdfString(model) {
+  const k = 72 / 25.4;
+  const X = (x) => fmt(x * k), Y = (y) => fmt((model.h - y) * k);
+  const rgb = (hex) => [1, 3, 5].map((i) => fmt(parseInt(hex.substr(i, 2), 16) / 255)).join(" ");
+  const KAPPA = 0.5522847498;
+  let c = `${fmt(HAIRLINE_MM * k)} w 1 J 1 j\n`;
+  let current = null;
+  for (const it of model.items) {
+    if (it.color !== current) { c += `${rgb(it.color)} RG\n`; current = it.color; }
+    if (it.kind === "circle") {
+      const { cx, cy, r } = it, q = r * KAPPA;
+      c += `${X(cx + r)} ${Y(cy)} m\n`;
+      c += `${X(cx + r)} ${Y(cy + q)} ${X(cx + q)} ${Y(cy + r)} ${X(cx)} ${Y(cy + r)} c\n`;
+      c += `${X(cx - q)} ${Y(cy + r)} ${X(cx - r)} ${Y(cy + q)} ${X(cx - r)} ${Y(cy)} c\n`;
+      c += `${X(cx - r)} ${Y(cy - q)} ${X(cx - q)} ${Y(cy - r)} ${X(cx)} ${Y(cy - r)} c\n`;
+      c += `${X(cx + q)} ${Y(cy - r)} ${X(cx + r)} ${Y(cy - q)} ${X(cx + r)} ${Y(cy)} c\nh S\n`;
+    } else {
+      it.pts.forEach(([x, y], i) => { c += `${X(x)} ${Y(y)} ${i ? "l" : "m"}\n`; });
+      c += it.closed ? "h S\n" : "S\n";
+    }
+  }
+  const objs = [
+    `<< /Type /Catalog /Pages 2 0 R >>`,
+    `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${X(model.w)} ${fmt(model.h * k)}] /Resources << >> /Contents 4 0 R >>`,
+    `<< /Length ${c.length} >>\nstream\n${c}endstream`,
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets = [];
+  objs.forEach((o, i) => { offsets.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) out += `${String(off).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return out;
+}
+// CORE-END
+
+// --- State ---------------------------------------------------------------------------
+const STORE_KEY = "magnetrone-record-designer-v1";
+const DEFAULTS = {
+  beats: 4, subdiv: 4, block: true, showB: false,
+  bpm: 180,   // DEFAULT_RPM (45) in config.h at 4 beats/rev
+  paper: "letter", hole: 11, forward: "cw",
+};
+
+function emptyCells(steps) {
+  return Array.from({ length: NUM_TRACKS }, () => new Array(steps).fill(0));
+}
+
+function loadState() {
+  const st = { ...DEFAULTS, scene: factoryScene() };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (saved) {
+      Object.assign(st, saved);
+      st.scene = { A: { ...factoryScene().A, ...(saved.scene || {}).A }, B: { ...factoryScene().B, ...(saved.scene || {}).B } };
+    }
+  } catch (e) { /* no storage: start fresh */ }
+  if (st.rpm !== undefined) {   // saved before BPM replaced RPM
+    if (!st.bpm || st.bpm === DEFAULTS.bpm) st.bpm = st.rpm * st.beats;
+    delete st.rpm;
+  }
+  const steps = st.beats * st.subdiv;
+  if (!Array.isArray(st.cells) || st.cells.length !== NUM_TRACKS || st.cells.some((r) => !Array.isArray(r) || r.length !== steps)) {
+    st.cells = emptyCells(steps);
+  }
+  return st;
+}
+
+const state = loadState();
+const steps = () => state.beats * state.subdiv;
+
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+}
+
+const $ = (id) => document.getElementById(id);
+
+// --- Grid ------------------------------------------------------------------------------
+let playStep = -1;
+
+function poleSummary(track, pole) {
+  const names = layersForPole(state.scene, pole).map((l) => {
+    const n = layerNoteFor(state.scene, l, track);
+    if (!n) return null;
+    return n.kit ? KIT_NAMES[n.slot] : noteName(n.note);
+  }).filter(Boolean);
+  return names.length ? names.join("+") : "-";
+}
+
+function renderGrid() {
+  const N = steps(), g = $("grid");
+  const clr = clearanceMm(state.hole);
+  g.style.gridTemplateColumns = `max-content repeat(${N}, minmax(22px, 1fr))`;
+  let html = `<div></div>`;
+  for (let s = 0; s < N; s++) {
+    const beat = s % state.subdiv === 0;
+    html += `<div class="hdr${beat ? " beat" : ""}${s === playStep ? " ph" : ""}">${beat ? s / state.subdiv + 1 : s + 1}</div>`;
+  }
+  for (let t = NUM_TRACKS - 1; t >= 0; t--) {
+    html += `<div class="lbl"><b>Track ${t + 1}</b><span class="muted">A ${poleSummary(t, 0)}${state.showB ? ` &middot; B ${poleSummary(t, 1)}` : ""}</span></div>`;
+    for (let s = 0; s < N; s++) {
+      const v = state.cells[t][s];
+      const overlap = cellOverlaps(state.cells, t, s, N, clr);
+      const cls = ["c"];
+      if (s % state.subdiv === 0) cls.push("beat");
+      if (v === 1) cls.push("a");
+      if (v === 2) cls.push("b");
+      if (!v && overlap && state.block) cls.push("blocked");
+      if (v && overlap) cls.push("overlap");
+      if (s === playStep) cls.push("ph");
+      html += `<div class="${cls.join(" ")}" data-t="${t}" data-s="${s}">${v === 1 ? "A" : v === 2 ? "B" : ""}</div>`;
+    }
+  }
+  g.innerHTML = html;
+  $("stepsInfo").textContent = `${N} steps of ${+(360 / N).toFixed(2)}°`;
+}
+
+$("grid").addEventListener("click", (e) => {
+  const c = e.target.closest(".c");
+  if (!c) return;
+  const t = +c.dataset.t, s = +c.dataset.s;
+  const v = state.cells[t][s];
+  if (!v && state.block && cellOverlaps(state.cells, t, s, steps(), clearanceMm(state.hole))) return;
+  state.cells[t][s] = (v + 1) % 3;
+  changed();
+});
+
+// Steps per revolution changed: keep every magnet that lands on a step of the new grid.
+function resizeSteps(beats, subdiv) {
+  const oldN = steps(), newN = beats * subdiv;
+  if (newN === oldN) { state.beats = beats; state.subdiv = subdiv; return true; }
+  const cells = emptyCells(newN);
+  let dropped = 0;
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    for (let s = 0; s < oldN; s++) {
+      if (!state.cells[t][s]) continue;
+      const ns = s * newN / oldN;
+      if (Number.isInteger(ns)) cells[t][ns] = state.cells[t][s];
+      else dropped++;
+    }
+  }
+  if (dropped && !confirm(`${dropped} magnet(s) do not land on a step of the new grid and will be removed. Continue?`)) return false;
+  state.beats = beats; state.subdiv = subdiv; state.cells = cells;
+  return true;
+}
+
+function bindSteps() {
+  const b = $("beats"), d = $("subdiv");
+  const apply = () => {
+    const beats = Math.min(Math.max(parseInt(b.value, 10) || 1, 1), 32);
+    const subdiv = Math.min(Math.max(parseInt(d.value, 10) || 1, 1), 8);
+    if (!resizeSteps(beats, subdiv)) { b.value = state.beats; d.value = state.subdiv; return; }
+    b.value = state.beats; d.value = state.subdiv;
+    changed();
+  };
+  b.addEventListener("change", apply);
+  d.addEventListener("change", apply);
+}
+
+// --- Scene panel -------------------------------------------------------------------------
+function options(names, value) {
+  return names.map((n, i) => `<option value="${i}"${i === value ? " selected" : ""}>${n}</option>`).join("");
+}
+
+function renderScene() {
+  const s = state.scene;
+  const range = (n) => Array.from({ length: n }, (_, i) => String(i));
+  const row = (label, a, b) => `<tr><th>${label}</th><td>${a}</td><td>${b}</td></tr>`;
+  const sel = (l, key, names) => `<select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select>`;
+  const chk = (key, label) => `<label><input type="checkbox" data-l="B" data-k="${key}"${s.B[key] ? " checked" : ""}> ${label}</label>`;
+  $("sceneTable").innerHTML =
+    `<tr><th></th><th>Layer A</th><th>Layer B</th></tr>` +
+    row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
+    row("Voice", sel("A", "voice", VOICE_NAMES), sel("B", "voice", VOICE_NAMES)) +
+    row("Root", sel("A", "root", ROOT_NAMES), sel("B", "root", ROOT_NAMES)) +
+    row("Octave", sel("A", "octave", range(8)), sel("B", "octave", range(8))) +
+    row("Scale", sel("A", "scale", SCALE_NAMES), sel("B", "scale", SCALE_NAMES)) +
+    row("Shift", sel("A", "shift", range(8)), sel("B", "shift", range(8)) + chk("shiftSameAsA", "Same as A")) +
+    row("Low Note", sel("A", "lowNote", ["Inner", "Outer"]), sel("B", "lowNote", ["Inner", "Outer"]) + chk("lowNoteSameAsA", "Same as A")) +
+    row("Wrap", sel("A", "wrap", ["No Wrap", "Wrap"]), sel("B", "wrap", ["No Wrap", "Wrap"])) +
+    row("Layer Turns", "", sel("B", "turns", ["Together", "Alternate"]));
+  $("code").textContent = sceneCodeEncode(s);
+}
+
+$("sceneTable").addEventListener("change", (e) => {
+  const el = e.target, l = el.dataset.l, k = el.dataset.k;
+  if (!l) return;
+  state.scene[l][k] = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
+  $("codeMsg").textContent = "";
+  changed();
+});
+
+$("codeLoad").addEventListener("click", () => {
+  const code = $("codeIn").value.trim().toUpperCase();
+  const s = sceneCodeDecode(code);
+  if (!s) { $("codeMsg").textContent = "Invalid Code"; return; }
+  state.scene = s;
+  $("codeMsg").textContent = `Loaded ${code}.`;
+  changed();
+});
+
+// --- Template ------------------------------------------------------------------------------
+function currentModel() {
+  return templateModel({ ...state, code: sceneCodeEncode(state.scene) });
+}
+
+function renderTemplate() {
+  const model = currentModel();
+  // Preview: the disc only, with lines thick enough to see.
+  const page = PAGES[state.paper];
+  const svg = svgString(model, 0.35).replace(/viewBox="[^"]*"/, `viewBox="${page.w / 2 - 102} 10 204 204"`)
+    .replace(/ width="[^"]*" height="[^"]*"/, "");
+  $("preview").innerHTML = svg;
+}
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const fileBase = () => `record-${sceneCodeEncode(state.scene)}-${state.beats}x${state.subdiv}-${state.paper}`;
+$("exportSvg").addEventListener("click", () => download(fileBase() + ".svg", svgString(currentModel()), "image/svg+xml"));
+$("exportPdf").addEventListener("click", () => download(fileBase() + ".pdf", pdfString(currentModel()), "application/pdf"));
+
+function bindTemplate() {
+  $("paper").addEventListener("change", (e) => { state.paper = e.target.value; changed(); });
+  $("forward").addEventListener("change", (e) => { state.forward = e.target.value; changed(); });
+  $("hole").addEventListener("change", (e) => {
+    const v = parseFloat(e.target.value);
+    if (v >= 5 && v <= 20) state.hole = v;
+    e.target.value = state.hole;
+    changed();
+  });
+  $("block").addEventListener("change", (e) => { state.block = e.target.checked; changed(); });
+  $("showB").addEventListener("change", (e) => { state.showB = e.target.checked; changed(); });
+  $("clear").addEventListener("click", () => {
+    if (confirm("Remove every magnet from the grid?")) { state.cells = emptyCells(steps()); changed(); }
+  });
+  $("bpm").addEventListener("change", (e) => {
+    state.bpm = parseFloat(e.target.value) || DEFAULTS.bpm;
+    changed();
+  });
+}
+
+// --- Sound preview ----------------------------------------------------------------------------
+// Envelopes from firmware/src/audio/voice.cpp: attack, decay, sustain, release, note length (ms).
+const VOICE_SOUNDS = [
+  { wave: "triangle", a: 5,   d: 400, s: 0.2, r: 400, ms: 250 },   // Piano
+  { wave: "sawtooth", a: 150, d: 100, s: 0.8, r: 600, ms: 800 },   // Strings
+  { wave: "square",   a: 5,   d: 100, s: 0.7, r: 150, ms: 200 },   // Leads
+  { wave: "sawtooth", a: 5,   d: 150, s: 0.5, r: 100, ms: 250 },   // Bass
+];
+
+let ac = null, master = null, noiseBuf = null, timer = null;
+let nextTime = 0, nextStep = 0, rev = 0;
+const sounding = new Map();
+
+function ensureAudio() {
+  if (!ac) {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ac.createDynamicsCompressor();
+    master = ac.createGain();
+    master.gain.value = 0.7;
+    master.connect(comp);
+    comp.connect(ac.destination);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  }
+  if (ac.state === "suspended") ac.resume();
+}
+
+function playTone(note, voice, t, key) {
+  const v = VOICE_SOUNDS[voice];
+  const osc = ac.createOscillator(), env = ac.createGain(), cut = ac.createGain();
+  osc.type = v.wave;
+  osc.frequency.value = 440 * Math.pow(2, (note - 69) / 12);
+  let node = osc;
+  if (v.wave !== "triangle") {
+    const lp = ac.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 3000;
+    osc.connect(lp); node = lp;
+  }
+  node.connect(env); env.connect(cut); cut.connect(master);
+  const peak = 0.25, a = v.a / 1000, d = v.d / 1000, sus = v.s * peak, r = v.r / 1000, on = v.ms / 1000;
+  const g = env.gain, off = t + on;
+  g.setValueAtTime(0, t);
+  if (on <= a) {
+    g.linearRampToValueAtTime(peak * on / a, off);
+  } else {
+    g.linearRampToValueAtTime(peak, t + a);
+    if (on <= a + d) g.linearRampToValueAtTime(peak + (sus - peak) * (on - a) / d, off);
+    else { g.linearRampToValueAtTime(sus, t + a + d); g.setValueAtTime(sus, off); }
+  }
+  g.linearRampToValueAtTime(0, off + r);
+  const end = off + r + 0.02;
+  osc.start(t); osc.stop(end);
+  // Retrigger: the sensor's previous note on this layer ends.
+  const prev = sounding.get(key);
+  if (prev && prev.end > t) {
+    prev.cut.gain.setValueAtTime(1, t);
+    prev.cut.gain.linearRampToValueAtTime(0, t + 0.01);
+  }
+  sounding.set(key, { cut, end });
+}
+
+function noiseHit(t, dur, type, freq, peak) {
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = noiseBuf;
+  f.type = type; f.frequency.value = freq;
+  src.connect(f); f.connect(g); g.connect(master);
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.start(t); src.stop(t + dur + 0.02);
+}
+
+function sweepHit(t, f0, f1, dur, peak, type = "sine") {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  o.connect(g); g.connect(master);
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+
+// Approximate kit, one sound per slot (kit.h order).
+function playDrum(slot, t) {
+  switch (slot) {
+    case 0: noiseHit(t, 1.2, "highpass", 5000, 0.25); break;                       // Crash
+    case 1: sweepHit(t, 130, 80, 0.35, 0.6); break;                                 // Low Tom
+    case 2: sweepHit(t, 220, 150, 0.3, 0.5); break;                                 // High Tom
+    case 3: for (const o of [0, 0.012, 0.024]) noiseHit(t + o, 0.03, "bandpass", 1200, 0.5);
+            noiseHit(t + 0.036, 0.15, "bandpass", 1200, 0.4); break;                // Clap
+    case 4: noiseHit(t, 0.35, "highpass", 7000, 0.22); break;                       // Open Hat
+    case 5: noiseHit(t, 0.2, "bandpass", 1800, 0.4); sweepHit(t, 200, 160, 0.1, 0.3, "triangle"); break; // Snare
+    case 6: sweepHit(t, 150, 45, 0.3, 0.9); break;                                  // Kick
+    case 7: noiseHit(t, 0.05, "highpass", 7000, 0.22); break;                       // Closed Hat
+  }
+}
+
+// One step, as sequencerUpdate() and noteOn() would play its magnets.
+function scheduleStep(step, revolution, t) {
+  for (let track = 0; track < NUM_TRACKS; track++) {
+    const cell = state.cells[track][step];
+    if (!cell) continue;
+    for (const l of layersForPole(state.scene, cell - 1, revolution)) {
+      const n = layerNoteFor(state.scene, l, track);
+      if (!n) continue;
+      if (n.kit) playDrum(n.slot, t);
+      else playTone(n.note, n.voice, t, `${l}:${track}`);
+    }
+  }
+}
+
+function tick() {
+  const N = steps();
+  if (nextStep >= N) nextStep = 0;
+  const dur = 60 / (state.bpm * state.subdiv);
+  while (nextTime < ac.currentTime + 0.12) {
+    scheduleStep(nextStep, rev, nextTime);
+    const s = nextStep, r = rev;
+    setTimeout(() => showPlayhead(s, r), Math.max(0, (nextTime - ac.currentTime) * 1000));
+    nextTime += dur;
+    if (++nextStep >= N) { nextStep = 0; rev++; }
+  }
+}
+
+function showPlayhead(s, r) {
+  if (!timer) return;
+  playStep = s;
+  document.querySelectorAll("#grid .ph").forEach((el) => el.classList.remove("ph"));
+  document.querySelectorAll(`#grid [data-s="${s}"]`).forEach((el) => el.classList.add("ph"));
+  const hdr = $("grid").children[1 + s];
+  if (hdr) hdr.classList.add("ph");
+  $("turn").textContent = state.scene.B.turns === 1 ? `Turn: Layer ${r % 2 ? "B" : "A"}` : "";
+}
+
+function startStop() {
+  if (timer) {
+    clearInterval(timer); timer = null; playStep = -1;
+    $("play").textContent = "Play"; $("turn").textContent = "";
+    renderGrid();
+    return;
+  }
+  ensureAudio();
+  nextStep = 0; rev = 0; sounding.clear();
+  nextTime = ac.currentTime + 0.05;
+  timer = setInterval(tick, 25);
+  $("play").textContent = "Stop";
+  tick();
+}
+$("play").addEventListener("click", startStop);
+
+// --- Wiring -------------------------------------------------------------------------------------
+function syncInputs() {
+  $("beats").value = state.beats;
+  $("subdiv").value = state.subdiv;
+  $("block").checked = state.block;
+  $("showB").checked = state.showB;
+  $("bpm").value = state.bpm;
+  $("paper").value = state.paper;
+  $("hole").value = state.hole;
+  $("forward").value = state.forward;
+  $("rpm").textContent = `${+(state.bpm / state.beats).toFixed(2)} RPM`;
+}
+
+// BPM = RPM x Beats/Rev; the table runs MIN_RPM to MAX_RPM (config.h).
+function clampBpm() {
+  state.bpm = Math.min(Math.max(state.bpm, state.beats * 1), state.beats * 120);
+  $("bpm").min = state.beats * 1;
+  $("bpm").max = state.beats * 120;
+}
+
+function changed() {
+  clampBpm();
+  syncInputs();
+  renderGrid();
+  renderScene();
+  renderTemplate();
+  save();
+}
+
+bindSteps();
+bindTemplate();
+changed();
+</script>
+</body>
+</html>
