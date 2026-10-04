@@ -81,14 +81,26 @@ A plays the first revolution.
 - Placing a magnet plays its note.
 - The shaded band shows the position.
 
-## Sharing a song
+## Songs and sharing
 
-The link button beside the Scene Code copies a link holding the whole song:
-grid, scene, BPM and template settings. Opening it loads the song (asking
-first if it would replace magnets already placed). It points at this
-page's address, so it opens the song for anyone who has the page there,
-such as a hosted copy; a link to a file on your drive only works on your
-machine.
+The **Songs** strip under the transport keeps saved songs as chips, in
+this browser's local storage.
+
+- **+ Save** names the song and keeps it as a chip. A chip is a snapshot:
+  editing after picking one changes only the current song, marked
+  "(edited)", until you save again (a new chip; unchanged, Save only
+  renames it).
+- Click a chip to switch to it. Playing carries on into the new song. If
+  the current song has unsaved changes, it asks first.
+- Double-click a chip to rename it; x removes it. **Empty** is always
+  there: the factory scene on an empty grid.
+- The link button beside the Scene Code copies a link holding the whole
+  song and its name: grid, scene, BPM and template settings. It asks for a
+  name if the song has none, and keeps the song as a chip.
+- Opening a link adds its song as a chip (or picks the chip it already is),
+  so you can always get back to it. It points at this page's address, so
+  it opens the song for anyone who has the page there, such as the hosted
+  copy; a link to a file on your drive only works on your machine.
 
 ## Template
 

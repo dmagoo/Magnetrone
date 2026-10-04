@@ -79,6 +79,17 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .codebox { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .code { font: 700 24px/1 ui-monospace, Consolas, monospace; letter-spacing: 2px; }
 
+/* Songs */
+.songs { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; padding: 2px; }
+.chip { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; white-space: nowrap; flex: none; }
+.chip button { border: 0; border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.chip .x { padding: 3px 8px 3px 0; color: var(--muted); }
+.chip.on { background: var(--text); border-color: var(--text); }
+.chip.on button { color: var(--panel); }
+.chip .edited { font-style: italic; }
+#saveSong { flex: none; }
+
 /* Grid */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 14px; }
 .toolbar .spacer { flex: 1; }
@@ -179,6 +190,12 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         </button>
         <span id="copyMsg" class="muted small"></span>
       </div>
+    </section>
+
+    <section class="card songs">
+      <span class="muted small">Songs:</span>
+      <div id="chips" class="chips"></div>
+      <button id="saveSong" class="small" title="Save this song as a chip">+ Save</button>
     </section>
 
     <section class="card">
@@ -817,9 +834,11 @@ function pdfString(model) {
 }
 // --- Song links ------------------------------------------------------------------
 // The whole song as text for the end of a link, after "#":
-//   r1~<Scene Code>~<beats>~<subdiv>~<bpm>~<cells>~<paper>~<hole>~<cw|ccw>~<block 1|0>
+//   r1~<Scene Code>~<beats>~<subdiv>~<bpm>~<cells>~<paper>~<hole>~<cw|ccw>~<block 1|0>[~<name>]
 // Cells: track 1 to 8, each step 1 to N, 2 bits each (0 empty, 1 A, 2 B),
-// three to a base64url character. "r1" is this format's version.
+// three to a base64url character. "r1" is this format's version. The song's
+// name is optional and last (URL-encoded in a link), so links without one
+// still read.
 const B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 function songEncode(d) {
@@ -832,10 +851,17 @@ function songEncode(d) {
           d.paper, +d.hole, d.forward, d.block ? 1 : 0].join("~");
 }
 
-// The song a link holds, or null if it is not a valid one.
+// The song with its name, for the end of a link.
+function songLink(d) {
+  return songEncode(d) + (d.name ? "~" + encodeURIComponent(d.name) : "");
+}
+
+// The song a link holds, or null if it is not a valid one. `str` is the
+// link text already URL-decoded; everything after the tenth field is the name.
 function songDecode(str) {
   const f = str.split("~");
-  if (f.length !== 10 || f[0] !== "r1") return null;
+  if (f.length < 10 || f[0] !== "r1") return null;
+  const name = f.slice(10).join("~");
   const scene = sceneCodeDecode(f[1]);
   const beats = Number(f[2]), subdiv = Number(f[3]), bpm = Number(f[4]), hole = Number(f[7]);
   if (!scene || !Number.isInteger(beats) || beats < 1 || beats > 32 ||
@@ -852,7 +878,7 @@ function songDecode(str) {
   if (flat.some((v) => v > 2) || flat.slice(n).some(Boolean)) return null;
   const steps = beats * subdiv;
   const cells = Array.from({ length: NUM_TRACKS }, (_, t) => flat.slice(t * steps, (t + 1) * steps));
-  return { scene, beats, subdiv, bpm, cells, paper: f[6], hole, forward: f[8], block: f[9] === "1" };
+  return { scene, beats, subdiv, bpm, cells, paper: f[6], hole, forward: f[8], block: f[9] === "1", name };
 }
 // CORE-END
 
@@ -864,6 +890,9 @@ const DEFAULTS = {
   lastLayer: 1,   // layer of the last magnet placed (1 A, 2 B): new magnets start on it
   reverse: false, // play backwards, as the table does with Speed below zero
   autoHear: false, // hear a layer's run when a scene setting changes
+  name: "",        // the current song's name
+  songs: [],       // saved songs (chips): { id, name, song: songEncode() text }
+  songId: null,    // the chip the current song came from
   bpm: 180,   // DEFAULT_RPM (45) in config.h at 4 beats/rev
   paper: "letter", hole: 11, forward: "cw",
 };
@@ -881,6 +910,7 @@ function loadState() {
       st.scene = { A: { ...factoryScene().A, ...(saved.scene || {}).A }, B: { ...factoryScene().B, ...(saved.scene || {}).B } };
     }
   } catch (e) { /* no storage: start fresh */ }
+  st.songs = Array.isArray(st.songs) ? st.songs.filter((c) => c && c.id && typeof c.song === "string") : [];
   if (st.rpm !== undefined) {   // saved before BPM replaced RPM
     if (!st.bpm || st.bpm === DEFAULTS.bpm) st.bpm = st.rpm * st.beats;
     delete st.rpm;
@@ -1211,24 +1241,141 @@ function copyText(text, msg) {
 }
 
 $("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied"));
-$("copyLink").addEventListener("click", () => {
-  copyText(location.href.split("#")[0] + "#" + songEncode(state), "Link copied");
+// --- Songs (chips) ------------------------------------------------------------------------------
+// Saved songs, kept in local storage. A chip is a snapshot: editing after
+// picking one changes only the current song, until it is saved again.
+// "Empty" is always there, the factory scene on an empty grid.
+const EMPTY_ID = "empty";
+const EMPTY_SONG = songEncode({ ...DEFAULTS, scene: factoryScene(), cells: emptyCells(DEFAULTS.beats * DEFAULTS.subdiv) });
+const emptyChip = { id: EMPTY_ID, name: "Empty", song: EMPTY_SONG };
+
+const newSongId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const chipById = (id) => (id === EMPTY_ID ? emptyChip : state.songs.find((c) => c.id === id));
+const defaultName = (d) => `${sceneCodeEncode(d.scene)} \u00b7 ${d.cells.flat().filter(Boolean).length}`;
+
+// Changes not kept in a chip: the current song differs from the chip it came
+// from (an untouched Empty grid has nothing to lose).
+function songEdited() {
+  const cur = songEncode(state);
+  if (cur === EMPTY_SONG) return false;
+  const chip = chipById(state.songId);
+  return !chip || chip.song !== cur;
+}
+
+function askName(fallback) {
+  const n = prompt("Name this song:", state.name || fallback);
+  return n === null ? null : n.trim() || fallback;
+}
+
+function selectSong(id) {
+  const chip = chipById(id);
+  if (!chip) return;
+  if (id === state.songId && !songEdited()) return;
+  if (songEdited() && !confirm("This song has changes that are not saved. Switch anyway? (+ Save keeps them as a chip.)")) return;
+  const song = songDecode(chip.song);
+  recordGrid();
+  Object.assign(state, song);
+  state.name = id === EMPTY_ID ? "" : chip.name;
+  state.songId = id;
+  changed();   // playing carries on, into the new song
+}
+
+// Save: a new chip, unless the song is unchanged from its chip (then it is
+// only renamed).
+function saveSong() {
+  const name = askName(defaultName(state));
+  if (name === null) return;
+  state.name = name;
+  const chip = chipById(state.songId);
+  if (chip && chip.id !== EMPTY_ID && !songEdited()) {
+    chip.name = name;
+  } else {
+    const c = { id: newSongId(), name, song: songEncode(state) };
+    state.songs.push(c);
+    state.songId = c.id;
+  }
+  changed();
+}
+
+function renderSongs() {
+  const edited = songEdited();
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  $("chips").innerHTML = [emptyChip, ...state.songs].map((c) => {
+    const on = c.id === state.songId;
+    const label = esc(c.name) + (on && edited ? ' <span class="edited">(edited)</span>' : "");
+    const x = c.id === EMPTY_ID ? "" :
+      `<button class="x" data-x="${c.id}" title="Remove ${esc(c.name)}" aria-label="Remove ${esc(c.name)}">\u00d7</button>`;
+    return `<div class="chip${on ? " on" : ""}"><button data-id="${c.id}" title="${c.id === EMPTY_ID ? "Start a new song" : "Switch to this song. Double-click to rename."}">${label}</button>${x}</div>`;
+  }).join("");
+}
+
+$("chips").addEventListener("click", (e) => {
+  const x = e.target.closest("[data-x]");
+  if (x) {
+    const chip = chipById(x.dataset.x);
+    if (chip && confirm(`Remove "${chip.name}"?`)) {
+      state.songs = state.songs.filter((c) => c !== chip);
+      if (state.songId === chip.id) state.songId = null;
+      changed();
+    }
+    return;
+  }
+  const b = e.target.closest("[data-id]");
+  if (b) selectSong(b.dataset.id);
 });
 
-// A song link opened (or pasted into this tab): load its song, after asking
-// if it would replace magnets already placed. The link text is then taken
-// off the address, so later edits are not undone by a reload.
+$("chips").addEventListener("dblclick", (e) => {
+  const b = e.target.closest("[data-id]");
+  const chip = b && chipById(b.dataset.id);
+  if (!chip || chip.id === EMPTY_ID) return;
+  const n = prompt("Rename this song:", chip.name);
+  if (n === null || !n.trim()) return;
+  chip.name = n.trim();
+  if (state.songId === chip.id) state.name = chip.name;
+  changed();
+});
+
+$("saveSong").addEventListener("click", saveSong);
+
+// Copy link: names the song first if it has no name, and keeps it as a chip.
+$("copyLink").addEventListener("click", () => {
+  if (!state.name) {
+    const n = askName(defaultName(state));
+    if (n === null) return;
+    state.name = n;
+  }
+  const cur = songEncode(state), chip = chipById(state.songId);
+  if (chip && chip.id !== EMPTY_ID && chip.song === cur) {
+    chip.name = state.name;
+  } else {
+    const c = { id: newSongId(), name: state.name, song: cur };
+    state.songs.push(c);
+    state.songId = c.id;
+  }
+  changed();
+  copyText(location.href.split("#")[0] + "#" + songLink(state), "Link copied");
+});
+
+// A song link opened (or pasted into this tab): it becomes a chip (or finds
+// the one it already is) and is picked, asking first if the current song has
+// unsaved changes. The link text is then taken off the address, so later
+// edits are not undone by a reload.
 function loadFromLink() {
-  const text = decodeURIComponent(location.hash.slice(1));
+  let text = location.hash.slice(1);
+  try { text = decodeURIComponent(text); } catch (e) { /* not encoded */ }
   if (!text) return;
   const song = songDecode(text);
   history.replaceState(null, "", location.href.split("#")[0]);
   if (!song) { alert("That link does not hold a valid song."); return; }
-  if (songEncode(state) === songEncode(song)) return;
-  if (state.cells.some((r) => r.some(Boolean)) && !confirm("Replace the current song with the one in the link?")) return;
-  recordGrid();
-  Object.assign(state, song);
-  cursor = cursorRev = resumeStep = resumeRev = 0;
+  const str = songEncode(song), name = song.name || defaultName(song);
+  let chip = state.songs.find((c) => c.song === str && c.name === name);
+  if (!chip) {
+    chip = { id: newSongId(), name, song: str };
+    state.songs.push(chip);
+  }
+  const before = state.songId;
+  selectSong(chip.id);
+  if (state.songId === chip.id && before !== chip.id) { cursor = cursorRev = resumeStep = resumeRev = 0; placeBand(); }
   changed();
 }
 window.addEventListener("hashchange", loadFromLink);
@@ -1620,6 +1767,7 @@ function changed() {
   renderGrid();
   renderScene();
   renderTemplate();
+  renderSongs();
   save();
 }
 
