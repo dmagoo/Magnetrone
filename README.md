@@ -61,8 +61,9 @@ turning physical arrangement into musical pattern.
   a code changing only the roots is 3 characters
 - [Record Designer](https://dmagoo.github.io/Magnetrone/tools/record-designer/) (`tools/record-designer/`): a
   browser tool to design a "record", a magnet pattern on a step grid plus its
-  Scene Code, play it back, and export a full-size SVG/PDF template to print
-  or laser cut into a platter cover. Runs from the link or straight from disk
+  Scene Code, play it back, save songs and share them as links, and export a
+  full-size SVG/PDF template to print or laser cut into a platter cover. Runs
+  from the link or straight from disk
 - MIDI beat clock driven by platter position, with Song Position Pointer so
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
