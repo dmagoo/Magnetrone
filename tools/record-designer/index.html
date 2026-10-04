@@ -1109,7 +1109,7 @@ const TERMS = {
   "Root": "Key of the scale. Drums ignore it.",
   "Octave": "0 to 7. Drums ignore it.",
   "Scale": "The scale the tracks climb through, one scale step per track. Drums ignore it.",
-  "Shift": "Moves the run up by scale degrees, 0 to 7. On Drums it moves each drum to another track.",
+  "Shift": "Moves the run up by scale degrees, 0 to 7, staying in the key. Each option shows the note the low track then plays (track 1, or track 8 with Low Note Outer). On Drums it moves each drum to another track; each option shows the drum on the low track.",
   "Low Note": "Which end of the arm plays the lowest note: Inner or Outer. On Drums it flips the kit end to end.",
   "Wrap": "With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. Drums always wrap.",
   "Mode": "On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits.",
@@ -1132,17 +1132,28 @@ function renderScene() {
     return `<td>${`<div${why ? ` class="dim" title="${why}"` : ""}><select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select></div>`}` +
       `<label${dims.B[flag] ? ` class="dim" title="${dims.B[flag]}"` : ""}><input type="checkbox" data-l="B" data-k="${flag}"${s.B[flag] ? " checked" : ""}> ${term("Same as A", flag)}</label></td>`;
   };
+  // Shift options: the number and what the low track then plays, from the
+  // layer's own settings. The low track plays degree `shift` either way
+  // round (Low Note flips first), so only the number changes the note.
+  const NBSP2 = "\u00a0\u00a0";
+  const shiftNames = (l) => {
+    const c = s[l];
+    if (c.voice === VOICE_NONE) return range(8);
+    return range(8).map((k) => `${k}${NBSP2}${c.voice === VOICE_DRUMS ? KIT_NAMES[+k] : noteName(scaleNote(c.root, c.scale, +k, c.octave))}`);
+  };
+  const LOW_NOTE_NAMES = ["Inner (track 1)", "Outer (track 8)"];
+  const num = (l, key, min, max) => cell(l, key, `<input type="number" data-l="${l}" data-k="${key}" min="${min}" max="${max}" value="${s[l][key]}">`);
   const head = `<thead><tr><th></th><th><span class="dot a"></span>Layer A</th><th><span class="dot b"></span>Layer B</th></tr></thead>`;
   const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
 
   $("gSound").innerHTML = head + "<tbody>" +
     row("Voice", sel("A", "voice", VOICE_NAMES), sel("B", "voice", VOICE_NAMES)) +
     row("Root", sel("A", "root", ROOT_NAMES), sel("B", "root", ROOT_NAMES)) +
-    row("Octave", sel("A", "octave", range(8)), sel("B", "octave", range(8))) +
+    row("Octave", num("A", "octave", 0, 7), num("B", "octave", 0, 7)) +
     row("Scale", sel("A", "scale", SCALE_NAMES), sel("B", "scale", SCALE_NAMES)) + "</tbody>";
   $("gArrange").innerHTML = head + "<tbody>" +
-    row("Shift", sel("A", "shift", range(8)), selWith("B", "shift", range(8), "shiftSameAsA")) +
-    row("Low Note", sel("A", "lowNote", ["Inner", "Outer"]), selWith("B", "lowNote", ["Inner", "Outer"], "lowNoteSameAsA")) +
+    row("Shift", sel("A", "shift", shiftNames("A")), selWith("B", "shift", shiftNames("B"), "shiftSameAsA")) +
+    row("Low Note", sel("A", "lowNote", LOW_NOTE_NAMES), selWith("B", "lowNote", LOW_NOTE_NAMES, "lowNoteSameAsA")) +
     row("Wrap", sel("A", "wrap", ["No Wrap", "Wrap"]), sel("B", "wrap", ["No Wrap", "Wrap"])) + "</tbody>";
   $("gLayers").innerHTML = head + "<tbody>" +
     row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
@@ -1154,7 +1165,9 @@ for (const id of ["gSound", "gArrange", "gLayers"]) {
   $(id).addEventListener("change", (e) => {
     const el = e.target, l = el.dataset.l, k = el.dataset.k;
     if (!l) return;
-    state.scene[l][k] = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
+    let v = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
+    if (el.type === "number") v = Math.min(Math.max(Number.isNaN(v) ? state.scene[l][k] : v, +el.min), +el.max);
+    state.scene[l][k] = v;
     $("codeMsg").textContent = "";
     changed();
   });

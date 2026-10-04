@@ -48,7 +48,10 @@ Arrangement (shift, Low Note, Wrap, Layer B's Same as A settings) and
 Layers (modes, Layer Turns). Settings that have no effect right now (a Drums
 layer's root, a layer that is Off, Layer B on Same as A) are greyed out but
 stay editable, since the code still holds them; hover one to see why.
-Hover a setting's name (dotted underline) for what it does.
+Hover a setting's name (dotted underline) for what it does. Each Shift
+option shows what the low track then plays ("1  D4", or "5  Snare" on
+Drums); Low Note's options say which track is low (Inner, track 1; Outer,
+track 8). Octave is a number box, 0 to 7.
 
 The code shows beside Play, with a copy button, and updates as you change
 the settings. A code can be loaded back. Enter the
