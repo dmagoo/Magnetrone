@@ -21,7 +21,8 @@ and **Template** (preview and export).
 - Click an empty slot to place a magnet: A (normal pole, plays Layer A) or
   B (reversed pole, plays Layer B), whichever layer you used last (A at
   first). Click again to flip it to the other layer, again to remove it.
-  Clicking a magnet already there flips it, then removes it. With the
+  Clicking a magnet already there flips it, then removes it. Right click
+  removes a magnet at once. With the
   colored magnets, A is blue side
   up and B is black side up (the table's calibration sets this; Menu >
   System > Magnet Pole swaps it).
@@ -63,6 +64,8 @@ A plays the first revolution.
 
 - Play / Pause (Space). Pause keeps the position; Play goes on from there.
 - To start (Home) moves the position back to step 1.
+- The arrows button (right of Play) plays backwards, as the table does with
+  Speed turned below zero. Playing, it turns round at the current step.
 - Click a step number to move the position there. Paused, that column
   plays once; playing, it jumps there.
 - Placing a magnet plays its note.

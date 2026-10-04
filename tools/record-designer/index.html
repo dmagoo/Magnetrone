@@ -61,6 +61,8 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .transport .buttons { display: flex; align-items: center; gap: 8px; }
 .tostart { width: 36px; height: 36px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; }
 .tostart svg { width: 16px; height: 16px; fill: currentColor; }
+#reverse svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#reverse[aria-pressed=true] { background: var(--text); color: var(--panel); border-color: var(--text); }
 .tempo { display: flex; align-items: baseline; gap: 8px; }
 .tempo label { font-weight: 600; }
 .tempo input { font-size: 18px; width: 4.2em; }
@@ -141,6 +143,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
       <div class="buttons">
         <button id="toStart" class="tostart" title="To start (Home)" aria-label="To start"></button>
         <button id="play" class="play" title="Play (Space)" aria-label="Play"></button>
+        <button id="reverse" class="tostart" title="Play backwards, as the table does with Speed turned below zero" aria-label="Play backwards" aria-pressed="false"></button>
       </div>
       <div class="tempo">
         <label for="bpm">BPM</label>
@@ -833,6 +836,7 @@ const DEFAULTS = {
   view: "sequence",
   beats: 4, subdiv: 4, block: true,
   lastLayer: 1,   // layer of the last magnet placed (1 A, 2 B): new magnets start on it
+  reverse: false, // play backwards, as the table does with Speed below zero
   bpm: 180,   // DEFAULT_RPM (45) in config.h at 4 beats/rev
   paper: "letter", hole: 11, forward: "cw",
 };
@@ -989,6 +993,19 @@ function renderGrid() {
 // already there flips first, then goes. `cycle` remembers which layer the
 // slot being clicked started on.
 let cycle = null;
+
+// Right click removes a magnet.
+$("grid").addEventListener("contextmenu", (e) => {
+  const c = e.target.closest(".c");
+  if (!c) return;
+  e.preventDefault();
+  const t = +c.dataset.t, s = +c.dataset.s;
+  if (!state.cells[t][s]) return;
+  recordGrid();
+  state.cells[t][s] = 0;
+  cycle = null;
+  changed();
+});
 
 $("grid").addEventListener("click", (e) => {
   const h = e.target.closest(".hdr[data-hs]");
@@ -1345,13 +1362,22 @@ function scheduleStep(step, revolution, t) {
   for (let track = 0; track < NUM_TRACKS; track++) {
     const cell = state.cells[track][step];
     if (!cell) continue;
-    for (const l of layersForPole(state.scene, cell - 1, revolution)) {
+    for (const l of layersForPole(state.scene, cell - 1, ((revolution % 2) + 2) % 2)) {
       const n = layerNoteFor(state.scene, l, track);
       if (!n) continue;
       if (n.kit) playDrum(n.slot, t);
       else playTone(n.note, n.voice, t, `${l}:${track}`);
     }
   }
+}
+
+// The step that passes the arm after step s of revolution r, in the
+// direction of play. Backwards, step 1 is followed by the last step of the
+// revolution before.
+function stepAfter(s, r) {
+  const N = steps();
+  if (!state.reverse) return s + 1 >= N ? [0, r + 1] : [s + 1, r];
+  return s - 1 < 0 ? [N - 1, r - 1] : [s - 1, r];
 }
 
 function tick() {
@@ -1363,7 +1389,7 @@ function tick() {
     const s = nextStep, r = rev, g = gen;
     setTimeout(() => { if (g === gen) showPlayhead(s, r); }, Math.max(0, (nextTime - ac.currentTime) * 1000));
     nextTime += dur;
-    if (++nextStep >= N) { nextStep = 0; rev++; }
+    [nextStep, rev] = stepAfter(nextStep, rev);
   }
 }
 
@@ -1376,7 +1402,7 @@ function placeBand() {
   const gaps = state.subdiv > 1 ? Math.floor(cursor / state.subdiv) : 0;
   band.style.gridColumn = `${2 + cursor + gaps} / span 1`;
   band.hidden = false;
-  $("turn").textContent = state.scene.B.turns === 1 ? `Turn: Layer ${cursorRev % 2 ? "B" : "A"}` : "";
+  $("turn").textContent = state.scene.B.turns === 1 ? `Turn: Layer ${((cursorRev % 2) + 2) % 2 ? "B" : "A"}` : "";
 }
 
 function showPlayhead(s, r) {
@@ -1387,6 +1413,7 @@ function showPlayhead(s, r) {
 
 const ICON_PLAY  = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
 const ICON_PAUSE = `<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
+const ICON_REVERSE = `<svg viewBox="0 0 24 24"><path d="M20 7H5l3-3M5 7l3 3"/><path d="M4 17h15l-3-3m3 3-3 3"/></svg>`;
 const ICON_START = `<svg viewBox="0 0 24 24"><rect x="5" y="5" width="2.5" height="14" rx="1"/><path d="M19 5v14L9 12z"/></svg>`;
 
 function showTransport() {
@@ -1395,6 +1422,8 @@ function showTransport() {
   $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
   $("play").title = playing ? "Pause (Space)" : "Play (Space)";
   $("toStart").innerHTML = ICON_START;
+  $("reverse").innerHTML = ICON_REVERSE;
+  $("reverse").setAttribute("aria-pressed", state.reverse);
 }
 
 function play() {
@@ -1411,8 +1440,7 @@ function play() {
 function pause() {
   clearInterval(timer); timer = null;
   newBus();
-  resumeStep = cursor + 1; resumeRev = cursorRev;
-  if (resumeStep >= steps()) { resumeStep = 0; resumeRev++; }
+  [resumeStep, resumeRev] = stepAfter(cursor, cursorRev);
   showTransport();
 }
 
@@ -1449,6 +1477,20 @@ function listenToMagnet(t, v) {
 
 $("play").addEventListener("click", playPause);
 $("toStart").addEventListener("click", () => setCursor(0, 0, false));
+
+// Backwards and forwards. Playing, it turns round at the step shown.
+$("reverse").addEventListener("click", () => {
+  state.reverse = !state.reverse;
+  save();
+  showTransport();
+  if (timer) {
+    newBus();
+    [nextStep, rev] = stepAfter(cursor, cursorRev);
+    nextTime = ac.currentTime + 0.05;
+  } else if (resumeStep !== cursor || resumeRev !== cursorRev) {
+    [resumeStep, resumeRev] = stepAfter(cursor, cursorRev);
+  }
+});
 
 // Space plays and pauses, Home goes to the start; Ctrl+Z / Ctrl+Y (or
 // Ctrl+Shift+Z) undo and redo grid edits. Not while typing in a field.
