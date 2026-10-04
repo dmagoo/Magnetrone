@@ -1498,8 +1498,18 @@ function ensureAudio() {
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     newBus();
   }
-  if (ac.state === "suspended") ac.resume();
+  // iOS Safari reports "interrupted", not "suspended", after an app switch.
+  if (ac.state !== "running") ac.resume();
 }
+
+// Leaving the page pauses. iOS cuts the audio and can leave the context stuck
+// "interrupted", so it is closed and the next sound makes a fresh one.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden || !ac) return;
+  if (timer) pause();
+  ac.close();
+  ac = null; bus = null; hearBus = null;
+});
 
 // Every sound goes through the bus. A new one fades the old out, which
 // silences notes already scheduled ahead (on Pause or a jump).
