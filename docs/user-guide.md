@@ -121,6 +121,12 @@ Each magnet plays a different layer depending on which way up it sits:
   default.
 - **Layer B**: the magnet flipped over. Drums by default.
 
+The magnets are colored on each side: **blue side up plays Layer A**, **black
+side up plays Layer B**. This holds when calibration was done with the blue
+side up; if your table plays them the other way round, swap them with
+**Menu > System > Magnet Pole**. The [Record Designer](#record-designer) uses
+the same colors.
+
 Each layer has its own voice, key, octave, level, shift and direction, so one
 set of magnets can play piano one way up and bass the other.
 
@@ -365,6 +371,18 @@ It changes only the sound you are playing: the current scene stays, shown with
 `*`, and nothing is saved. To keep it, save it as a scene.
 
 Codes keep working after firmware updates.
+
+### Record Designer
+
+The [Record Designer](https://dmagoo.github.io/magnetrone/tools/record-designer/) is a web page for
+planning a record: a magnet pattern plus the Scene Code that sets the table up
+to play it. Place magnets on a grid (Layer A or B, one row per track), set the
+sound, and listen to it in the browser. It shows the Scene Code to enter under
+**Scene Codes > Enter**, and exports a full-size template (SVG or PDF) to print
+and lay on the platter, or to laser cut into a cover with the magnet holes.
+It also works offline: open `tools/record-designer/index.html` from a copy of
+the project. Details are in its
+[README](../tools/record-designer/README.md).
 
 ## Effects
 

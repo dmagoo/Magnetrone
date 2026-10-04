@@ -6,113 +6,238 @@
 <title>Magnetrone Record Designer</title>
 <style>
 :root {
-  --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #d8d8d2;
-  --cell: #ececE8; --cell-beat: #c4c4bc; --a: #2f6fd6; --b: #d6762f; --blocked: #bdbdb6;
-  --warn: #d22; --play: #f3d84b; --accent: #1d1d1b;
+  --bg: #f5f5f2; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc;
+  --slot: #e4e4de; --blocked: #c4c4bc; --warn: #d22;
+  --a: #89CFF0; --a-text: #1d1d1b;   /* Layer A magnet */
+  --b: #1D1D1B; --b-text: #ffffff;   /* Layer B magnet */
+  --cs: 48px;                        /* grid cell size */
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a1a19; --panel: #242423; --text: #ececE8; --muted: #9a9a94; --line: #3a3a38;
-    --cell: #2e2e2c; --cell-beat: #555550; --a: #5b93ee; --b: #ee9a5b; --blocked: #4a4a46;
-    --warn: #ff5a5a; --play: #8a7a1c; --accent: #ececE8;
+    --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
+    --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
+    --b: #D0D0CC; --b-text: #1d1d1b;
   }
 }
+@media (max-width: 600px) { :root { --cs: 36px; } }
+
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
-header { padding: 12px 16px; border-bottom: 1px solid var(--line); }
-h1 { font-size: 18px; margin: 0; }
-h2 { font-size: 15px; margin: 0 0 8px; }
-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 16px; }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; min-width: 0; }
-#editor { grid-column: 1; }
-#scene { grid-column: 2; grid-row: 1 / span 2; }
-#template { grid-column: 1; }
-@media (max-width: 900px) { main { grid-template-columns: 1fr; } #editor, #scene, #template { grid-column: 1; grid-row: auto; } }
-.bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 10px; }
-input[type=number] { width: 4.5em; }
-input, select, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
-button { cursor: pointer; padding: 4px 10px; }
-button:hover { border-color: var(--muted); }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+h1 { font-size: 17px; margin: 0; font-weight: 650; }
+h2 { font-size: 15px; margin: 0; font-weight: 650; }
+h3 { font-size: 12px; margin: 0 0 6px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .muted { color: var(--muted); }
-.hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
-#gridWrap { overflow-x: auto; padding-bottom: 4px; }
-#grid { display: grid; gap: 2px; user-select: none; }
-#grid .lbl { font-size: 11px; white-space: nowrap; padding-right: 6px; display: flex; flex-direction: column; justify-content: center; }
-#grid .lbl b { font-size: 12px; }
-#grid .hdr { font-size: 10px; color: var(--muted); text-align: center; align-self: end; }
-#grid .hdr.beat { color: var(--text); font-weight: 600; }
-#grid .c { height: 26px; border-radius: 3px; background: var(--cell); display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; }
-#grid .c.beat { box-shadow: inset 2px 0 0 var(--cell-beat); }
-#grid .c.a { background: var(--a); }
-#grid .c.b { background: var(--b); }
-#grid .c.blocked { background: repeating-linear-gradient(45deg, var(--cell), var(--cell) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
-#grid .c.overlap { outline: 2px solid var(--warn); outline-offset: -2px; }
-#grid .c.ph { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--play); }
-#grid .hdr.ph { color: var(--text); background: var(--play); border-radius: 3px; }
-table.scene { border-collapse: collapse; width: 100%; }
-table.scene th, table.scene td { text-align: left; padding: 3px 4px; vertical-align: top; }
-table.scene th { font-weight: 600; }
-table.scene td select { width: 100%; }
-table.scene label { font-size: 12px; display: block; margin-top: 2px; }
-.code { font: 700 28px/1.2 ui-monospace, Consolas, monospace; letter-spacing: 3px; margin: 12px 0 4px; }
-#codeMsg { font-size: 12px; min-height: 1.4em; }
-#preview { width: 100%; max-width: 560px; aspect-ratio: 1; margin-top: 8px; }
-#preview svg { width: 100%; height: 100%; display: block; background: #fff; border-radius: 4px; }
-.legend span { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 10px; vertical-align: middle; }
+.small { font-size: 12px; }
+.hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+.warn { color: var(--warn); font-size: 12px; margin: 0; }
+
+input, select, button { font: inherit; color: inherit; }
+input, select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+input[type=number] { width: 4.5em; }
+input[type=checkbox] { accent-color: var(--text); }
+button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .4; cursor: default; }
+button.primary { background: var(--text); color: var(--panel); border-color: var(--text); }
+button.icon { padding: 5px; line-height: 0; }
+button.icon svg { width: 18px; height: 18px; }
+svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Header and tabs */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+.tabs { display: flex; gap: 4px; background: var(--slot); border-radius: 8px; padding: 3px; }
+.tabs button { border: 0; border-radius: 6px; padding: 5px 16px; color: var(--muted); }
+.tabs button[aria-selected=true] { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+.card { background: var(--panel); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+
+/* Transport */
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.play { width: 48px; height: 48px; border-radius: 50%; padding: 0; background: var(--text); border: 0; color: var(--panel);
+  display: flex; align-items: center; justify-content: center; }
+.play svg { width: 22px; height: 22px; fill: currentColor; }
+.transport .buttons { display: flex; align-items: center; gap: 8px; }
+.tostart { width: 36px; height: 36px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; }
+.tostart svg { width: 16px; height: 16px; fill: currentColor; }
+.tempo { display: flex; align-items: baseline; gap: 8px; }
+.tempo label { font-weight: 600; }
+.tempo input { font-size: 18px; width: 4.2em; }
+.codebox { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.code { font: 700 24px/1 ui-monospace, Consolas, monospace; letter-spacing: 2px; }
+
+/* Grid */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 14px; }
+.toolbar .spacer { flex: 1; }
+.toolbar .group { display: flex; align-items: center; gap: 6px; }
+#gridWrap { overflow-x: auto; padding: 4px 0; }
+#grid { display: grid; grid-template-rows: auto repeat(8, var(--cs)); gap: 8px; user-select: none; width: max-content; margin: 0 auto; position: relative; }
+#grid > * { position: relative; }
+/* Playhead: a soft band behind the step being played. */
+#grid > .band { position: absolute; grid-row: 1 / -1; inset: -4px; border-radius: calc(var(--cs) / 2 + 4px);
+  background: color-mix(in srgb, var(--text) 8%, transparent); pointer-events: none; }
+#grid .lbl { font-size: 11px; white-space: nowrap; padding-right: 10px; display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
+#grid .lbl b { font-size: 12px; font-weight: 600; }
+#grid .hdr { font-size: 10px; color: var(--muted); text-align: center; align-self: end; border-radius: 4px; }
+#grid .hdr.beat { color: var(--text); font-weight: 650; font-size: 11px; }
+#grid .hdr[data-hs] { cursor: pointer; }
+#grid .hdr[data-hs]:hover { color: var(--text); text-decoration: underline; }
+#grid .c { width: var(--cs); height: var(--cs); border-radius: 50%; border: 0; padding: 0; background: var(--slot);
+  font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+#grid .c.a { background: var(--a); color: var(--a-text); }
+#grid .c[data-ghost]:not(.blocked):hover::before { content: attr(data-ghost); color: var(--muted); font-size: 10px; font-weight: 600; }
+#grid .c.multi { font-size: 10px; }
+#grid .c.b { background: var(--b); color: var(--b-text); }
+#grid .c.blocked { background: repeating-linear-gradient(45deg, var(--slot), var(--slot) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
+#grid .c.overlap { box-shadow: 0 0 0 2px var(--warn); }
+
+/* Scene */
+.scenehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 14px; }
+.load { display: flex; align-items: center; gap: 6px; }
+.load input { width: 9em; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; }
+.groups table { border-collapse: collapse; width: 100%; }
+.groups th, .groups td { text-align: left; padding: 3px 4px; vertical-align: top; }
+.groups thead th { font-size: 12px; font-weight: 600; }
+.groups tbody th { font-weight: 500; white-space: nowrap; padding-top: 7px; }
+.groups td select { width: 100%; }
+.groups label { font-size: 12px; display: block; margin-top: 3px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+.dot.a { background: var(--a); }
+.dot.b { background: var(--b); }
+.dim { opacity: .4; }
+.term { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+
+/* Template */
+.tpl { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .tpl { grid-template-columns: 1fr; } }
+.tpl .card { margin-bottom: 0; }
+#preview { width: 100%; max-width: 640px; aspect-ratio: 1; margin: 0 auto; }
+#preview svg { width: 100%; height: 100%; display: block; background: #fff; border-radius: 50%; }
+.tplside { display: flex; flex-direction: column; gap: 14px; }
+.tplside .field { display: flex; flex-direction: column; gap: 4px; }
+.tplside .field > span { font-weight: 600; }
+.exports { display: flex; gap: 8px; }
+.exports button { flex: 1; padding: 8px 12px; }
+.legend { list-style: none; margin: 0; padding: 0; font-size: 12px; display: grid; gap: 4px; }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 8px; }
 </style>
 </head>
 <body>
-<header><h1>Magnetrone Record Designer</h1></header>
-<main>
-  <section id="editor">
-    <div class="bar">
-      <label>Beats/Rev <input type="number" id="beats" min="1" max="32"></label>
-      <label>Subdivisions <input type="number" id="subdiv" min="1" max="8"></label>
-      <span id="stepsInfo" class="muted"></span>
-      <label><input type="checkbox" id="block"> Block collisions</label>
-      <label><input type="checkbox" id="showB"> Show Layer B</label>
-      <button id="clear">Clear grid</button>
-    </div>
-    <div class="bar">
-      <button id="play">Play</button>
-      <label>BPM <input type="number" id="bpm" min="1" step="1"></label>
-      <span id="rpm" class="muted"></span>
-      <span id="turn"></span>
-    </div>
-    <div id="gridWrap"><div id="grid"></div></div>
-    <p class="hint">Click a cell to cycle it: empty, A (normal pole, Layer A), B (reversed pole, Layer B).
-      Track 1 (inner) is the bottom row. Step 1 is at the start mark. Striped cells would overlap a placed magnet.</p>
-  </section>
+<header>
+  <div class="wrap topbar">
+    <h1>Magnetrone Record Designer</h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-view="sequence">Sequence</button>
+      <button role="tab" data-view="template">Template</button>
+    </nav>
+  </div>
+</header>
 
-  <section id="scene">
-    <h2>Scene</h2>
-    <table class="scene" id="sceneTable"></table>
-    <div class="code" id="code"></div>
-    <div class="bar">
-      <input id="codeIn" placeholder="Enter a code" maxlength="10" size="12" spellcheck="false">
-      <button id="codeLoad">Load code</button>
-    </div>
-    <div id="codeMsg" class="muted"></div>
-  </section>
+<main class="wrap">
+  <div id="view-sequence">
+    <section class="card transport">
+      <div class="buttons">
+        <button id="toStart" class="tostart" title="To start (Home)" aria-label="To start"></button>
+        <button id="play" class="play" title="Play (Space)" aria-label="Play"></button>
+      </div>
+      <div class="tempo">
+        <label for="bpm">BPM</label>
+        <input type="number" id="bpm" min="1" step="1">
+        <span id="rpm" class="muted small"></span>
+      </div>
+      <span id="turn" class="muted small"></span>
+      <div class="codebox">
+        <span class="muted small term" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">Scene Code</span>
+        <span class="code" id="code"></span>
+        <button id="copyCode" class="icon" title="Copy the code" aria-label="Copy the code">
+          <svg class="i" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>
+        </button>
+        <button id="copyLink" class="icon" title="Copy a link to this song" aria-label="Copy a link to this song">
+          <svg class="i" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+        </button>
+        <span id="copyMsg" class="muted small"></span>
+      </div>
+    </section>
 
-  <section id="template">
-    <h2>Template</h2>
-    <div class="bar">
-      <label>Paper <select id="paper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
-      <label>Magnet hole <input type="number" id="hole" min="5" max="20" step="0.1"> mm</label>
-      <label>Platter forward, seen from above
-        <select id="forward"><option value="cw">Clockwise</option><option value="ccw">Counterclockwise</option></select></label>
+    <section class="card">
+      <div class="toolbar">
+        <div class="group">
+          <label for="beats">Beats/Rev</label><input type="number" id="beats" min="1" max="32">
+          <span class="muted">x</span>
+          <label for="subdiv">Subdivisions</label><input type="number" id="subdiv" min="1" max="8">
+          <span id="stepsInfo" class="muted small"></span>
+        </div>
+        <label><input type="checkbox" id="block"> Block collisions</label>
+        <span class="spacer"></span>
+        <div class="group">
+          <button id="undo" class="icon" title="Undo (Ctrl+Z)" aria-label="Undo">
+            <svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
+          </button>
+          <button id="redo" class="icon" title="Redo (Ctrl+Y)" aria-label="Redo">
+            <svg class="i" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg>
+          </button>
+          <button id="clear">Clear</button>
+        </div>
+      </div>
+      <div id="gridWrap"><div id="grid"></div></div>
+      <p class="hint">Click an empty slot to place a magnet on the layer you used last (A, normal pole, or B, reversed pole); click again to flip it, again to remove it.
+        Track 1, the inner track, is the bottom row. Step 1 is the start mark. Striped slots would overlap a placed magnet.</p>
+    </section>
+
+    <section class="card">
+      <div class="scenehead">
+        <h2>Scene</h2>
+        <div class="load">
+          <input id="codeIn" placeholder="Scene Code" maxlength="10" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
+          <button id="codeLoad">Load</button>
+          <span id="codeMsg" class="muted small"></span>
+        </div>
+      </div>
+      <div class="groups">
+        <div><h3>Sound</h3><table id="gSound"></table></div>
+        <div><h3>Arrangement</h3><table id="gArrange"></table></div>
+        <div><h3>Layers</h3><table id="gLayers"></table></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="view-template" hidden>
+    <div class="tpl">
+      <section class="card"><div id="preview"></div></section>
+      <aside class="card tplside">
+        <div>
+          <h2>Template</h2>
+          <p class="muted small" style="margin:4px 0 0">A 200 mm record, full size, for laser cutting or printing.</p>
+        </div>
+        <p id="codeWarn" class="warn" hidden>No track has room for a readable Scene Code, so it is only 1.5 mm tall at the edge.
+          Leave a few steps in a row free on one track (outer tracks need the fewest).</p>
+        <label class="field"><span>Paper</span>
+          <select id="paper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
+        <label class="field"><span>Magnet hole (mm)</span>
+          <input type="number" id="hole" min="5" max="20" step="0.1"></label>
+        <label class="field"><span>Platter forward, seen from above</span>
+          <select id="forward"><option value="cw">Clockwise</option><option value="ccw">Counterclockwise</option></select>
+          <span class="muted small">Check this on the table: steps are placed in the order they pass the sensor arm.</span></label>
+        <div class="exports">
+          <button id="exportPdf" class="primary">Export PDF</button>
+          <button id="exportSvg">Export SVG</button>
+        </div>
+        <p class="hint" style="margin:0">If printing, print at 100% (actual size, not fit to page) and check the 100 mm bar.</p>
+        <div>
+          <h3>Line colors</h3>
+          <ul class="legend">
+            <li><i style="background:#FF0000"></i>Cut: outline and center hole</li>
+            <li><i style="background:#00FF00"></i>Layer A magnet holes</li>
+            <li><i style="background:#FF00FF"></i>Layer B magnet holes</li>
+            <li><i style="background:#0000FF"></i>Score: rings, start mark, marks, code</li>
+            <li><i style="background:#000"></i>Labels, not part of the record</li>
+          </ul>
+        </div>
+      </aside>
     </div>
-    <div class="bar">
-      <button id="exportSvg">Export SVG</button>
-      <button id="exportPdf">Export PDF</button>
-      <span class="legend muted"><span style="background:#FF0000"></span>cut<span style="background:#00FF00"></span>A holes<span style="background:#FF00FF"></span>B holes<span style="background:#0000FF"></span>score<span style="background:#000"></span>labels</span>
-    </div>
-    <p class="hint">Print at 100% (actual size, no fit to page) and check the 100 mm bar. Steps run around the
-      template in the order they pass the sensor arm, so the rotation setting must match the table.</p>
-    <div id="preview"></div>
-  </section>
+  </div>
 </main>
 
 <script>
@@ -393,8 +518,39 @@ function textPaths(str, h, map) {
 }
 
 // --- Template geometry -------------------------------------------------------------
-// Page coordinates in mm, y down. Items: { kind: "circle", cx, cy, r, color }
-// or { kind: "path", pts, closed, color }.
+// Page coordinates in mm, y down. Items: { kind: "circle", cx, cy, r, color },
+// { kind: "arc", cx, cy, r, a0, a1, color } (clockwise on the page from a0 to
+// a1, a1 > a0) or { kind: "path", pts, closed, color }.
+const TAU = 2 * Math.PI;
+
+// The parts of a circle left once `blocked` angle ranges ([a, b], b > a) are
+// taken out, as [a0, a1] ranges; null if nothing is blocked (a whole circle).
+function freeArcs(blocked) {
+  if (!blocked.length) return null;
+  const iv = blocked.map(([a, b]) => { const s0 = ((a % TAU) + TAU) % TAU; return [s0, s0 + (b - a)]; })
+    .sort((x, y) => x[0] - y[0]);
+  const m = [];
+  for (const [a, b] of iv) {
+    if (m.length && a <= m[m.length - 1][1]) m[m.length - 1][1] = Math.max(m[m.length - 1][1], b);
+    else m.push([a, b]);
+  }
+  while (m.length > 1 && m[m.length - 1][1] >= m[0][0] + TAU) {   // the last runs round into the first
+    const last = m.pop();
+    m[0] = [last[0] - TAU, Math.max(m[0][1], last[1] - TAU)];
+  }
+  if (m[0][1] - m[0][0] >= TAU) return [];
+  return m.map(([, b], i) => [b, i + 1 < m.length ? m[i + 1][0] : m[0][0] + TAU]);
+}
+
+// Gap in a ring around a magnet hole: this much wider than the hole.
+const RING_GAP_MM = 1;
+// Clearance kept around a hole (and its A/B mark) by the code text on a ring.
+const TEXT_CLEAR_MM = 3.2;
+// The least room after a hole that takes its A/B mark; less, and the mark
+// goes before the hole.
+const MARK_ROOM_MM = 1.2;
+// Code text heights to try on a ring, largest first, before the edge band.
+const CODE_TEXT_MM = [5, 3];
 function stepAngle(step, steps, forward) {
   // A platter turning clockwise (seen from above) carries the template past a
   // fixed arm in counterclockwise order, and the other way round. Step 1 is at
@@ -417,46 +573,114 @@ function templateModel(d) {
   circle(R, COLOR_CUT);
   circle(CENTER_HOLE_DIAMETER_MM / 2, COLOR_CUT);
 
-  // Rings.
-  for (const r of TRACK_RADIUS_MM) circle(r, COLOR_SCORE);
-
   // Magnet holes and pole marks.
   const hole = d.hole, holeR = hole / 2;
   const dirSign = d.forward === "cw" ? -1 : 1;
   for (let t = 0; t < NUM_TRACKS; t++) {
     const r = TRACK_RADIUS_MM[t];
-    const gap = Math.max(2 * r * Math.sin(Math.PI / steps) - hole, 0);   // to the next step's hole
-    const w = Math.min(Math.max(gap * 0.7, 0.8), 2.0);
-    const dist = holeR + Math.min(gap / 2, 0.6 + w / 2);
     for (let s = 0; s < steps; s++) {
       const cell = d.cells[t][s];
       if (!cell) continue;
       const a = stepAngle(s, steps, d.forward);
       const [x, y] = polar(a, r);
       circle(holeR, cell === 1 ? COLOR_HOLE_A : COLOR_HOLE_B, x, y);
-      // The mark sits just after its hole, in step order, upright facing out.
-      const am = a + dirSign * dist / r;
+      // The mark sits just after its hole, in step order, upright facing out,
+      // sized to the room before the next magnet on this track. With no room
+      // there (a magnet packed right after), it goes just before the hole;
+      // with no room either side, it is left off.
+      const room = (dir) => {   // gap to the nearest magnet that way, mm
+        let k = 1;
+        while (k < steps && !d.cells[t][(s + dir * k + steps * k) % steps]) k++;
+        if (k >= steps) return 10;
+        // Straight across to that hole while it is the near one, round the ring past half a turn.
+        const span = 2 * k <= steps ? 2 * r * Math.sin(Math.PI * k / steps) : r * TAU * k / steps;
+        return Math.max(span - hole, 0);
+      };
+      const after = room(1), before = room(-1);
+      if (after < MARK_ROOM_MM && before < MARK_ROOM_MM) continue;
+      const side = after >= MARK_ROOM_MM ? 1 : -1;
+      const gap = side === 1 ? after : before;
+      const w = Math.min(Math.max(gap * 0.7, 0.8), 2.0), h = w * 1.5;
+      // Hole center to mark center, straight. On a tight ring the mark is
+      // turned against that line, so its inner corner needs more room.
+      let dist = holeR + 0.6 + w / 2;
+      for (let i = 0; i < 3; i++) {
+        const tilt = Math.asin(Math.min(1, dist / (2 * r)));
+        dist = holeR + 0.4 + (w / 2) * Math.cos(tilt) + (h / 2) * Math.sin(tilt);
+      }
+      dist = Math.min(dist, holeR + gap / 2);
+      const am = a + side * dirSign * 2 * Math.asin(Math.min(1, dist / (2 * r)));
       const [mx, my] = polar(am, r);
       const up = [Math.cos(am), Math.sin(am)], right = [-up[1], up[0]];
-      const h = w * 1.5;
       const map = (u, v) => [mx + (u - w / 2) * right[0] + (v - h / 2) * up[0],
                              my + (u - w / 2) * right[1] + (v - h / 2) * up[1]];
       for (const p of textPaths(cell === 1 ? "A" : "B", h, map)) path(p, COLOR_SCORE);
     }
   }
 
-  // The band outside the outer ring of holes holds the start mark (top) and
-  // the code (bottom).
+  // The band outside the outer ring of holes holds the start mark (top).
   const bandIn = TRACK_RADIUS_MM[NUM_TRACKS - 1] + clearanceMm(hole) / 2 + 0.3;
   const bandOut = R - 0.4;
   const top = -Math.PI / 2, half = 1.5 / R;
   path([polar(top, bandIn), polar(top - half, R), polar(top + half, R)], COLOR_SCORE, true);
 
-  const codeText = `${d.code}  BEATS/REV ${d.beats}`;
-  const th = Math.min(2.5, Math.max(bandOut - bandIn, 0.8));
-  const tw = textWidth(codeText, th);
-  for (const p of textPaths(codeText, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
-    path(p, COLOR_SCORE);
+  // Hole angles per track, for the ring gaps and the code text.
+  const holeAngles = Array.from({ length: NUM_TRACKS }, (_, t) =>
+    d.cells[t].map((c, s) => (c ? stepAngle(s, steps, d.forward) : null)).filter((a) => a !== null)
+      .map((a) => ((a % TAU) + TAU) % TAU).sort((x, y) => x - y));
+
+  // The code and Beats/Rev: along a ring, in the longest stretch with no
+  // magnets, outer tracks first, 5 mm tall, else 3 mm; else 1.5 mm in the
+  // outer band as before. On a ring the text is centered on it and the ring
+  // is broken under it.
+  const codeText = `${d.code}  ${d.beats} BEATS/REV`;
+  let codeOn = null;   // { t, th, center, half } when on a ring
+  let codeFit = "edge";
+  for (const th of CODE_TEXT_MM) {
+    const need = textWidth(codeText, th) + 2;
+    for (let t = NUM_TRACKS - 1; t >= 0 && !codeOn; t--) {
+      const r = TRACK_RADIUS_MM[t], ha = holeAngles[t];
+      let best = null;
+      if (!ha.length) {
+        best = { len: TAU * r, center: Math.PI / 2 };
+      } else {
+        const ex = (holeR + TEXT_CLEAR_MM) / r;
+        ha.forEach((a, i) => {
+          const next = i + 1 < ha.length ? ha[i + 1] : ha[0] + TAU;
+          const len = (next - a - 2 * ex) * r;
+          if (!best || len > best.len) best = { len, center: (a + next) / 2 };
+        });
+      }
+      if (best.len >= need) codeOn = { t, th, center: best.center, half: need / 2 / r };
+    }
+    if (codeOn) { codeFit = th === CODE_TEXT_MM[0] ? "ring" : "small"; break; }
+  }
+  if (codeOn) {
+    const r = TRACK_RADIUS_MM[codeOn.t], th = codeOn.th, tw = textWidth(codeText, th);
+    // Upright: tops toward the center on the lower half, outward on the upper.
+    const lower = Math.sin(codeOn.center) > 0;
+    const map = lower
+      ? (u, v) => polar(codeOn.center - (u - tw / 2) / r, r + th / 2 - v)
+      : (u, v) => polar(codeOn.center + (u - tw / 2) / r, r - th / 2 + v);
+    for (const p of textPaths(codeText, th, map)) path(p, COLOR_SCORE);
+  } else {
+    const th = Math.min(2.5, Math.max(bandOut - bandIn, 0.8));
+    const tw = textWidth(codeText, th);
+    for (const p of textPaths(codeText, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
+      path(p, COLOR_SCORE);
+    }
+  }
+
+  // Rings, broken around every hole (and under the code), so they never
+  // cross a hole. A ring with nothing on it stays a whole circle.
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const r = TRACK_RADIUS_MM[t];
+    const gapHalf = 2 * Math.asin(Math.min(1, (hole + RING_GAP_MM) / 2 / (2 * r)));
+    const blocked = holeAngles[t].map((a) => [a - gapHalf, a + gapHalf]);
+    if (codeOn && codeOn.t === t) blocked.push([codeOn.center - codeOn.half, codeOn.center + codeOn.half]);
+    const arcs = freeArcs(blocked);
+    if (!arcs) circle(r, COLOR_SCORE);
+    else for (const [a0, a1] of arcs) items.push({ kind: "arc", cx, cy, r, a0, a1, color: COLOR_SCORE });
   }
 
   // Labels below the disc: not part of the record.
@@ -467,7 +691,7 @@ function templateModel(d) {
     y += h + 3.5;
   };
   label(`MAGNETRONE RECORD   SCENE CODE ${d.code}   BEATS/REV ${d.beats}   ${steps} STEPS`, 3);
-  label(`PRINT AT 100 PERCENT (ACTUAL SIZE). THE BAR BELOW IS 100 MM.`, 2.5);
+  label(`IF PRINTING: 100 PERCENT (ACTUAL SIZE). THE BAR BELOW IS 100 MM.`, 2.5);
   label(`RED: CUT   GREEN: A HOLES   MAGENTA: B HOLES, ${+hole.toFixed(2)} MM   BLUE: SCORE`, 2.5);
   label(`BLACK: LABELS, NOT PART OF THE RECORD`, 2.5);
   y += 2;
@@ -481,7 +705,7 @@ function templateModel(d) {
     const x0 = x - textWidth(str[0] === "1" ? "100" : str, 2.5) / 2;
     for (const p of textPaths(str, 2.5, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
   }
-  return { w: page.w, h: page.h, items };
+  return { w: page.w, h: page.h, items, codeFit };
 }
 
 // --- SVG -------------------------------------------------------------------------
@@ -498,6 +722,9 @@ function svgString(model, previewStroke) {
       if (it.color !== color) continue;
       if (it.kind === "circle") {
         out += `<circle cx="${fmt(it.cx)}" cy="${fmt(it.cy)}" r="${fmt(it.r)}"/>\n`;
+      } else if (it.kind === "arc") {
+        const p = (a) => `${fmt(it.cx + it.r * Math.cos(a))} ${fmt(it.cy + it.r * Math.sin(a))}`;
+        out += `<path d="M${p(it.a0)} A${fmt(it.r)} ${fmt(it.r)} 0 ${it.a1 - it.a0 > Math.PI ? 1 : 0} 1 ${p(it.a1)}"/>\n`;
       } else {
         const d = it.pts.map(([x, y], i) => `${i ? "L" : "M"}${fmt(x)} ${fmt(y)}`).join(" ");
         out += `<path d="${d}${it.closed ? " Z" : ""}"/>\n`;
@@ -525,6 +752,20 @@ function pdfString(model) {
       c += `${X(cx - q)} ${Y(cy + r)} ${X(cx - r)} ${Y(cy + q)} ${X(cx - r)} ${Y(cy)} c\n`;
       c += `${X(cx - r)} ${Y(cy - q)} ${X(cx - q)} ${Y(cy - r)} ${X(cx)} ${Y(cy - r)} c\n`;
       c += `${X(cx + q)} ${Y(cy - r)} ${X(cx + r)} ${Y(cy - q)} ${X(cx + r)} ${Y(cy)} c\nh S\n`;
+    } else if (it.kind === "arc") {
+      // Bezier pieces of at most 90 degrees.
+      const { cx, cy, r, a0, a1 } = it;
+      const n = Math.max(1, Math.ceil((a1 - a0) / (Math.PI / 2))), step = (a1 - a0) / n;
+      const kk = 4 / 3 * Math.tan(step / 4) * r;
+      const pt = (a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+      c += `${X(pt(a0)[0])} ${Y(pt(a0)[1])} m\n`;
+      for (let i = 0; i < n; i++) {
+        const a = a0 + i * step, b = a + step, [x0, y0] = pt(a), [x3, y3] = pt(b);
+        const x1 = x0 - kk * Math.sin(a), y1 = y0 + kk * Math.cos(a);
+        const x2 = x3 + kk * Math.sin(b), y2 = y3 - kk * Math.cos(b);
+        c += `${X(x1)} ${Y(y1)} ${X(x2)} ${Y(y2)} ${X(x3)} ${Y(y3)} c\n`;
+      }
+      c += "S\n";
     } else {
       it.pts.forEach(([x, y], i) => { c += `${X(x)} ${Y(y)} ${i ? "l" : "m"}\n`; });
       c += it.closed ? "h S\n" : "S\n";
@@ -545,12 +786,53 @@ function pdfString(model) {
   out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return out;
 }
+// --- Song links ------------------------------------------------------------------
+// The whole song as text for the end of a link, after "#":
+//   r1~<Scene Code>~<beats>~<subdiv>~<bpm>~<cells>~<paper>~<hole>~<cw|ccw>~<block 1|0>
+// Cells: track 1 to 8, each step 1 to N, 2 bits each (0 empty, 1 A, 2 B),
+// three to a base64url character. "r1" is this format's version.
+const B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+function songEncode(d) {
+  const flat = d.cells.flat();
+  let cells = "";
+  for (let i = 0; i < flat.length; i += 3) {
+    cells += B64URL[(flat[i] << 4) | ((flat[i + 1] || 0) << 2) | (flat[i + 2] || 0)];
+  }
+  return ["r1", sceneCodeEncode(d.scene), d.beats, d.subdiv, +d.bpm, cells,
+          d.paper, +d.hole, d.forward, d.block ? 1 : 0].join("~");
+}
+
+// The song a link holds, or null if it is not a valid one.
+function songDecode(str) {
+  const f = str.split("~");
+  if (f.length !== 10 || f[0] !== "r1") return null;
+  const scene = sceneCodeDecode(f[1]);
+  const beats = Number(f[2]), subdiv = Number(f[3]), bpm = Number(f[4]), hole = Number(f[7]);
+  if (!scene || !Number.isInteger(beats) || beats < 1 || beats > 32 ||
+      !Number.isInteger(subdiv) || subdiv < 1 || subdiv > 8 || !(bpm > 0) ||
+      !PAGES[f[6]] || !(hole >= 5 && hole <= 20) || !["cw", "ccw"].includes(f[8]) || !["0", "1"].includes(f[9])) return null;
+  const n = NUM_TRACKS * beats * subdiv;
+  if (f[5].length !== Math.ceil(n / 3)) return null;
+  const flat = [];
+  for (const ch of f[5]) {
+    const v = B64URL.indexOf(ch);
+    if (v < 0) return null;
+    flat.push(v >> 4, (v >> 2) & 3, v & 3);
+  }
+  if (flat.some((v) => v > 2) || flat.slice(n).some(Boolean)) return null;
+  const steps = beats * subdiv;
+  const cells = Array.from({ length: NUM_TRACKS }, (_, t) => flat.slice(t * steps, (t + 1) * steps));
+  return { scene, beats, subdiv, bpm, cells, paper: f[6], hole, forward: f[8], block: f[9] === "1" };
+}
 // CORE-END
 
 // --- State ---------------------------------------------------------------------------
 const STORE_KEY = "magnetrone-record-designer-v1";
 const DEFAULTS = {
-  beats: 4, subdiv: 4, block: true, showB: false,
+  view: "sequence",
+  beats: 4, subdiv: 4, block: true,
+  lastLayer: 1,   // layer of the last magnet placed (1 A, 2 B): new magnets start on it
   bpm: 180,   // DEFAULT_RPM (45) in config.h at 4 beats/rev
   paper: "letter", hole: 11, forward: "cw",
 };
@@ -588,60 +870,149 @@ function save() {
 
 const $ = (id) => document.getElementById(id);
 
-// --- Grid ------------------------------------------------------------------------------
-let playStep = -1;
+// --- Views ---------------------------------------------------------------------------------
+function showView() {
+  for (const tab of document.querySelectorAll(".tabs button")) {
+    const on = tab.dataset.view === state.view;
+    tab.setAttribute("aria-selected", on);
+    $("view-" + tab.dataset.view).hidden = !on;
+  }
+}
 
-function poleSummary(track, pole) {
-  const names = layersForPole(state.scene, pole).map((l) => {
-    const n = layerNoteFor(state.scene, l, track);
-    if (!n) return null;
-    return n.kit ? KIT_NAMES[n.slot] : noteName(n.note);
-  }).filter(Boolean);
-  return names.length ? names.join("+") : "-";
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest("button");
+  if (!tab) return;
+  state.view = tab.dataset.view;
+  showView();
+  save();
+});
+
+// --- Undo (grid edits) -----------------------------------------------------------------------
+const undoStack = [], redoStack = [];
+const gridSnapshot = () => JSON.stringify({ beats: state.beats, subdiv: state.subdiv, cells: state.cells });
+
+// Call before any change to the grid.
+function recordGrid() {
+  undoStack.push(gridSnapshot());
+  redoStack.length = 0;
+}
+
+function restoreGrid(from, to) {
+  if (!from.length) return;
+  to.push(gridSnapshot());
+  Object.assign(state, JSON.parse(from.pop()));
+  changed();
+}
+
+const undo = () => restoreGrid(undoStack, redoStack);
+const redo = () => restoreGrid(redoStack, undoStack);
+$("undo").addEventListener("click", undo);
+$("redo").addEventListener("click", redo);
+
+// --- Grid ------------------------------------------------------------------------------
+
+// "1", "1.2", "1.3", "1.4", "2", ... with Subdivisions 4.
+function stepName(s) {
+  const beat = Math.floor(s / state.subdiv) + 1, sub = s % state.subdiv;
+  return sub ? `${beat}.${sub + 1}` : `${beat}`;
+}
+
+// What a magnet of this pole on this track plays: short (in the slot: "C3",
+// or the drum letter Track Notes uses) and long (for the tooltip). Stack
+// plays both layers; a silent layer plays nothing.
+const DRUM_LETTERS = ["X", "t", "T", "C", "O", "S", "K", "H"];   // firmware/src/menu/menu.cpp
+
+function poleNotes(track, pole) {
+  const notes = layersForPole(state.scene, pole).map((l) => layerNoteFor(state.scene, l, track)).filter(Boolean);
+  if (!notes.length) return { short: "-", long: "silent" };
+  return {
+    short: notes.map((n) => (n.kit ? DRUM_LETTERS[n.slot] : noteName(n.note))).join("/"),
+    long: notes.map((n) => (n.kit ? KIT_NAMES[n.slot] : noteName(n.note))).join(" + "),
+    multi: notes.length > 1,
+  };
+}
+
+// Steps on the same track holding a magnet this cell would overlap.
+function overlapsWith(t, s) {
+  const N = steps(), clr = clearanceMm(state.hole), out = [];
+  for (let o = 0; o < N; o++) {
+    if (o !== s && state.cells[t][o] && stepsCollide(t, s, o, N, clr)) out.push(stepName(o));
+  }
+  return out;
 }
 
 function renderGrid() {
   const N = steps(), g = $("grid");
-  const clr = clearanceMm(state.hole);
-  g.style.gridTemplateColumns = `max-content repeat(${N}, minmax(22px, 1fr))`;
-  let html = `<div></div>`;
+  const gapBefore = (s) => state.subdiv > 1 && s > 0 && s % state.subdiv === 0;
+  let cols = "max-content";
+  for (let s = 0; s < N; s++) cols += (gapBefore(s) ? " 4px" : "") + " var(--cs)";
+  g.style.gridTemplateColumns = cols;
+
+  let html = `<div class="band" id="band" hidden></div><div></div>`;
   for (let s = 0; s < N; s++) {
+    if (gapBefore(s)) html += `<div></div>`;
     const beat = s % state.subdiv === 0;
-    html += `<div class="hdr${beat ? " beat" : ""}${s === playStep ? " ph" : ""}">${beat ? s / state.subdiv + 1 : s + 1}</div>`;
+    html += `<div class="hdr${beat ? " beat" : ""}" data-hs="${s}" title="Go to step ${stepName(s)}">${stepName(s)}</div>`;
   }
   for (let t = NUM_TRACKS - 1; t >= 0; t--) {
-    html += `<div class="lbl"><b>Track ${t + 1}</b><span class="muted">A ${poleSummary(t, 0)}${state.showB ? ` &middot; B ${poleSummary(t, 1)}` : ""}</span></div>`;
+    const noteA = poleNotes(t, 0), noteB = poleNotes(t, 1);
+    // What an A and a B magnet play here, once if they match.
+    const both = noteA.short === noteB.short ? noteA.short : `${noteA.short}/${noteB.short}`;
+    html += `<div class="lbl"><b>Track ${t + 1}</b><span class="muted">${both}</span></div>`;
     for (let s = 0; s < N; s++) {
+      if (gapBefore(s)) html += `<div></div>`;
       const v = state.cells[t][s];
-      const overlap = cellOverlaps(state.cells, t, s, N, clr);
+      const over = overlapsWith(t, s);
       const cls = ["c"];
-      if (s % state.subdiv === 0) cls.push("beat");
       if (v === 1) cls.push("a");
       if (v === 2) cls.push("b");
-      if (!v && overlap && state.block) cls.push("blocked");
-      if (v && overlap) cls.push("overlap");
-      if (s === playStep) cls.push("ph");
-      html += `<div class="${cls.join(" ")}" data-t="${t}" data-s="${s}">${v === 1 ? "A" : v === 2 ? "B" : ""}</div>`;
+      if (!v && over.length && state.block) cls.push("blocked");
+      if (v && over.length) cls.push("overlap");
+      const n = v === 1 ? noteA : v === 2 ? noteB : null;
+      if (n && n.multi) cls.push("multi");
+      const where = `Track ${t + 1}, step ${stepName(s)}`;
+      const what = n ? `Layer ${v === 1 ? "A" : "B"} magnet: ${n.long}` : `empty. A plays ${noteA.long}, B plays ${noteB.long}`;
+      const title = over.length ? `Overlaps the magnet at step ${over.join(", ")}` : `${where}, ${what}`;
+      const ghost = v ? "" : ` data-ghost="${both}"`;
+      html += `<button class="${cls.join(" ")}" data-t="${t}" data-s="${s}"${ghost} title="${title}" aria-label="${where}, ${what}">${n ? n.short : ""}</button>`;
     }
   }
   g.innerHTML = html;
-  $("stepsInfo").textContent = `${N} steps of ${+(360 / N).toFixed(2)}°`;
+  placeBand();
+  $("stepsInfo").textContent = `= ${N} steps`;
+  $("undo").disabled = !undoStack.length;
+  $("redo").disabled = !redoStack.length;
 }
 
+// Clicking a slot: an empty one gets a magnet on the layer used last; the
+// next click flips it to the other layer, the one after removes it. A magnet
+// already there flips first, then goes. `cycle` remembers which layer the
+// slot being clicked started on.
+let cycle = null;
+
 $("grid").addEventListener("click", (e) => {
+  const h = e.target.closest(".hdr[data-hs]");
+  if (h) { setCursor(+h.dataset.hs, cursorRev, true); return; }
   const c = e.target.closest(".c");
   if (!c) return;
   const t = +c.dataset.t, s = +c.dataset.s;
   const v = state.cells[t][s];
-  if (!v && state.block && cellOverlaps(state.cells, t, s, steps(), clearanceMm(state.hole))) return;
-  state.cells[t][s] = (v + 1) % 3;
+  if (!v && state.block && overlapsWith(t, s).length) return;
+  const same = cycle && cycle.t === t && cycle.s === s;
+  const start = !v ? state.lastLayer : same ? cycle.start : v;
+  const next = !v ? start : v === start ? 3 - start : 0;
+  cycle = { t, s, start };
+  recordGrid();
+  state.cells[t][s] = next;
+  if (next) state.lastLayer = next;
   changed();
+  listenToMagnet(t, state.cells[t][s]);
 });
 
 // Steps per revolution changed: keep every magnet that lands on a step of the new grid.
 function resizeSteps(beats, subdiv) {
+  if (beats === state.beats && subdiv === state.subdiv) return true;
   const oldN = steps(), newN = beats * subdiv;
-  if (newN === oldN) { state.beats = beats; state.subdiv = subdiv; return true; }
   const cells = emptyCells(newN);
   let dropped = 0;
   for (let t = 0; t < NUM_TRACKS; t++) {
@@ -653,6 +1024,7 @@ function resizeSteps(beats, subdiv) {
     }
   }
   if (dropped && !confirm(`${dropped} magnet(s) do not land on a step of the new grid and will be removed. Continue?`)) return false;
+  recordGrid();
   state.beats = beats; state.subdiv = subdiv; state.cells = cells;
   return true;
 }
@@ -663,7 +1035,6 @@ function bindSteps() {
     const beats = Math.min(Math.max(parseInt(b.value, 10) || 1, 1), 32);
     const subdiv = Math.min(Math.max(parseInt(d.value, 10) || 1, 1), 8);
     if (!resizeSteps(beats, subdiv)) { b.value = state.beats; d.value = state.subdiv; return; }
-    b.value = state.beats; d.value = state.subdiv;
     changed();
   };
   b.addEventListener("change", apply);
@@ -675,42 +1046,132 @@ function options(names, value) {
   return names.map((n, i) => `<option value="${i}"${i === value ? " selected" : ""}>${n}</option>`).join("");
 }
 
+// Settings that have no effect right now, with why. They stay editable: the
+// code still holds them.
+function sceneDims(s) {
+  const dims = { A: {}, B: {} };
+  const dim = (l, keys, why) => { for (const k of keys) if (!dims[l][k]) dims[l][k] = why; };
+  const all = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap"];
+  if (s.A.mode === MODE_OFF) dim("A", all, "Layer A is Off");
+  if (s.B.mode === MODE_OFF) dim("B", all, "Layer B is Off");
+  if (s.B.mode === MODE_SAME_AS_A) {
+    dim("B", [...all, "shiftSameAsA", "lowNoteSameAsA"], "Layer B is Same as A: it plays Layer A's settings");
+  }
+  if (s.B.shiftSameAsA) dim("B", ["shift", "wrap"], "Follows Layer A's Shift and Wrap");
+  if (s.B.lowNoteSameAsA) dim("B", ["lowNote"], "Follows Layer A's Low Note");
+  for (const l of ["A", "B"]) {
+    if (s[l].voice === VOICE_DRUMS) {
+      dim(l, ["root", "octave", "scale"], "Drums ignore root, octave and scale");
+      dim(l, ["wrap"], "Drums always wrap");
+    }
+    if (s[l].voice === VOICE_NONE) dim(l, ["root", "octave", "scale", "shift", "lowNote", "wrap"], "Voice None is silent");
+  }
+  return dims;
+}
+
+// Tooltips for the setting names, worded from the Performance Functions
+// table in docs/user-guide.md. Keep them in step with it.
+const TERMS = {
+  "Voice": "Piano, Strings, Leads, Bass, Drums or None. None silences the layer.",
+  "Root": "Key of the scale. Drums ignore it.",
+  "Octave": "0 to 7. Drums ignore it.",
+  "Scale": "The scale the tracks climb through, one scale step per track. Drums ignore it.",
+  "Shift": "Moves the run up by scale degrees, 0 to 7. On Drums it moves each drum to another track.",
+  "Low Note": "Which end of the arm plays the lowest note: Inner or Outer. On Drums it flips the kit end to end.",
+  "Wrap": "With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. Drums always wrap.",
+  "Mode": "On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits.",
+  "Layer Turns": "Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn.",
+  "shiftSameAsA": "Layer B follows Layer A's Shift, and with it A's Wrap.",
+  "lowNoteSameAsA": "Layer B follows Layer A's Low Note.",
+};
+const term = (name, key = name) => `<span class="term" title="${TERMS[key]}">${name}</span>`;
+
 function renderScene() {
-  const s = state.scene;
+  const s = state.scene, dims = sceneDims(s);
   const range = (n) => Array.from({ length: n }, (_, i) => String(i));
-  const row = (label, a, b) => `<tr><th>${label}</th><td>${a}</td><td>${b}</td></tr>`;
-  const sel = (l, key, names) => `<select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select>`;
-  const chk = (key, label) => `<label><input type="checkbox" data-l="B" data-k="${key}"${s.B[key] ? " checked" : ""}> ${label}</label>`;
-  $("sceneTable").innerHTML =
-    `<tr><th></th><th>Layer A</th><th>Layer B</th></tr>` +
-    row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
+  const cell = (l, key, html) => {
+    const why = dims[l][key];
+    return `<td${why ? ` class="dim" title="${why}"` : ""}>${html}</td>`;
+  };
+  const sel = (l, key, names) => cell(l, key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select>`);
+  const selWith = (l, key, names, flag) => {
+    const why = dims[l][key];
+    return `<td>${`<div${why ? ` class="dim" title="${why}"` : ""}><select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select></div>`}` +
+      `<label${dims.B[flag] ? ` class="dim" title="${dims.B[flag]}"` : ""}><input type="checkbox" data-l="B" data-k="${flag}"${s.B[flag] ? " checked" : ""}> ${term("Same as A", flag)}</label></td>`;
+  };
+  const head = `<thead><tr><th></th><th><span class="dot a"></span>Layer A</th><th><span class="dot b"></span>Layer B</th></tr></thead>`;
+  const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
+
+  $("gSound").innerHTML = head + "<tbody>" +
     row("Voice", sel("A", "voice", VOICE_NAMES), sel("B", "voice", VOICE_NAMES)) +
     row("Root", sel("A", "root", ROOT_NAMES), sel("B", "root", ROOT_NAMES)) +
     row("Octave", sel("A", "octave", range(8)), sel("B", "octave", range(8))) +
-    row("Scale", sel("A", "scale", SCALE_NAMES), sel("B", "scale", SCALE_NAMES)) +
-    row("Shift", sel("A", "shift", range(8)), sel("B", "shift", range(8)) + chk("shiftSameAsA", "Same as A")) +
-    row("Low Note", sel("A", "lowNote", ["Inner", "Outer"]), sel("B", "lowNote", ["Inner", "Outer"]) + chk("lowNoteSameAsA", "Same as A")) +
-    row("Wrap", sel("A", "wrap", ["No Wrap", "Wrap"]), sel("B", "wrap", ["No Wrap", "Wrap"])) +
-    row("Layer Turns", "", sel("B", "turns", ["Together", "Alternate"]));
+    row("Scale", sel("A", "scale", SCALE_NAMES), sel("B", "scale", SCALE_NAMES)) + "</tbody>";
+  $("gArrange").innerHTML = head + "<tbody>" +
+    row("Shift", sel("A", "shift", range(8)), selWith("B", "shift", range(8), "shiftSameAsA")) +
+    row("Low Note", sel("A", "lowNote", ["Inner", "Outer"]), selWith("B", "lowNote", ["Inner", "Outer"], "lowNoteSameAsA")) +
+    row("Wrap", sel("A", "wrap", ["No Wrap", "Wrap"]), sel("B", "wrap", ["No Wrap", "Wrap"])) + "</tbody>";
+  $("gLayers").innerHTML = head + "<tbody>" +
+    row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
+    row("Layer Turns", "<td></td>", sel("B", "turns", ["Together", "Alternate"])) + "</tbody>";
   $("code").textContent = sceneCodeEncode(s);
 }
 
-$("sceneTable").addEventListener("change", (e) => {
-  const el = e.target, l = el.dataset.l, k = el.dataset.k;
-  if (!l) return;
-  state.scene[l][k] = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
-  $("codeMsg").textContent = "";
-  changed();
-});
+for (const id of ["gSound", "gArrange", "gLayers"]) {
+  $(id).addEventListener("change", (e) => {
+    const el = e.target, l = el.dataset.l, k = el.dataset.k;
+    if (!l) return;
+    state.scene[l][k] = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
+    $("codeMsg").textContent = "";
+    changed();
+  });
+}
 
-$("codeLoad").addEventListener("click", () => {
+function loadCode() {
   const code = $("codeIn").value.trim().toUpperCase();
   const s = sceneCodeDecode(code);
   if (!s) { $("codeMsg").textContent = "Invalid Code"; return; }
   state.scene = s;
-  $("codeMsg").textContent = `Loaded ${code}.`;
+  $("codeMsg").textContent = `Loaded ${code}`;
   changed();
+}
+$("codeLoad").addEventListener("click", loadCode);
+$("codeIn").addEventListener("keydown", (e) => { if (e.key === "Enter") loadCode(); });
+
+function copyText(text, msg) {
+  const done = () => { $("copyMsg").textContent = msg; setTimeout(() => { $("copyMsg").textContent = ""; }, 1500); };
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { /* nothing to copy with */ }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+}
+
+$("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied"));
+$("copyLink").addEventListener("click", () => {
+  copyText(location.href.split("#")[0] + "#" + songEncode(state), "Link copied");
 });
+
+// A song link opened (or pasted into this tab): load its song, after asking
+// if it would replace magnets already placed. The link text is then taken
+// off the address, so later edits are not undone by a reload.
+function loadFromLink() {
+  const text = decodeURIComponent(location.hash.slice(1));
+  if (!text) return;
+  const song = songDecode(text);
+  history.replaceState(null, "", location.href.split("#")[0]);
+  if (!song) { alert("That link does not hold a valid song."); return; }
+  if (songEncode(state) === songEncode(song)) return;
+  if (state.cells.some((r) => r.some(Boolean)) && !confirm("Replace the current song with the one in the link?")) return;
+  recordGrid();
+  Object.assign(state, song);
+  cursor = cursorRev = resumeStep = resumeRev = 0;
+  changed();
+}
+window.addEventListener("hashchange", loadFromLink);
 
 // --- Template ------------------------------------------------------------------------------
 function currentModel() {
@@ -724,6 +1185,7 @@ function renderTemplate() {
   const svg = svgString(model, 0.35).replace(/viewBox="[^"]*"/, `viewBox="${page.w / 2 - 102} 10 204 204"`)
     .replace(/ width="[^"]*" height="[^"]*"/, "");
   $("preview").innerHTML = svg;
+  $("codeWarn").hidden = model.codeFit !== "edge";
 }
 
 function download(name, text, type) {
@@ -738,19 +1200,21 @@ const fileBase = () => `record-${sceneCodeEncode(state.scene)}-${state.beats}x${
 $("exportSvg").addEventListener("click", () => download(fileBase() + ".svg", svgString(currentModel()), "image/svg+xml"));
 $("exportPdf").addEventListener("click", () => download(fileBase() + ".pdf", pdfString(currentModel()), "application/pdf"));
 
-function bindTemplate() {
+function bindSettings() {
   $("paper").addEventListener("change", (e) => { state.paper = e.target.value; changed(); });
   $("forward").addEventListener("change", (e) => { state.forward = e.target.value; changed(); });
   $("hole").addEventListener("change", (e) => {
     const v = parseFloat(e.target.value);
     if (v >= 5 && v <= 20) state.hole = v;
-    e.target.value = state.hole;
     changed();
   });
   $("block").addEventListener("change", (e) => { state.block = e.target.checked; changed(); });
-  $("showB").addEventListener("change", (e) => { state.showB = e.target.checked; changed(); });
   $("clear").addEventListener("click", () => {
-    if (confirm("Remove every magnet from the grid?")) { state.cells = emptyCells(steps()); changed(); }
+    if (state.cells.some((r) => r.some(Boolean)) && confirm("Remove every magnet from the grid?")) {
+      recordGrid();
+      state.cells = emptyCells(steps());
+      changed();
+    }
   });
   $("bpm").addEventListener("change", (e) => {
     state.bpm = parseFloat(e.target.value) || DEFAULTS.bpm;
@@ -767,8 +1231,12 @@ const VOICE_SOUNDS = [
   { wave: "sawtooth", a: 5,   d: 150, s: 0.5, r: 100, ms: 250 },   // Bass
 ];
 
-let ac = null, master = null, noiseBuf = null, timer = null;
+let ac = null, master = null, bus = null, noiseBuf = null, timer = null;
 let nextTime = 0, nextStep = 0, rev = 0;
+// The position: the step shown (the band) and its revolution, and where
+// Play starts from.
+let cursor = 0, cursorRev = 0, resumeStep = 0, resumeRev = 0;
+let gen = 0;   // bumped with each bus, so playhead updates already queued for the old one are dropped
 const sounding = new Map();
 
 function ensureAudio() {
@@ -782,8 +1250,24 @@ function ensureAudio() {
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const data = noiseBuf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    newBus();
   }
   if (ac.state === "suspended") ac.resume();
+}
+
+// Every sound goes through the bus. A new one fades the old out, which
+// silences notes already scheduled ahead (on Pause or a jump).
+function newBus() {
+  if (bus) {
+    const old = bus, now = ac.currentTime;
+    old.gain.setValueAtTime(old.gain.value, now);
+    old.gain.linearRampToValueAtTime(0, now + 0.02);
+    setTimeout(() => old.disconnect(), 100);
+  }
+  bus = ac.createGain();
+  bus.connect(master);
+  gen++;
+  sounding.clear();
 }
 
 function playTone(note, voice, t, key) {
@@ -797,7 +1281,7 @@ function playTone(note, voice, t, key) {
     lp.type = "lowpass"; lp.frequency.value = 3000;
     osc.connect(lp); node = lp;
   }
-  node.connect(env); env.connect(cut); cut.connect(master);
+  node.connect(env); env.connect(cut); cut.connect(bus);
   const peak = 0.25, a = v.a / 1000, d = v.d / 1000, sus = v.s * peak, r = v.r / 1000, on = v.ms / 1000;
   const g = env.gain, off = t + on;
   g.setValueAtTime(0, t);
@@ -824,7 +1308,7 @@ function noiseHit(t, dur, type, freq, peak) {
   const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   src.buffer = noiseBuf;
   f.type = type; f.frequency.value = freq;
-  src.connect(f); f.connect(g); g.connect(master);
+  src.connect(f); f.connect(g); g.connect(bus);
   g.gain.setValueAtTime(peak, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   src.start(t); src.stop(t + dur + 0.02);
@@ -835,7 +1319,7 @@ function sweepHit(t, f0, f1, dur, peak, type = "sine") {
   o.type = type;
   o.frequency.setValueAtTime(f0, t);
   o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-  o.connect(g); g.connect(master);
+  o.connect(g); g.connect(bus);
   g.gain.setValueAtTime(peak, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.start(t); o.stop(t + dur + 0.02);
@@ -876,45 +1360,121 @@ function tick() {
   const dur = 60 / (state.bpm * state.subdiv);
   while (nextTime < ac.currentTime + 0.12) {
     scheduleStep(nextStep, rev, nextTime);
-    const s = nextStep, r = rev;
-    setTimeout(() => showPlayhead(s, r), Math.max(0, (nextTime - ac.currentTime) * 1000));
+    const s = nextStep, r = rev, g = gen;
+    setTimeout(() => { if (g === gen) showPlayhead(s, r); }, Math.max(0, (nextTime - ac.currentTime) * 1000));
     nextTime += dur;
     if (++nextStep >= N) { nextStep = 0; rev++; }
   }
 }
 
-function showPlayhead(s, r) {
-  if (!timer) return;
-  playStep = s;
-  document.querySelectorAll("#grid .ph").forEach((el) => el.classList.remove("ph"));
-  document.querySelectorAll(`#grid [data-s="${s}"]`).forEach((el) => el.classList.add("ph"));
-  const hdr = $("grid").children[1 + s];
-  if (hdr) hdr.classList.add("ph");
-  $("turn").textContent = state.scene.B.turns === 1 ? `Turn: Layer ${r % 2 ? "B" : "A"}` : "";
+// The band sits in the cursor's grid column: after the label column and any
+// beat gaps before it.
+function placeBand() {
+  const band = $("band");
+  if (!band) return;
+  if (cursor >= steps()) cursor = resumeStep = 0;
+  const gaps = state.subdiv > 1 ? Math.floor(cursor / state.subdiv) : 0;
+  band.style.gridColumn = `${2 + cursor + gaps} / span 1`;
+  band.hidden = false;
+  $("turn").textContent = state.scene.B.turns === 1 ? `Turn: Layer ${cursorRev % 2 ? "B" : "A"}` : "";
 }
 
-function startStop() {
-  if (timer) {
-    clearInterval(timer); timer = null; playStep = -1;
-    $("play").textContent = "Play"; $("turn").textContent = "";
-    renderGrid();
-    return;
-  }
+function showPlayhead(s, r) {
+  if (!timer) return;
+  cursor = s; cursorRev = r;
+  placeBand();
+}
+
+const ICON_PLAY  = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+const ICON_PAUSE = `<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
+const ICON_START = `<svg viewBox="0 0 24 24"><rect x="5" y="5" width="2.5" height="14" rx="1"/><path d="M19 5v14L9 12z"/></svg>`;
+
+function showTransport() {
+  const playing = !!timer;
+  $("play").innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+  $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
+  $("play").title = playing ? "Pause (Space)" : "Play (Space)";
+  $("toStart").innerHTML = ICON_START;
+}
+
+function play() {
   ensureAudio();
-  nextStep = 0; rev = 0; sounding.clear();
+  newBus();
+  nextStep = resumeStep; rev = resumeRev;
   nextTime = ac.currentTime + 0.05;
   timer = setInterval(tick, 25);
-  $("play").textContent = "Stop";
+  showTransport();
   tick();
 }
-$("play").addEventListener("click", startStop);
+
+// Pause keeps the position: Play goes on from the step after the one shown.
+function pause() {
+  clearInterval(timer); timer = null;
+  newBus();
+  resumeStep = cursor + 1; resumeRev = cursorRev;
+  if (resumeStep >= steps()) { resumeStep = 0; resumeRev++; }
+  showTransport();
+}
+
+const playPause = () => (timer ? pause() : play());
+
+// Moves the position to step s. Playing, it goes on from there; paused, that
+// column plays once (`listen`) and Play starts there.
+function setCursor(s, r, listen) {
+  cursor = s; cursorRev = r;
+  resumeStep = s; resumeRev = r;
+  placeBand();
+  if (timer) {
+    newBus();
+    nextStep = s; rev = r;
+    nextTime = ac.currentTime + 0.05;
+  } else if (listen) {
+    ensureAudio();
+    scheduleStep(s, r, ac.currentTime + 0.01);
+  }
+}
+
+// What a magnet just placed plays, so each edit is heard.
+function listenToMagnet(t, v) {
+  if (!v) return;
+  ensureAudio();
+  const now = ac.currentTime + 0.01;
+  for (const l of layersForPole(state.scene, v - 1)) {
+    const n = layerNoteFor(state.scene, l, t);
+    if (!n) continue;
+    if (n.kit) playDrum(n.slot, now);
+    else playTone(n.note, n.voice, now, `${l}:${t}`);
+  }
+}
+
+$("play").addEventListener("click", playPause);
+$("toStart").addEventListener("click", () => setCursor(0, 0, false));
+
+// Space plays and pauses, Home goes to the start; Ctrl+Z / Ctrl+Y (or
+// Ctrl+Shift+Z) undo and redo grid edits. Not while typing in a field.
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, select, textarea")) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (e.key === " " && !mod) {
+    e.preventDefault();
+    playPause();
+  } else if (e.key === "Home" && !mod) {
+    e.preventDefault();
+    setCursor(0, 0, false);
+  } else if (mod && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    if (e.shiftKey) redo(); else undo();
+  } else if (mod && e.key.toLowerCase() === "y") {
+    e.preventDefault();
+    redo();
+  }
+});
 
 // --- Wiring -------------------------------------------------------------------------------------
 function syncInputs() {
   $("beats").value = state.beats;
   $("subdiv").value = state.subdiv;
   $("block").checked = state.block;
-  $("showB").checked = state.showB;
   $("bpm").value = state.bpm;
   $("paper").value = state.paper;
   $("hole").value = state.hole;
@@ -939,8 +1499,11 @@ function changed() {
 }
 
 bindSteps();
-bindTemplate();
+bindSettings();
+showView();
+showTransport();
 changed();
+loadFromLink();
 </script>
 </body>
 </html>

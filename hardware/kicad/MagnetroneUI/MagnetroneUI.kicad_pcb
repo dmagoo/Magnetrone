@@ -21226,17 +21226,6 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "aux2 encoder"
-		(at 130.302 124.206 0)
-		(layer "F.SilkS")
-		(uuid "952ff9c5-7c80-4a07-886d-d91a47c8b8ab")
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.15)
-			)
-		)
-	)
 	(gr_text "aux1 encoder"
 		(at 113.2735 124.206 0)
 		(layer "F.SilkS")
