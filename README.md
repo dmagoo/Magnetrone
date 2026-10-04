@@ -59,7 +59,7 @@ turning physical arrangement into musical pattern.
   shift, Low Note, Wrap and mode, plus Layer Turns), to enter on another
   table or after a firmware update. Fields at their defaults cost nothing, so
   a code changing only the roots is 3 characters
-- [Record Designer](https://dmagoo.github.io/magnetrone/tools/record-designer/) (`tools/record-designer/`): a
+- [Record Designer](https://dmagoo.github.io/Magnetrone/tools/record-designer/) (`tools/record-designer/`): a
   browser tool to design a "record", a magnet pattern on a step grid plus its
   Scene Code, play it back, and export a full-size SVG/PDF template to print
   or laser cut into a platter cover. Runs from the link or straight from disk

@@ -374,7 +374,7 @@ Codes keep working after firmware updates.
 
 ### Record Designer
 
-The [Record Designer](https://dmagoo.github.io/magnetrone/tools/record-designer/) is a web page for
+The [Record Designer](https://dmagoo.github.io/Magnetrone/tools/record-designer/) is a web page for
 planning a record: a magnet pattern plus the Scene Code that sets the table up
 to play it. Place magnets on a grid (Layer A or B, one row per track), set the
 sound, and listen to it in the browser. It shows the Scene Code to enter under

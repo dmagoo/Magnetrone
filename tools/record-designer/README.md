@@ -4,7 +4,7 @@ Design a record for Magnetrone: a magnet pattern on a step grid plus the
 Scene Code that sets the table up to play it. Exports a full-size template
 to laser cut into a platter cover, or to print and place magnets by.
 
-Use it online at https://dmagoo.github.io/magnetrone/tools/record-designer/, or open `index.html`
+Use it online at https://dmagoo.github.io/Magnetrone/tools/record-designer/, or open `index.html`
 in a browser straight from disk (no install, no internet). Work is kept in
 the browser's local storage.
 
