@@ -297,7 +297,9 @@ inner track until Shift or Low Note moves it. The number after the note is its
 octave from the layer's Octave, so `C+1` is the C above. Press a slot and turn
 to move its note a semitone at a time, from one octave below to two above.
 Until you change a note, the list shows the layer's current scale; the first
-change turns it into **Custom**, starting from the same notes.
+change turns it into **Custom**, starting from the same notes. A MIDI keyboard
+can play notes in too: see Scale Learn, Fingered and One Finger under
+[MIDI In](#midi-in).
 
 The notes count from the root, so Root Note transposes them. Shift and Wrap
 work as with any scale; with No Wrap, notes past slot 8 repeat an octave up.
@@ -438,7 +440,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
 | Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
-| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, a scale learned from MIDI (see [MIDI In](#midi-in)), Custom (one note per track, see [Edit Scale](#edit-scale)), or a saved Custom 1 to 8. Drums ignore it. | Major |
+| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, Learned (from an older MIDI Scale Learn, kept in scenes saved with it), Custom (one note per track, see [Edit Scale](#edit-scale), or played in from MIDI, see [MIDI In](#midi-in)), or a saved Custom 1 to 8. Drums ignore it. | Major |
 | Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
 | Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. On Layer B, Same as A follows A's shift. On Drums it moves each drum to another track. | 0 |
 | Wrap        | Layer  | Yes | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
@@ -564,11 +566,17 @@ B on Same as A does not listen, since it plays Layer A's settings.
 | Off         | Nothing. |
 | Pitch       | A key sets root and octave together: G3 makes the root G, octave 3. |
 | Shift       | A key sets which note the layer's low track plays. A key outside the scale picks the nearest scale note. Drum layers ignore it. |
-| Scale Learn | Play seven different notes and they become the scale, shown as **Learned**, with the lowest note as root. Keep going and each new note replaces the oldest. |
-| Chord       | Single-finger chords, as on arranger keyboards. The highest key sets root and octave; extra keys to its left pick the scale: none = Major, a black key = Minor, a white key = Mixolydian (7th), both = Dorian (minor 7th). Keys pressed together count as one chord. |
+| Scale Learn | Each key goes in at the far end of the arm and every track's note slides one track toward the Low Note end; the note on the Low Note track drops off. Play eight keys and they lie low to high in the order played, repeats allowed. The first key turns the scale into **Custom**, starting from the scale already playing. The root stays on its track, so whatever slides onto it becomes the root (Root Note, and Octave if needed, follow without changing any note). This works at any Shift: it goes by the tracks you see. Drum layers ignore it. |
+| Set Scale   | Single-finger chords, as on arranger keyboards, but it sets a scale, not the chord's notes: middle C alone gives C major (C D E F G A B C), not C E G. For the chord's notes, use Fingered or One Finger. The highest key sets root and octave; extra keys to its left pick the scale: none = Major, a black key = Minor, a white key = Mixolydian (7th), both = Dorian (minor 7th). Keys pressed together count as one chord. |
+| Fingered    | The keys you hold are the scale, as **Custom**: low to high from the Low Note track, the lowest key setting root and octave. Fewer than eight repeat up by octaves (to two octaves up, then from the bottom again), so one held C plays C, C+1, C+2, C, C+1, C+2, C, C+1. Letting a key go removes it; lifting the whole hand keeps the last chord. Past eight keys, the extra ones are ignored. Drum layers ignore it. |
+| One Finger  | Single-finger chords that play the chord's notes, like Fingered with the chord held: the same keys as Set Scale. The highest key is the root and sets the octave; alone it gives major (C E G), with a black key to its left minor (C Eb G), with a white key 7th (C E G Bb), with both minor 7th (C Eb G Bb). Middle C alone plays C E G C E G C E. Keys pressed together count as one chord, and it stays until the next. Drum layers ignore it. |
 
 Like Aux changes, all of this is live and not saved, except the volume. Save a
-scene to keep it, a learned scale included.
+scene to keep it. Scale Learn, Fingered and One Finger write the layer's
+Custom scale, the one [Edit Scale](#edit-scale) edits: Save Scene keeps it, and
+Edit Scale's **Save As** keeps it for other scenes. Keys are stored from the
+layer's root and octave, so Root Note and Octave still transpose them; a key
+out of the Custom range moves by octaves into it.
 
 Not yet: following an external clock.
 
@@ -633,7 +641,7 @@ display with the power off, and check the pin labels: a display lead plugged
 in the wrong way round can damage it, and a damaged display can also silence
 the sound.
 
-**MIDI keys do odd things, or Scale Learn learns the wrong notes.** The other
+**MIDI keys do odd things, or Scale Learn or Fingered pick up the wrong notes.** The other
 device or DAW is probably echoing the table's MIDI OUT back to its input. Turn
 off MIDI thru (echo) on that device.
 

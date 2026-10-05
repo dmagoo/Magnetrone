@@ -67,7 +67,7 @@ turning physical arrangement into musical pattern.
 - MIDI beat clock driven by platter position, with Song Position Pointer so
   external bars line up with the start mark
 - MIDI in (control only): a per-layer input channel; keys drive a MIDI Fn
-  (Pitch, Shift, Scale Learn or Chord), the bend wheel bends the table, CC 7 volume,
+  (Pitch, Shift, Scale Learn, Set Scale, Fingered or One Finger), the bend wheel bends the table, CC 7 volume,
   CC 20 octave; with Play Setup > MIDI CC on, CCs 74, 71, 93, 94, 12 and 91
   set the effects
 - LCD menu: Sound Defaults (both layers), Play Setup, System and Tools

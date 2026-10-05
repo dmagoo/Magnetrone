@@ -361,8 +361,8 @@ static const char*   MENU_TIMEOUT_LABELS[] = { "5 sec","10 sec","30 sec","1 min"
 static const uint8_t MENU_TIMEOUT_COUNT = 6;   // 5 options + Back
 
 // What incoming MIDI keys do. Order matches MidiFn.
-static const char* MIDI_FN_ITEMS[] = { "Off","Pitch","Shift","Scale Learn","Chord","Back" };
-static const uint8_t MIDI_FN_COUNT = 6;
+static const char* MIDI_FN_ITEMS[] = { "Off","Pitch","Shift","Scale Learn","Set Scale","Fingered","One Finger","Back" };
+static const uint8_t MIDI_FN_COUNT = 8;
 
 // Calibration and maintenance, kept out of the main menu. StartPos is the
 // bar start: where the start mark on the platter passes the arm. Front is
