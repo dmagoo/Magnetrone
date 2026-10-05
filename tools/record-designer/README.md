@@ -134,6 +134,13 @@ All lines are hairlines (0.001 in). The start mark is at the top.
   without room at 3 mm they fall back to 1.5 mm along the outer edge, and
   the Template view says so. Leaving a few steps in a row free on one track
   (outer tracks need the fewest) keeps them readable.
+- **Platter marks** (Template settings: Off, 10, 12 or 16, default 16): 5 mm ticks
+  across every ring, evenly spaced from the start mark, like the marks on a
+  platter cover, so the template can be used as a guide on a marked cover
+  without cutting it. They are the cover's, not the song's: they ignore
+  Beats/Rev and the steps, are kept per browser, and are not in the song
+  or its link. A tick near a hole (or its A/B mark) or across text on its
+  ring is left out.
 - A saved song's name is scored the same way, after the code, in the
   longest stretch left clear of magnets and the code. Without room on a
   ring it takes the outer edge, unless the code is already there; then it

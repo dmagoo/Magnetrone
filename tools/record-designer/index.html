@@ -269,6 +269,9 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         <label class="field"><span>Platter forward, seen from above</span>
           <select id="forward"><option value="cw">Clockwise</option><option value="ccw">Counterclockwise</option></select>
           <span class="muted small">Check this on the table: steps are placed in the order they pass the sensor arm.</span></label>
+        <label class="field"><span>Platter marks</span>
+          <select id="marks"><option value="0">Off</option><option value="10">10</option><option value="12">12</option><option value="16">16</option></select>
+          <span class="muted small">Ticks across every ring, evenly spaced from the start mark, as on a platter cover. They ignore the song's steps.</span></label>
         <div class="exports">
           <button id="exportPdf" class="primary">Export PDF</button>
           <button id="exportSvg">Export SVG</button>
@@ -598,6 +601,8 @@ const TEXT_CLEAR_MM = 3.2;
 // The least room after a hole that takes its A/B mark; less, and the mark
 // goes before the hole.
 const MARK_ROOM_MM = 1.2;
+// Length of a platter mark tick, across its ring.
+const PLATTER_MARK_MM = 5;
 // Code text heights to try on a ring, largest first, before the edge band.
 const CODE_TEXT_MM = [5, 3];
 function stepAngle(step, steps, forward) {
@@ -750,6 +755,21 @@ function templateModel(d) {
     const arcs = freeArcs(blocked);
     if (!arcs) circle(r, COLOR_SCORE);
     else for (const [a0, a1] of arcs) items.push({ kind: "arc", cx, cy, r, a0, a1, color: COLOR_SCORE });
+  }
+
+  // Platter marks: ticks across every ring, evenly spaced from the start
+  // mark, as on a platter cover, whatever the song's steps. A tick near a
+  // hole (and its A/B mark) or across text on its ring is left out.
+  const marks = d.marks || 0;
+  for (let k = 0; k < marks; k++) {
+    const a = -Math.PI / 2 + k * TAU / marks;
+    for (let t = 0; t < NUM_TRACKS; t++) {
+      const r = TRACK_RADIUS_MM[t];
+      const near = (b) => Math.abs((((a - b) % TAU) + TAU + Math.PI) % TAU - Math.PI);   // angle apart
+      if (holeAngles[t].some((h) => 2 * r * Math.sin(near(h) / 2) < holeR + TEXT_CLEAR_MM)) continue;
+      if (onRing.some((o) => o.t === t && near(o.center) <= o.half)) continue;
+      path([polar(a, r - PLATTER_MARK_MM / 2), polar(a, r + PLATTER_MARK_MM / 2)], COLOR_SCORE);
+    }
   }
 
   // Labels below the disc: not part of the record.
@@ -1450,7 +1470,7 @@ window.addEventListener("hashchange", loadFromLink);
 
 // --- Template ------------------------------------------------------------------------------
 function currentModel() {
-  return templateModel({ ...state, code: sceneCodeEncode(state.scene) });
+  return templateModel({ ...state, code: sceneCodeEncode(state.scene), marks: platterMarks });
 }
 
 function renderTemplate() {
@@ -1478,6 +1498,23 @@ function download(name, text, type) {
 const fileBase = () => `record-${sceneCodeEncode(state.scene)}-${state.beats}x${state.subdiv}-${state.paper}`;
 $("exportSvg").addEventListener("click", () => download(fileBase() + ".svg", svgString(currentModel()), "image/svg+xml"));
 $("exportPdf").addEventListener("click", () => download(fileBase() + ".pdf", pdfString(currentModel()), "application/pdf"));
+
+// Platter marks are the cover's, not the song's: kept per browser, like the
+// theme, and left out of the song and its link.
+const MARKS_KEY = "magnetrone-record-designer-marks";
+const MARKS_DEFAULT = 16;   // the current platter cover's
+let platterMarks = MARKS_DEFAULT;
+try {
+  const kept = localStorage.getItem(MARKS_KEY);
+  if (kept !== null) platterMarks = parseInt(kept, 10);
+} catch (e) { /* default */ }
+if (![0, 10, 12, 16].includes(platterMarks)) platterMarks = MARKS_DEFAULT;
+$("marks").value = String(platterMarks);
+$("marks").addEventListener("change", (e) => {
+  platterMarks = parseInt(e.target.value, 10) || 0;
+  try { localStorage.setItem(MARKS_KEY, String(platterMarks)); } catch (err) { /* not kept */ }
+  renderTemplate();
+});
 
 function bindSettings() {
   $("paper").addEventListener("change", (e) => { state.paper = e.target.value; changed(); });
