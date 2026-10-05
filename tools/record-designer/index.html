@@ -261,6 +261,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         </div>
         <p id="codeWarn" class="warn" hidden>No track has room for a readable Scene Code, so it is only 1.5 mm tall at the edge.
           Leave a few steps in a row free on one track (outer tracks need the fewest).</p>
+        <p id="nameWarn" class="warn" hidden></p>
         <label class="field"><span>Paper</span>
           <select id="paper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
         <label class="field"><span>Magnet hole (mm)</span>
@@ -677,55 +678,75 @@ function templateModel(d) {
     d.cells[t].map((c, s) => (c ? stepAngle(s, steps, d.forward) : null)).filter((a) => a !== null)
       .map((a) => ((a % TAU) + TAU) % TAU).sort((x, y) => x - y));
 
-  // The code and Beats/Rev: along a ring, in the longest stretch with no
-  // magnets, outer tracks first, 5 mm tall, else 3 mm; else 1.5 mm in the
-  // outer band as before. On a ring the text is centered on it and the ring
-  // is broken under it.
-  const codeText = `${d.code}  ${d.beats} BEATS/REV`;
-  let codeOn = null;   // { t, th, center, half } when on a ring
-  let codeFit = "edge";
-  for (const th of CODE_TEXT_MM) {
-    const need = textWidth(codeText, th) + 2;
-    for (let t = NUM_TRACKS - 1; t >= 0 && !codeOn; t--) {
-      const r = TRACK_RADIUS_MM[t], ha = holeAngles[t];
-      let best = null;
-      if (!ha.length) {
-        best = { len: TAU * r, center: Math.PI / 2 };
-      } else {
+  // Text along a ring, in the longest stretch clear of magnets and of text
+  // already placed, outer tracks first, 5 mm tall, else 3 mm. On a ring the
+  // text is centered on it and the ring is broken under it.
+  const onRing = [];   // { t, center, half } for each text placed on a ring
+  const ringSpot = (text) => {
+    for (const th of CODE_TEXT_MM) {
+      const need = textWidth(text, th) + 2;
+      for (let t = NUM_TRACKS - 1; t >= 0; t--) {
+        const r = TRACK_RADIUS_MM[t];
         const ex = (holeR + TEXT_CLEAR_MM) / r;
-        ha.forEach((a, i) => {
-          const next = i + 1 < ha.length ? ha[i + 1] : ha[0] + TAU;
-          const len = (next - a - 2 * ex) * r;
-          if (!best || len > best.len) best = { len, center: (a + next) / 2 };
-        });
+        const blocked = holeAngles[t].map((a) => [a - ex, a + ex]);
+        for (const o of onRing) if (o.t === t) blocked.push([o.center - o.half - ex, o.center + o.half + ex]);
+        const arcs = freeArcs(blocked);
+        let best = arcs ? null : { len: TAU * r, center: Math.PI / 2 };
+        for (const [a0, a1] of arcs || []) {
+          if (!best || (a1 - a0) * r > best.len) best = { len: (a1 - a0) * r, center: (a0 + a1) / 2 };
+        }
+        if (best && best.len >= need) {
+          const spot = { t, th, center: best.center, half: need / 2 / r };
+          onRing.push(spot);
+          return spot;
+        }
       }
-      if (best.len >= need) codeOn = { t, th, center: best.center, half: need / 2 / r };
     }
-    if (codeOn) { codeFit = th === CODE_TEXT_MM[0] ? "ring" : "small"; break; }
-  }
-  if (codeOn) {
-    const r = TRACK_RADIUS_MM[codeOn.t], th = codeOn.th, tw = textWidth(codeText, th);
+    return null;
+  };
+  const scoreOnRing = (text, spot) => {
+    const r = TRACK_RADIUS_MM[spot.t], th = spot.th, tw = textWidth(text, th);
     // Upright: tops toward the center on the lower half, outward on the upper.
-    const lower = Math.sin(codeOn.center) > 0;
+    const lower = Math.sin(spot.center) > 0;
     const map = lower
-      ? (u, v) => polar(codeOn.center - (u - tw / 2) / r, r + th / 2 - v)
-      : (u, v) => polar(codeOn.center + (u - tw / 2) / r, r - th / 2 + v);
-    for (const p of textPaths(codeText, th, map)) path(p, COLOR_SCORE);
-  } else {
+      ? (u, v) => polar(spot.center - (u - tw / 2) / r, r + th / 2 - v)
+      : (u, v) => polar(spot.center + (u - tw / 2) / r, r - th / 2 + v);
+    for (const p of textPaths(text, th, map)) path(p, COLOR_SCORE);
+  };
+  // The outer band's fallback text, 1.5 mm or so, centered at the bottom.
+  const scoreOnEdge = (text) => {
     const th = Math.min(2.5, Math.max(bandOut - bandIn, 0.8));
-    const tw = textWidth(codeText, th);
-    for (const p of textPaths(codeText, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
+    const tw = textWidth(text, th);
+    for (const p of textPaths(text, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
       path(p, COLOR_SCORE);
     }
+  };
+
+  // The code and Beats/Rev first, so it gets the best spot; else the edge.
+  const codeText = `${d.code}  ${d.beats} BEATS/REV`;
+  const codeOn = ringSpot(codeText);
+  const codeFit = !codeOn ? "edge" : codeOn.th === CODE_TEXT_MM[0] ? "ring" : "small";
+  if (codeOn) scoreOnRing(codeText, codeOn);
+  else scoreOnEdge(codeText);
+
+  // The saved song's name, the same way, after the code. The edge takes it
+  // only if the code is not there; else it is left off.
+  const nameText = recordName(d.name);
+  let nameFit = "none";
+  if (nameText) {
+    const nameOn = ringSpot(nameText);
+    if (nameOn) { scoreOnRing(nameText, nameOn); nameFit = "ring"; }
+    else if (codeOn) { scoreOnEdge(nameText); nameFit = "edge"; }
+    else nameFit = "off";
   }
 
-  // Rings, broken around every hole (and under the code), so they never
+  // Rings, broken around every hole (and under the text), so they never
   // cross a hole. A ring with nothing on it stays a whole circle.
   for (let t = 0; t < NUM_TRACKS; t++) {
     const r = TRACK_RADIUS_MM[t];
     const gapHalf = 2 * Math.asin(Math.min(1, (hole + RING_GAP_MM) / 2 / (2 * r)));
     const blocked = holeAngles[t].map((a) => [a - gapHalf, a + gapHalf]);
-    if (codeOn && codeOn.t === t) blocked.push([codeOn.center - codeOn.half, codeOn.center + codeOn.half]);
+    for (const o of onRing) if (o.t === t) blocked.push([o.center - o.half, o.center + o.half]);
     const arcs = freeArcs(blocked);
     if (!arcs) circle(r, COLOR_SCORE);
     else for (const [a0, a1] of arcs) items.push({ kind: "arc", cx, cy, r, a0, a1, color: COLOR_SCORE });
@@ -738,6 +759,7 @@ function templateModel(d) {
     for (const p of textPaths(str, h, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
     y += h + 3.5;
   };
+  if (nameText) label(nameText, 3);
   label(`MAGNETRONE RECORD   SCENE CODE ${d.code}   BEATS/REV ${d.beats}   ${steps} STEPS`, 3);
   label(`IF PRINTING: 100 PERCENT (ACTUAL SIZE). THE BAR BELOW IS 100 MM.`, 2.5);
   label(`RED: CUT   GREEN: A HOLES   MAGENTA: B HOLES, ${+hole.toFixed(2)} MM   BLUE: SCORE`, 2.5);
@@ -753,7 +775,14 @@ function templateModel(d) {
     const x0 = x - textWidth(str[0] === "1" ? "100" : str, 2.5) / 2;
     for (const p of textPaths(str, 2.5, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
   }
-  return { w: page.w, h: page.h, items, codeFit };
+  return { w: page.w, h: page.h, items, codeFit, nameFit };
+}
+
+// A song name as the template's font can score it: upper case, letters the
+// font lacks dropped, spaces collapsed.
+function recordName(name) {
+  return [...(name || "").toUpperCase()].filter((ch) => ch === " " || FONT[ch]).join("")
+    .replace(/\s+/g, " ").trim();
 }
 
 // --- SVG -------------------------------------------------------------------------
@@ -1432,6 +1461,10 @@ function renderTemplate() {
     .replace(/ width="[^"]*" height="[^"]*"/, "");
   $("preview").innerHTML = svg;
   $("codeWarn").hidden = model.codeFit !== "edge";
+  $("nameWarn").hidden = model.nameFit !== "edge" && model.nameFit !== "off";
+  $("nameWarn").textContent = model.nameFit === "off"
+    ? "No room for the song name on the record, so it is only on the label below it."
+    : "No track has room for a readable song name, so it is only 1.5 mm tall at the edge.";
 }
 
 function download(name, text, type) {

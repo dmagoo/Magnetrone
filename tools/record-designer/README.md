@@ -118,7 +118,7 @@ size, no fit to page) and check the 100 mm scale bar.
 | Red `#FF0000` | Through cut: outline (200 mm) and center hole (14 mm) |
 | Green `#00FF00` | Layer A magnet holes (default 11 mm, for 10 mm magnets): cut through or kiss cut |
 | Magenta `#FF00FF` | Layer B magnet holes, same size |
-| Blue `#0000FF` | Score: track rings, start mark, the A/B mark beside each hole, Scene Code and Beats/Rev |
+| Blue `#0000FF` | Score: track rings, start mark, the A/B mark beside each hole, Scene Code and Beats/Rev, song name |
 | Black | Labels and scale bar, below the record. Not part of the record. |
 
 All lines are hairlines (0.001 in). The start mark is at the top.
@@ -134,6 +134,12 @@ All lines are hairlines (0.001 in). The start mark is at the top.
   without room at 3 mm they fall back to 1.5 mm along the outer edge, and
   the Template view says so. Leaving a few steps in a row free on one track
   (outer tracks need the fewest) keeps them readable.
+- A saved song's name is scored the same way, after the code, in the
+  longest stretch left clear of magnets and the code. Without room on a
+  ring it takes the outer edge, unless the code is already there; then it
+  is left off the record. The Template view says so either way. It is also
+  the first label below the record. Letters the template font lacks are
+  dropped.
 
 Lay the template on the platter with the center hole on the spindle and
 the start mark on the platter's start mark.
