@@ -6,6 +6,7 @@
 #include "sequencer/pitch.h"
 #include "sequencer/layers.h"
 #include "audio/voice.h"
+#include "audio/kit.h"
 
 // Bytes handled per loop, so a burst of input cannot stall the platter or
 // the sensors. The UART buffers the rest.
@@ -48,10 +49,21 @@ static uint8_t  heldCount[NUM_LAYERS]   = { 0 };
 static uint8_t  releaseLayers           = 0;
 static uint32_t releaseAtMs[NUM_LAYERS] = { 0 };
 
+// Play Along: the channel each layer's sounding key came in on, 0 = none. A
+// Note Off goes by this, not by who listens now, so a key cannot hang when the
+// channel or the layer's mode changes while it is held.
+static uint8_t  keyChannel[NUM_LAYERS][128] = {};
+
+static void keysOff() {
+    audioKeysOff();
+    memset(keyChannel, 0, sizeof(keyChannel));
+}
+
 void midiInReset() {
     chordCount    = 0;
     releaseLayers = 0;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) heldCount[l] = 0;
+    keysOff();
 }
 
 bool midiInTakeChanged() {
@@ -315,6 +327,43 @@ static void chordClose(SavedConfig& cfg) {
     changed = true;
 }
 
+// --- MIDI Fn: Play Along -----------------------------------------------------
+// Keys play the layer's voice, as played: no Root, Octave or scale, but the
+// Pitch offset and the bend wheel apply, so they stay in tune with the table.
+// The table keeps playing; keys share the layer's synth voices with the
+// magnets. With both layers on one channel only Layer A plays. On a drum layer
+// a key plays the drum with its GM note number; other keys are silent. Key
+// velocity is scaled by the layer's Level and A/B Balance, as magnets are.
+// Nothing goes to MIDI out.
+static void playOn(const SavedConfig& cfg, uint8_t layers, uint8_t ch, uint8_t note,
+                   uint8_t velocity) {
+    uint8_t l = (layers & (1u << LAYER_A)) ? LAYER_A : LAYER_B;
+    if (!layerActive(cfg, l)) return;
+    const Voice& voice = layerVoice(cfg, l);
+    if (voiceIsSilent(voice)) return;
+    float gain = layerGain(cfg, l);
+    if (gain <= 0.0f) return;
+    uint8_t vel = (uint8_t)constrain((int)lroundf(velocity * gain), 1, 127);
+
+    if (voiceIsKit(voice)) {
+        for (uint8_t s = 0; s < NUM_HALL_SENSORS; s++) {
+            if (KIT_GM_NOTE[s] == note) audioDrumHit(s, vel);   // one-shot, no off
+        }
+        return;
+    }
+    if (keyChannel[l][note]) audioKeyOff(l, note);   // a repeat without an off
+    audioKeyOn(l, note, vel);
+    keyChannel[l][note] = ch;
+}
+
+static void playOff(uint8_t ch, uint8_t note) {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if (keyChannel[l][note] != ch) continue;
+        audioKeyOff(l, note);
+        keyChannel[l][note] = 0;
+    }
+}
+
 // An effects CC, on each listening layer. Layer B with that effect set to
 // Same as A plays A's, so its own is left alone rather than changed unheard.
 static bool fxCc(SavedConfig& cfg, uint8_t layers, uint8_t cc, uint8_t value) {
@@ -342,17 +391,19 @@ static bool fxCc(SavedConfig& cfg, uint8_t layers, uint8_t cc, uint8_t value) {
 // -----------------------------------------------------------------------------
 
 static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8_t d1) {
+    // Velocity 0 is a Note Off. Play Along's keys are released whoever
+    // listens now.
+    bool off = (type == 0x80) || (type == 0x90 && d1 == 0);
+    if (off) playOff(ch, d0);
+
     uint8_t layers = listeners(cfg, ch);
     if (!layers) return;
 
     switch (type) {
         case 0x80:
-            if ((MidiFn)cfg.midiFn == MidiFn::Fingered) fingeredOff(layers, d0);
-            break;
-
         case 0x90:
-            // Velocity 0 is a Note Off. Only Fingered cares about releases.
-            if (d1 == 0) {
+            // Of the others, only Fingered cares about releases.
+            if (off) {
                 if ((MidiFn)cfg.midiFn == MidiFn::Fingered) fingeredOff(layers, d0);
                 break;
             }
@@ -363,6 +414,7 @@ static void handle(SavedConfig& cfg, uint8_t type, uint8_t ch, uint8_t d0, uint8
                 case MidiFn::SetScale:
                 case MidiFn::OneFinger:  keyChord(layers, d0);         break;
                 case MidiFn::Fingered:   fingeredOn(cfg, layers, d0);  break;
+                case MidiFn::PlayAlong:  playOn(cfg, layers, ch, d0, d1); break;
                 default: break;
             }
             break;

@@ -532,7 +532,8 @@ The Magnetrone sends on MIDI OUT:
 
 ### MIDI In
 
-MIDI IN only controls the table; incoming notes never play its sound.
+MIDI IN controls the table. Incoming notes play its sound only with the
+**Play Along** MIDI Fn.
 
 Each layer listens on its own channel (**Menu > Sound Defaults > Layer A >
 MIDI In**, and the same for Layer B). A message on a
@@ -542,8 +543,8 @@ B on Same as A does not listen, since it plays Layer A's settings.
 
 - **Keys** drive the **MIDI Fn** (**Menu > Play Setup > MIDI Fn**), much as the
   Aux knob drives its function.
-- **Pitch bend wheel** bends the whole table up to 2 semitones either way and
-  springs back.
+- **Pitch bend wheel** bends the whole table up to 2 semitones either way,
+  notes already sounding included, and springs back.
 - **CC 7** sets the volume. **CC 20** sets the octave. (A CC is the message a
   knob or slider on a controller sends; most controllers let you choose the
   number.)
@@ -565,11 +566,12 @@ B on Same as A does not listen, since it plays Layer A's settings.
 |-------------|------------------|
 | Off         | Nothing. |
 | Pitch       | A key sets root and octave together: G3 makes the root G, octave 3. |
-| Shift       | A key sets which note the layer's low track plays. A key outside the scale picks the nearest scale note. Drum layers ignore it. |
-| Scale Learn | Each key goes in at the far end of the arm and every track's note slides one track toward the Low Note end; the note on the Low Note track drops off. Play eight keys and they lie low to high in the order played, repeats allowed. The first key turns the scale into **Custom**, starting from the scale already playing. The root stays on its track, so whatever slides onto it becomes the root (Root Note, and Octave if needed, follow without changing any note). This works at any Shift: it goes by the tracks you see. Drum layers ignore it. |
 | Set Scale   | Single-finger chords, as on arranger keyboards, but it sets a scale, not the chord's notes: middle C alone gives C major (C D E F G A B C), not C E G. For the chord's notes, use Fingered or One Finger. The highest key sets root and octave; extra keys to its left pick the scale: none = Major, a black key = Minor, a white key = Mixolydian (7th), both = Dorian (minor 7th). Keys pressed together count as one chord. |
 | Fingered    | The keys you hold are the scale, as **Custom**: low to high from the Low Note track, the lowest key setting root and octave. Fewer than eight repeat up by octaves (to two octaves up, then from the bottom again), so one held C plays C, C+1, C+2, C, C+1, C+2, C, C+1. Letting a key go removes it; lifting the whole hand keeps the last chord. Past eight keys, the extra ones are ignored. Drum layers ignore it. |
 | One Finger  | Single-finger chords that play the chord's notes, like Fingered with the chord held: the same keys as Set Scale. The highest key is the root and sets the octave; alone it gives major (C E G), with a black key to its left minor (C Eb G), with a white key 7th (C E G Bb), with both minor 7th (C Eb G Bb). Middle C alone plays C E G C E G C E. Keys pressed together count as one chord, and it stays until the next. Drum layers ignore it. |
+| Shift       | A key sets which note the layer's low track plays. A key outside the scale picks the nearest scale note. Drum layers ignore it. |
+| Play Along  | Keys play the layer's voice, like an ordinary keyboard, while the table keeps playing. Notes sound as played (Root Note, Octave and Scale don't apply), but Pitch and the bend wheel do, so the keys stay in tune with the table. Key velocity counts, scaled by the layer's Level and A/B Balance, and a note lasts as long as the key is held. With both layers on one channel, only Layer A plays. On a drum layer, each drum plays on its General MIDI key (36 kick, 38 snare, 42 closed hi-hat, 46 open hi-hat, 39 clap, 45 low tom, 50 high tom, 49 crash); other keys are silent. Keys share the layer's eight synth voices with the magnets; when all are busy, the oldest note stops. Keys are not sent to MIDI OUT. |
+| Scale Learn | Each key goes in at the far end of the arm and every track's note slides one track toward the Low Note end; the note on the Low Note track drops off. Play eight keys and they lie low to high in the order played, repeats allowed. The first key turns the scale into **Custom**, starting from the scale already playing. The root stays on its track, so whatever slides onto it becomes the root (Root Note, and Octave if needed, follow without changing any note). This works at any Shift: it goes by the tracks you see. Drum layers ignore it. |
 
 Like Aux changes, all of this is live and not saved, except the volume. Save a
 scene to keep it. Scale Learn, Fingered and One Finger write the layer's

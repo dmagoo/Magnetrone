@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include "midi/midi.h"
+#include "audio/audio.h"
 
 // Live modulation state. RAM only, by design -- see pitch.h.
 static float offsetSemis = 0.0f;
@@ -13,9 +14,11 @@ static float totalSemis() {
 
 // Keep the outgoing bend in step with the offset. Every note sounding on the
 // channel shares this one bend value, which is correct here precisely because
-// the Pitch function shifts the whole instrument rather than one note.
+// the Pitch function shifts the whole instrument rather than one note. The
+// internal synth's sounding notes follow too, as an external synth's do.
 static void publishBend() {
     midiSetBend(pitchBendSemitones());
+    audioRetune();
 }
 
 void pitchSetWheel(float semitones) {

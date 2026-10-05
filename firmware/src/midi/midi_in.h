@@ -3,16 +3,16 @@
 #include "config/storage.h"
 
 // =============================================================================
-// MIDI in -- control only. Incoming notes never play the table; they drive
-// the MIDI Fn, the way the Aux knob drives the Aux Fn.
+// MIDI in. Incoming notes drive the MIDI Fn, the way the Aux knob drives the
+// Aux Fn; only Play Along plays them, on the layer's synth.
 //
 // Each layer listens on its own channel (cfg.midiInChannel). A message on a
 // layer's channel applies to that layer; with both on one channel it applies
 // to both. Shared settings (pitch, volume) take a message from either
 // layer's channel. Layer B in Same as A does not listen: it plays A's.
 //
-//   Keys           the MIDI Fn: Pitch, Shift, Scale Learn, Set Scale,
-//                  Fingered or One Finger (or Off)
+//   Keys           the MIDI Fn: Pitch, Set Scale, Fingered, One Finger,
+//                  Shift, Play Along or Scale Learn (or Off)
 //   Pitch bend     always a temporary pitch offset, +/-MIDI_BEND_IN_RANGE
 //   CC 7           volume
 //   CC 20          octave
@@ -31,12 +31,15 @@
 // own notes arrive here as control. Echo (MIDI thru) must be off there.
 // =============================================================================
 
-// Stored in cfg.midiFn: new Fns go at the end.
-enum class MidiFn : uint8_t { Off, Pitch, Shift, ScaleLearn, SetScale, Fingered, OneFinger, COUNT };
+// Stored in cfg.midiFn, in menu order.
+enum class MidiFn : uint8_t {
+    Off, Pitch, SetScale, Fingered, OneFinger, Shift, PlayAlong, ScaleLearn, COUNT
+};
 
 void midiInUpdate(SavedConfig& cfg);   // call every loop
 
-// Forget any partly collected chord and held keys (the MIDI Fn changed).
+// Forget any partly collected chord and held keys, and release Play Along's
+// sounding keys (the MIDI Fn changed).
 void midiInReset();
 
 // True once after an incoming message changed something on the live display.

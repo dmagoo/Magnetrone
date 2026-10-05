@@ -40,9 +40,9 @@ uint8_t midiNoteOn(uint8_t layer, uint8_t channel, uint8_t note, uint8_t velocit
         Serial1.write(velocity & 0x7F);
     }
 
-    // The internal synth has no such limitation: give it the exact frequency,
+    // The internal synth has no such limitation: it plays the exact frequency,
     // microtones and all, keyed to the same note number so Note Off matches.
-    audioNoteOnFreq(layer, out, velocity, pitchHz(base));
+    audioNoteOn(layer, out, velocity, base);
     return out;
 }
 

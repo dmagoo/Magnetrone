@@ -8,6 +8,7 @@
 #include "kit.h"
 #include "fx_chorus.h"
 #include "fx_delay.h"
+#include "sequencer/pitch.h"
 
 // ----------------------------------------------------------------------------
 // Signal chain:
@@ -209,15 +210,40 @@ constexpr float CHORUS_RATE_MIN_HZ = 0.1f;
 constexpr float CHORUS_RATE_MAX_HZ = 5.0f;
 
 // Tracks which note id each voice is playing so audioNoteOff() knows which
-// envelope to release.
+// envelope to release. Keys (Play Along) have ids of their own: a key and a
+// magnet on the same note are two notes, and neither's off cuts the other.
 static int8_t voiceNote[TOTAL_VOICES];  // -1 = idle
+static bool   voiceKey[TOTAL_VOICES];
 
-// Round-robin allocator within each layer's bank.
+// The note each voice plays before the pitch offset, so audioRetune() can
+// follow the Pitch Fn and the bend wheel. NO_BASE = a fixed frequency.
+constexpr int16_t NO_BASE = INT16_MIN;
+static int16_t voiceBase[TOTAL_VOICES];
+
+// When each voice started, for stealing the oldest.
+static uint32_t voiceStamp[TOTAL_VOICES];
+static uint32_t nextStamp = 0;
+
+// A free voice (envelope finished) if there is one, so release tails ring
+// out and a held key is not cut while others sit idle; otherwise the oldest.
+// The search starts after the last voice taken, so free voices take turns.
 static uint8_t nextVoice[NUM_LAYERS] = {};
 static uint8_t allocVoice(uint8_t layer) {
-    uint8_t v = nextVoice[layer];
-    nextVoice[layer] = (v + 1) % VOICES_PER_LAYER;
-    return layer * VOICES_PER_LAYER + v;
+    uint8_t first = layer * VOICES_PER_LAYER;
+    uint8_t pick  = 255;
+    for (uint8_t i = 0; i < VOICES_PER_LAYER && pick == 255; i++) {
+        uint8_t v = first + (nextVoice[layer] + i) % VOICES_PER_LAYER;
+        if (!env[v].isActive()) pick = v;
+    }
+    if (pick == 255) {
+        pick = first;
+        for (uint8_t v = first + 1; v < first + VOICES_PER_LAYER; v++) {
+            if ((int32_t)(voiceStamp[v] - voiceStamp[pick]) < 0) pick = v;
+        }
+    }
+    nextVoice[layer] = (uint8_t)((pick - first + 1) % VOICES_PER_LAYER);
+    voiceStamp[pick] = nextStamp++;
+    return pick;
 }
 
 // ----------------------------------------------------------------------------
@@ -303,6 +329,8 @@ void audioInit(float volume, bool muted) {
         osc[i].begin(1.0f, 440.0f, WAVEFORM_SINE);
         osc[i].amplitude(0.0f); // silent until a note fires
         voiceNote[i] = -1;
+        voiceKey[i]  = false;
+        voiceBase[i] = NO_BASE;
         vfilt[i].octaveControl(VOICE_FILTER_OCTAVES);
         fenv[i].hold(0.0f);
     }
@@ -465,7 +493,8 @@ void audioUnmute() {
     sgtl5000.volume(currentVolume);
 }
 
-void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz) {
+static void startVoice(uint8_t layer, uint8_t note, bool key, uint8_t velocity,
+                       float hz, int16_t base) {
     if (layer >= NUM_LAYERS) return;
     uint8_t v = allocVoice(layer);
 
@@ -480,17 +509,50 @@ void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz) {
     fenv[v].noteOn();
 
     voiceNote[v] = (int8_t)note;
+    voiceKey[v]  = key;
+    voiceBase[v] = base;
 }
 
-void audioNoteOff(uint8_t layer, uint8_t note) {
+static void releaseVoices(uint8_t layer, int8_t note, bool key) {
     if (layer >= NUM_LAYERS) return;
     // Release all voices in this bank playing this note (usually just one).
     for (int i = layer * VOICES_PER_LAYER; i < (layer + 1) * VOICES_PER_LAYER; i++) {
-        if (voiceNote[i] == (int8_t)note) {
+        if (voiceKey[i] == key && (note < 0 ? voiceNote[i] >= 0 : voiceNote[i] == note)) {
             env[i].noteOff();
             fenv[i].noteOff();
             voiceNote[i] = -1;
         }
+    }
+}
+
+void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz) {
+    startVoice(layer, note, false, velocity, hz, NO_BASE);
+}
+
+void audioNoteOn(uint8_t layer, uint8_t note, uint8_t velocity, int baseNote) {
+    startVoice(layer, note, false, velocity, pitchHz(baseNote), (int16_t)baseNote);
+}
+
+void audioNoteOff(uint8_t layer, uint8_t note) {
+    releaseVoices(layer, (int8_t)note, false);
+}
+
+void audioKeyOn(uint8_t layer, uint8_t note, uint8_t velocity) {
+    startVoice(layer, note, true, velocity, pitchHz(note), note);
+}
+
+void audioKeyOff(uint8_t layer, uint8_t note) {
+    releaseVoices(layer, (int8_t)note, true);
+}
+
+void audioKeysOff() {
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) releaseVoices(l, -1, true);
+}
+
+void audioRetune() {
+    // Release tails too: a note fading out should not jump back in pitch.
+    for (uint8_t v = 0; v < TOTAL_VOICES; v++) {
+        if (voiceBase[v] != NO_BASE && env[v].isActive()) osc[v].frequency(pitchHz(voiceBase[v]));
     }
 }
 

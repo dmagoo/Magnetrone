@@ -17,16 +17,35 @@ void audioUnmute();
 // drum bank instead.
 void audioSetVoice(uint8_t layer, const Voice& voice);
 
-// Trigger a note on a layer's bank at an explicit frequency. The oscillator
-// takes a float, so microtonal tunings reach the internal synth exactly --
+// Each bank has NUM_HALL_SENSORS voices. A new note takes a free one (its
+// envelope finished), or steals the oldest when none is free.
+
+// Trigger a note on a layer's bank at baseNote under the pitch offset
+// (pitchHz()), so microtonal tunings reach the internal synth exactly --
 // MIDI has to approximate them with a note number plus pitch bend, but this
-// does not. `note` is only the id used to match the later audioNoteOff().
+// does not. It follows later pitch changes (audioRetune()). `note` is only
+// the id used to match the later audioNoteOff().
+void audioNoteOn(uint8_t layer, uint8_t note, uint8_t velocity, int baseNote);
+
+// The same at a fixed frequency that pitch changes leave alone.
 void audioNoteOnFreq(uint8_t layer, uint8_t note, uint8_t velocity, float hz);
 
 // Releases the notes with this id on this layer's bank. Matching on the layer
 // as well as the note keeps the two banks independent: the same note number
 // playing on both is two different notes.
 void audioNoteOff(uint8_t layer, uint8_t note);
+
+// Keys played on the layer's bank (MIDI Fn Play Along), at the key's own
+// note under the pitch offset. Their ids are separate from audioNoteOn()'s,
+// so a key and a magnet on the same note sound together and neither's off
+// cuts the other.
+void audioKeyOn(uint8_t layer, uint8_t note, uint8_t velocity);
+void audioKeyOff(uint8_t layer, uint8_t note);
+void audioKeysOff();   // every key on both banks
+
+// Retunes every sounding note to the current pitch offset and bend wheel.
+// pitch.cpp calls it whenever either moves.
+void audioRetune();
 
 // Sets a layer's effects chain: Tone, Chorus, Delay, Reverb. Pass the
 // settings the layer plays with, Same as A already resolved (layerFx()).
