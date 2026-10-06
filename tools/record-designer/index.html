@@ -120,7 +120,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .load { display: flex; align-items: center; gap: 6px; }
 .headleft { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
 .hear { display: flex; align-items: center; gap: 6px; }
-.hear button { padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.hear button:not(.icon) { padding: 3px 10px; font-size: 12px; font-weight: 600; }
 .hear label { margin-left: 4px; }
 .load input { width: 9em; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
 .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; }
@@ -235,6 +235,12 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
             <button id="hearA" title="Hear Layer A: tracks 1 to 8 up and back down, as the table plays its welcome tune at power-up"><span class="dot a"></span>A</button>
             <button id="hearB" title="Hear Layer B: tracks 1 to 8 up and back down, with Layer B's settings"><span class="dot b"></span>B</button>
             <label class="small" title="When a scene setting changes, hear that layer's run (not while the grid plays)"><input type="checkbox" id="autoHear"> Auto</label>
+          </div>
+          <div class="hear">
+            <button id="swapAB" class="icon" title="Swap Layers A and B: Voice, Root, Octave, Scale, Shift, Low Note and Wrap" aria-label="Swap Layers A and B">
+              <svg class="i" viewBox="0 0 24 24"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
+            </button>
+            <button id="copyAB" title="Copy Layer A to Layer B: Voice, Root, Octave, Scale, Shift, Low Note and Wrap">A&rarr;B</button>
           </div>
         </div>
         <div class="load">
@@ -1292,6 +1298,22 @@ function copyText(text, msg) {
 }
 
 $("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied"));
+
+// Swap A/B and Copy A to B: the settings both layers have. Mode, Layer B's
+// Same as A flags and Layer Turns stay as they are.
+const SHARED_KEYS = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap"];
+$("swapAB").addEventListener("click", () => {
+  const { A, B } = state.scene;
+  for (const k of SHARED_KEYS) [A[k], B[k]] = [B[k], A[k]];
+  $("codeMsg").textContent = "";
+  changed();
+});
+$("copyAB").addEventListener("click", () => {
+  const { A, B } = state.scene;
+  for (const k of SHARED_KEYS) B[k] = A[k];
+  $("codeMsg").textContent = "";
+  changed();
+});
 // --- Songs (chips) ------------------------------------------------------------------------------
 // Saved songs, kept in local storage. A chip is a snapshot: editing after
 // picking one changes only the current song, until it is saved again.

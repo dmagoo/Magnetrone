@@ -58,6 +58,11 @@ back down in sixteenths, as the table plays its welcome tune at power-up
 (the table's tune is Layer A). With **Auto** on, changing a scene setting
 plays the changed layer's run, unless the grid is playing.
 
+Beside it, the swap button (two arrows) swaps Layers A and B, and **A→B**
+copies Layer A to Layer B, leaving A as it is. Both cover the settings the
+two layers share: Voice, Root, Octave, Scale, Shift, Low Note and Wrap.
+Mode, Layer B's Same as A boxes and Layer Turns stay as they are.
+
 The code shows beside Play, with a copy button, and updates as you change
 the settings. A code can be loaded back. Enter the
 code on the table under Aux > Scene Codes > Enter. Beats/Rev is not in the
