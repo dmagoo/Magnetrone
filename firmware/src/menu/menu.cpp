@@ -34,6 +34,7 @@ enum class MenuState : uint8_t {
     LayerMenu,      // one layer's submenu; which one is editLayer
     LayerMode,
     LayerTurns,     // Layer B only
+    TurnEdit,       // Edit Turns: a layer's turn pattern (Sound Defaults or Aux)
     LayerVoice,
     LayerChannel,
     LayerRoot,
@@ -143,12 +144,14 @@ static const uint8_t OCTAVE_COUNT = 9;
 static uint8_t editLayer = LAYER_A;
 
 // Layer Turns is Layer B's only: Layer A's list skips it (layerMenuItem()).
+// Edit Turns, each layer's own pattern, is in both.
 static const char* LAYER_ITEMS[] = {
-    "Mode","Layer Turns","Voice","Channel","Root Note","Scale","Edit Scale","Octave",
-    "Level","Shift","Wrap","Low Note","Effects","MIDI In","Back"
+    "Mode","Layer Turns","Edit Turns","Voice","Channel","Root Note","Scale","Edit Scale",
+    "Octave","Level","Shift","Wrap","Low Note","Effects","MIDI In","Back"
 };
-static const uint8_t LAYER_ITEMS_COUNT = 15;
-enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_TURNS, LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
+static const uint8_t LAYER_ITEMS_COUNT = 16;
+enum : uint8_t { LAYER_ITEM_MODE, LAYER_ITEM_TURNS, LAYER_ITEM_EDIT_TURNS,
+                 LAYER_ITEM_VOICE, LAYER_ITEM_CHANNEL,
                  LAYER_ITEM_ROOT, LAYER_ITEM_SCALE, LAYER_ITEM_EDIT_SCALE, LAYER_ITEM_OCTAVE,
                  LAYER_ITEM_LEVEL, LAYER_ITEM_SHIFT, LAYER_ITEM_WRAP,
                  LAYER_ITEM_LOW_NOTE, LAYER_ITEM_EFFECTS, LAYER_ITEM_MIDI_IN,
@@ -183,8 +186,8 @@ static const uint8_t MODE_COUNT_A = 3;
 static const uint8_t MODE_COUNT_B = 5;
 
 // Order matches LayerTurns.
-static const char* TURNS_ITEMS[] = { "Together","Alternate","Back" };
-static const uint8_t TURNS_COUNT = 3;
+static const char* TURNS_ITEMS[] = { "Together","Alternate","Custom","Back" };
+static const uint8_t TURNS_COUNT = 4;
 
 // Auto, then channels 1-16, then Back. Index == stored value. Filled in by
 // menuInit().
@@ -455,15 +458,17 @@ static const AuxFn AUX_TOP_FN[AUXT_COUNT] = {
 };
 
 // Inside Layer A / Layer B: the per-layer Fns in AuxKind order, with
-// Voice Edit after Voice and Edit Scale after Scale, then Effects and Back.
+// Voice Edit after Voice and Edit Scale after Scale, then Edit Turns,
+// Effects and Back.
 static const char* AUX_LAYER_LABELS[] = {
     "Voice","Voice Edit","Root Note","Scale","Edit Scale","Octave","Shift","Low Note",
-    "Wrap","Mode","Effects","Back"
+    "Wrap","Mode","Edit Turns","Effects","Back"
 };
-static const uint8_t AUX_LAYER_COUNT      = AUX_LAYER_KIND_COUNT + 4;   // + Voice Edit, Edit Scale, Effects, Back
+static const uint8_t AUX_LAYER_COUNT      = AUX_LAYER_KIND_COUNT + 5;   // + Voice Edit, Edit Scale, Edit Turns, Effects, Back
 static const uint8_t AUX_LAYER_VOICE_EDIT = 1;
 static const uint8_t AUX_LAYER_EDIT_SCALE = 4;
-static const uint8_t AUX_LAYER_EFFECTS    = AUX_LAYER_KIND_COUNT + 2;
+static const uint8_t AUX_LAYER_EDIT_TURNS = AUX_LAYER_KIND_COUNT + 2;
+static const uint8_t AUX_LAYER_EFFECTS    = AUX_LAYER_KIND_COUNT + 3;
 
 // Inside Layer A/B > Effects: the effect Fns, in chain order, then Back.
 // Each is one effect setting, from FX_PARAMS.
@@ -1024,6 +1029,65 @@ static void scaleEditLeave() {
     else              enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_EDIT_SCALE));
 }
 
+// --- Edit Turns ---------------------------------------------------------------
+// One layer's turn pattern, on the knob of the menu it was opened from (Sound
+// Defaults or the Aux). Shown as Placement Mode shows tracks, two columns per
+// turn: the cursor, then the turn's number, - if the layer is silent on it,
+// | where the cycle ends, blank after. The cursor's last stop is Back, on the
+// top line. A click cycles a turn: on, off, the end of the cycle (not turn
+// 1), on again. Clicking the end or past it makes the cycle 8 turns again,
+// those after the old end as they were. The first click makes Layer Turns
+// Custom, starting from the patterns it was playing. Heard at once.
+static bool          turnEditAux = false;
+static const uint8_t TE_BACK     = TURN_MAX;   // cursor stop after the turns
+static const uint8_t TE_COUNT    = TURN_MAX + 1;
+
+static uint8_t turnEditLayer() {
+    return turnEditAux ? auxLayer : editLayer;
+}
+// The pair edited: the live sound on the Aux, the Defaults scene (and the
+// live sound) from Sound Defaults.
+static const LayerCfg* turnEditLayers(const SavedConfig& cfg) {
+    return turnEditAux ? cfg.layer : cfg.scenes[SCENE_DEFAULTS].layer;
+}
+
+static void turnEditClickIn(LayerCfg* layers, uint8_t l, uint8_t t) {
+    if (layers[LAYER_B].turns != LayerTurns::Custom) {
+        for (uint8_t k = 0; k < NUM_LAYERS; k++) {
+            uint8_t len, mask;
+            turnPattern(layers, k, len, mask);
+            layers[k].turnLen  = len;
+            layers[k].turnMask = mask;
+        }
+        layers[LAYER_B].turns = LayerTurns::Custom;
+    }
+    LayerCfg& c   = layers[l];
+    uint8_t   bit = 1u << t;
+    if (t >= c.turnLen) {            // the end, or past it
+        c.turnMask |= bit;
+        c.turnLen   = TURN_MAX;
+    } else if (c.turnMask & bit) {   // on: off
+        c.turnMask &= ~bit;
+    } else if (t > 0) {              // off: the end
+        c.turnLen = t;
+    } else {                         // turn 1 cannot end the cycle
+        c.turnMask |= bit;
+    }
+}
+
+static void turnEditClick(SavedConfig& cfg, uint8_t t) {
+    uint8_t l = turnEditLayer();
+    if (!turnEditAux) turnEditClickIn(cfg.scenes[SCENE_DEFAULTS].layer, l, t);
+    turnEditClickIn(cfg.layer, l, t);
+    if (!turnEditAux) storageSave(cfg);
+}
+
+// Where Edit Turns' Back goes.
+static void turnEditLeave() {
+    if (turnEditAux) enterState(MenuState::AuxLayerSelect, AUX_LAYER_EDIT_TURNS);
+    else             enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_EDIT_TURNS));
+}
+
 // Ends a calibration or StartPos flow: back to the live display if it began
 // at a boot prompt, else to the Tools entry it was opened from.
 static void leaveTo(uint8_t toolItem) {
@@ -1351,14 +1415,14 @@ static void buildSoundLabels(const SavedConfig& cfg) {
     SOUND_ITEMS[NUM_LAYERS] = "Back";
 }
 
-// Mode is what the cue is about, Layer Turns counts whatever the mode, and
-// Back is not a setting: none of them is tagged.
+// Mode is what the cue is about, Layer Turns and Edit Turns count whatever
+// the mode, and Back is not a setting: none of them is tagged.
 static void buildLayerLabels(const SavedConfig& cfg) {
     const char* cue = layerCue(cfg, editLayer);
     for (uint8_t i = 0; i < layerMenuCount(); i++) {
         uint8_t item = layerMenuItem(i);
         bool tag = (item != LAYER_ITEM_MODE && item != LAYER_ITEM_TURNS &&
-                    item != LAYER_ITEM_BACK);
+                    item != LAYER_ITEM_EDIT_TURNS && item != LAYER_ITEM_BACK);
         snprintf(LAYER_LABEL_BUF[i], sizeof(LAYER_LABEL_BUF[i]), "%s%s",
                  LAYER_ITEMS[item], tag ? cue : "");
         LAYER_LABELS[i] = LAYER_LABEL_BUF[i];
@@ -2313,7 +2377,8 @@ void menuUpdate(SavedConfig& cfg) {
                   (scaleEditAux && (state == MenuState::ScaleEditList ||
                                     state == MenuState::ScaleEditSlot ||
                                     state == MenuState::ScaleSaveSelect ||
-                                    state == MenuState::ScaleSaveConfirm)));
+                                    state == MenuState::ScaleSaveConfirm)) ||
+                  (turnEditAux && state == MenuState::TurnEdit));
 
     // A scene load landed on the bar: the status line (or the scene list)
     // shows it.
@@ -2422,6 +2487,9 @@ void menuUpdate(SavedConfig& cfg) {
                 } else if (cursor == AUX_LAYER_EDIT_SCALE) {
                     scaleEditAux = true;
                     enterState(MenuState::ScaleEditList, 0);
+                } else if (cursor == AUX_LAYER_EDIT_TURNS) {
+                    turnEditAux = true;
+                    enterState(MenuState::TurnEdit, 0);
                 } else if (cursor == AUX_LAYER_EFFECTS) {
                     enterState(MenuState::AuxFxSelect, 0);
                 } else {
@@ -2826,6 +2894,10 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LayerMode, (uint8_t)lc.mode); break;
                     case LAYER_ITEM_TURNS:
                         enterState(MenuState::LayerTurns, (uint8_t)lc.turns); break;
+                    case LAYER_ITEM_EDIT_TURNS:
+                        turnEditAux = false;
+                        enterState(MenuState::TurnEdit, 0);
+                        break;
                     case LAYER_ITEM_VOICE:
                         enterState(MenuState::LayerVoice,
                                    voiceChoicePos(lc.voice, buildVoiceChoices(cfg, editLayer, false)));
@@ -2905,6 +2977,24 @@ void menuUpdate(SavedConfig& cfg) {
                 enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_TURNS));
             }
             break;
+
+        // Edit Turns: the knob of the menu it was opened from moves and
+        // clicks. From the Aux the menu button goes home; from Sound Defaults
+        // the aux button does (above).
+        case MenuState::TurnEdit: {
+            int8_t delta = turnEditAux ? ev.auxDelta : ev.menuDelta;
+            bool   press = turnEditAux ? ev.auxPressed : ev.menuPressed;
+            if (turnEditAux && ev.menuPressed) { enterState(MenuState::Status); break; }
+            if (delta) {
+                cursor = (uint8_t)((cursor + delta % TE_COUNT + TE_COUNT) % TE_COUNT);
+                needsRedraw = true;
+            }
+            if (press) {
+                if (cursor == TE_BACK) turnEditLeave();
+                else { turnEditClick(cfg, cursor); needsRedraw = true; }
+            }
+            break;
+        }
 
         case MenuState::LayerVoice: {
             uint8_t n = buildVoiceChoices(cfg, editLayer, false);
@@ -3782,6 +3872,21 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::LayerTurns:
                 drawList(TURNS_ITEMS, TURNS_COUNT, cursor);
                 break;
+            case MenuState::TurnEdit: {
+                uint8_t l = turnEditLayer(), len, mask;
+                turnPattern(turnEditLayers(cfg), l, len, mask);
+                lcdLine(0, "Turns: %c   %cBack", 'A' + l,
+                        cursor == TE_BACK ? (char)LCD_ARROW_RIGHT : ' ');
+                char row[17];
+                for (uint8_t i = 0; i < TURN_MAX; i++) {
+                    row[i * 2]     = (i == cursor) ? (char)LCD_ARROW_RIGHT : ' ';
+                    row[i * 2 + 1] = i < len  ? ((mask & (1u << i)) ? (char)('1' + i) : '-')
+                                   : i == len ? '|' : ' ';
+                }
+                row[16] = '\0';
+                lcdLine(1, "%s", row);
+                break;
+            }
             case MenuState::LayerMode:
                 if (editLayer == LAYER_A) drawList(MODE_ITEMS_A, MODE_COUNT_A, cursor);
                 else                      drawList(MODE_ITEMS_B, MODE_COUNT_B, cursor);
@@ -3955,13 +4060,15 @@ void menuUpdate(SavedConfig& cfg) {
                 char pick = codePick == CODE_PICK_BACK ? (char)LCD_ARROW_LEFT
                           : codePick == CODE_PICK_END  ? (char)LCD_BLOCK
                           : SCENE_CODE_ALPHABET[codePick];
-                // A full code is checked as its last character is taken, so
+                // The top line says what the two symbols do; a character
+                // needs no word. The code has the bottom line to itself, and
+                // a full code is checked as its last character is taken, so
                 // the pick always has a place.
-                lcdLine(0, "Code:%s%c", codeBuf, pick);
-                if (codePick == CODE_PICK_END)       lcdLine(1, "Click: done");
-                else if (codePick != CODE_PICK_BACK) lcdLine(1, "Click: next");
-                else if (codeLen > 0)                lcdLine(1, "Click: delete");
-                else                                 lcdLine(1, "Click: exit");
+                if (codePick == CODE_PICK_END)       lcdLine(0, "Code: [%c=done]", pick);
+                else if (codePick != CODE_PICK_BACK) lcdLine(0, "Code:");
+                else if (codeLen > 0)                lcdLine(0, "Code: [%c=del]", pick);
+                else                                 lcdLine(0, "Code: [%c=exit]", pick);
+                lcdLine(1, "%s%c", codeBuf, pick);
                 break;
             }
             case MenuState::SceneCodeInvalid:

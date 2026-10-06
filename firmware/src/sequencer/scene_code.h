@@ -9,12 +9,13 @@
 //
 // The code holds built-ins only: each layer's root, octave, scale, voice,
 // shift, Low Note and Wrap, Layer B's Same as A flags, both modes and Layer
-// Turns. Every field is stored relative to its default for the code's
-// version, so a field at its default is zero bits, and trailing zero
-// characters are dropped: a code changing only the roots is 3 characters.
+// Turns, with each layer's turn pattern when it is Custom (version 2). Every
+// field is stored relative to its default for the code's version, so a field
+// at its default is zero bits, and trailing zero characters are dropped: a
+// code changing only the roots is 3 characters.
 // =============================================================================
 
-constexpr uint8_t SCENE_CODE_MAX = 10;   // characters
+constexpr uint8_t SCENE_CODE_MAX = 14;   // characters
 
 // The 32 code characters, most distinct first. A character's position is
 // its 5-bit value.

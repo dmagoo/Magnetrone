@@ -5,7 +5,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 24;
+constexpr uint8_t  EEPROM_VERSION = 25;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -20,11 +20,16 @@ enum class LayerMode : uint8_t {
 
 // Layer B's Layer Turns. Together: both layers play every revolution.
 // Alternate: they take turns, one revolution each, flipping at the start
-// mark; a magnet whose layer is not on turn is not heard.
+// mark; a magnet whose layer is not on turn is not heard. Custom: each layer
+// plays its own turn pattern (LayerCfg::turnLen, turnMask).
 enum class LayerTurns : uint8_t {
     Together,
     Alternate,
+    Custom,
 };
+
+// A turn pattern runs up to 8 revolutions, then repeats.
+constexpr uint8_t TURN_MAX = 8;
 
 constexpr uint8_t LAYER_A     = 0;
 constexpr uint8_t LAYER_B     = 1;
@@ -92,7 +97,42 @@ struct LayerCfg {
     LayerFx   fx;             // added in version 20
     // Scale::Custom's notes, one per track (scale.h). Added in version 23.
     int8_t    custom[CUSTOM_SCALE_SLOTS];
+    // The layer's turn pattern, played while Layer Turns is Custom: a cycle
+    // of turnLen revolutions (1 to TURN_MAX), the layer heard on turn i+1
+    // if bit i of turnMask is set. Bits from turnLen on are kept, unplayed,
+    // so moving the end back brings them back. Added in version 25.
+    uint8_t   turnLen;
+    uint8_t   turnMask;
 };
+
+// The turn pattern layer `l` of a scene's (or the live) pair plays: Layer
+// B's Layer Turns picks it. Together and Alternate are fixed patterns.
+inline void turnPattern(const LayerCfg* layers, uint8_t l, uint8_t& len, uint8_t& mask) {
+    switch (layers[LAYER_B].turns) {
+        case LayerTurns::Custom:
+            len  = (layers[l].turnLen >= 1 && layers[l].turnLen <= TURN_MAX) ? layers[l].turnLen : TURN_MAX;
+            mask = layers[l].turnMask;
+            return;
+        case LayerTurns::Alternate:
+            len  = TURN_MAX;
+            mask = (l == LAYER_A) ? 0x55 : 0xAA;   // A on turns 1, 3, 5, 7
+            return;
+        default:
+            len  = TURN_MAX;
+            mask = 0xFF;
+            return;
+    }
+}
+
+// Whether layer `l` is heard on revolution `rev` (0 = turn 1, counted from
+// the start mark; negative before it).
+inline bool turnHeard(const LayerCfg* layers, uint8_t l, int32_t rev) {
+    uint8_t len, mask;
+    turnPattern(layers, l, len, mask);
+    int32_t t = rev % len;
+    if (t < 0) t += len;
+    return mask & (1u << t);
+}
 
 // A scene: the whole sound of the table, both layers plus the Pitch offset
 // and A/B Balance. Scene 0 is the Defaults scene, the one the Sound Defaults
@@ -211,6 +251,10 @@ struct SavedConfig {
     // soon as it is picked, false waits for the next bar start.
     bool     sceneLoadNow;
 };
+
+// Every cycle length 1 to TURN_MAX divides this many revolutions, so moving
+// the revolution count by it changes no layer's turn.
+constexpr int32_t TURN_CYCLES_LCM = 840;
 
 void storageLoad(SavedConfig& cfg);
 

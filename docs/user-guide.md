@@ -144,6 +144,9 @@ first is not fixed. It works with any Mode: with Stack each turn plays both
 layers' notes, with Same as A the flipped magnets play like Layer A on their
 turn, and with Layer B Off every other revolution is a rest.
 
+For other patterns, such as Layer B only every fourth revolution, or the
+layers on cycles of different lengths, use [Edit Turns](#edit-turns).
+
 ### Placement Mode
 
 **Menu > Tools > Placement Mode** turns the platter into a workbench for placing
@@ -199,9 +202,9 @@ The function list:
 | Entry | What it does |
 |-------|--------------|
 | Pitch | Moves both layers together. |
-| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Edit Scale, Octave, Shift, Low Note, Wrap, Mode, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
+| Layer A, Layer B | Open that layer's own functions: Voice, Voice Edit, Root Note, Scale, Edit Scale, Octave, Shift, Low Note, Wrap, Mode, Edit Turns, and Effects (Tone Cutoff, Delay Mix, Delay Feedback, Reverb Mix). See [Effects](#effects). |
 | A/B Balance | Crossfades between the layers. See [Performance Functions](#performance-functions). |
-| Layer Turns | Together or Alternate: whether the layers take turns by revolution. See [Playing](#playing). |
+| Layer Turns | Together, Alternate or Custom: whether the layers take turns by revolution. See [Playing](#playing) and [Edit Turns](#edit-turns). |
 | Load Scene | Loads a scene at the next bar (or at once, with Scene Load on Now). See [Scenes](#scenes). |
 | Save Scene | Saves the current sound as a [scene](#scenes). |
 | Scene Codes | Get a short code for the current sound, or enter one. See [Scene Codes](#scene-codes). |
@@ -314,6 +317,40 @@ scenes, choose **Save As** at the bottom of the list and pick **Custom 1** to
 into the layer, so changing a saved one later never changes a scene. Saving
 over a used one asks first.
 
+### Edit Turns
+
+**Edit Turns** sets which revolutions a layer is heard on. It is in **Sound
+Defaults > Layer A** (or Layer B), on the Menu knob, and in **Aux > Layer A >
+Edit Turns**, on the Aux knob, to change it live.
+
+The screen shows the layer's turns, one per revolution:
+
+```
+Turns: A    Back
+>1 - - |
+```
+
+A number means the layer's magnets are heard on that turn, `-` that they are
+not. `|` ends the cycle: after the last turn it starts again from turn 1. With
+no `|` the cycle is 8 turns. Above, Layer A plays one revolution in three.
+
+Turn the knob to move the cursor and press to change the turn under it: on,
+off, then the end of the cycle (turn 1 cannot be the end), then on again.
+Pressing the `|`, or a blank turn after it, makes the cycle 8 turns again; the
+turns after the old end come back as they were. **Back** is past turn 8, on
+the top line. Changes are heard at once.
+
+Each layer has its own pattern, and the two cycles can be different lengths:
+Layer A on `1--|` and Layer B on `1-|` gives three against two, repeating
+every 6 revolutions. Turn 1 is the first revolution after the start mark
+passes the arm. A magnet is heard by its own side's pattern: with Stack, a
+normal magnet plays both layers' notes on Layer A's turns.
+
+Changing a turn sets **Layer Turns** to **Custom**, starting from the pattern
+it was playing (Alternate is `1-3-5-7-` for A and `-2-4-6-8` for B). Choosing
+Together or Alternate again keeps the Custom patterns, so choosing Custom
+brings them back. A layer with every turn off is silent, as with Mode Off.
+
 ## Scenes
 
 A scene is the whole sound of the table: both layers (mode, voice, key, octave,
@@ -347,26 +384,29 @@ the table, see [Scene Format](scene-format.md).
 
 ### Scene Codes
 
-A scene code is a short code, up to 10 characters, for the sound you are
+A scene code is a short code, up to 14 characters, for the sound you are
 playing. Enter it on another table, or on this one later, to get the sound
 back. Find it under **Scene Codes** in the Aux function list.
 
 A code holds, for each layer: root, octave, scale, voice, shift, Low Note,
-Wrap and mode, plus Layer B's Same as A settings and Layer Turns. Everything
-else (effects, level, channel, Pitch, A/B Balance) loads as the factory sound.
-The more you have changed, the longer the code: changing only the roots makes
-a 3-character code.
+Wrap and mode, plus Layer B's Same as A settings and Layer Turns, with both
+turn patterns when Layer Turns is Custom. Everything else (effects, level,
+channel, Pitch, A/B Balance) loads as the factory sound. The more you have
+changed, the longer the code: changing only the roots makes a 3-character
+code. Without Custom turns a code is at most 10 characters.
 
 Codes hold the built-in voices and scales only. A Custom voice goes out as the
 built-in it was made from, and a Learned or Custom scale as Major.
 
 - **Get** shows the code for the current sound, Aux changes included.
-- **Enter** builds a code one character at a time. Turn the Aux knob to pick
-  the character at the end of the code and press to take it. Past the
-  characters are `<-` (press to delete the last one) and a block (press when
-  done). A 10-character code is checked as soon as it is complete. If the code
-  is not a valid one, the screen says `Invalid Code`; press to go back and fix
-  it. A valid code shows each layer's key and voice; press to load it.
+- **Enter** builds a code one character at a time, on the bottom line. Turn
+  the Aux knob to pick the character at the end of the code and press to take
+  it. Past the characters are `<-` (press to delete the last one, or to leave
+  when the code is empty) and a block (press when done); the top line says
+  which, such as `Code: [<-=del]`. A 14-character code is checked as soon as
+  it is complete. If the code is not a valid one, the screen says `Invalid
+  Code`; press to go back and fix it. A valid code shows each layer's key and
+  voice; press to load it.
 
 A code loads like a scene, at the next bar or at once with Scene Load on Now.
 It changes only the sound you are playing: the current scene stays, shown with
@@ -437,7 +477,8 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Function    | Where  | Aux | What it does | Default |
 |-------------|--------|-----|--------------|---------|
 | Mode        | Layer  | Yes | On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits. Off silences every magnet that way up. | On |
-| Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
+| Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. Custom: each layer plays its own pattern from Edit Turns. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
+| Edit Turns  | Layer  | Yes | Which revolutions the layer is heard on, in a cycle of up to 8. See [Edit Turns](#edit-turns). | Every turn |
 | Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, Learned (from an older MIDI Scale Learn, kept in scenes saved with it), Custom (one note per track, see [Edit Scale](#edit-scale), or played in from MIDI, see [MIDI In](#midi-in)), or a saved Custom 1 to 8. Drums ignore it. | Major |
@@ -612,6 +653,9 @@ plays both, so each idea below becomes a two-note chord.
   Alternate. The challenge: an arpeggio that climbs the arm on one revolution
   with normal magnets, then carries on an octave higher on the next with
   flipped ones, two octaves over two revolutions.
+- **Fills.** With [Edit Turns](#edit-turns), set Layer B to `---4|`: B's
+  magnets play only every fourth revolution, a fill at the end of each
+  four-bar phrase.
 
 ### With one layer
 

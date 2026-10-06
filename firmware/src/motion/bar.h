@@ -29,9 +29,10 @@ uint32_t barPhase();
 // The same, for the platter at motor position `pos` rather than now.
 uint32_t barPhaseAt(int32_t pos);
 
-// Whether the platter at motor position `pos` is on an odd revolution,
-// counted from the start mark. Counts whether or not the start is known.
-bool     barOddRevAt(int32_t pos);
+// Which revolution the platter at motor position `pos` is on, counted from
+// the start mark: 0 is the first past it, negative before it. Only its value
+// modulo TURN_CYCLES_LCM is kept. Counts whether or not the start is known.
+int32_t  barRevAt(int32_t pos);
 
 // The start mark passed the arm at motor position `pos`.
 void     barSetStart(int32_t pos);

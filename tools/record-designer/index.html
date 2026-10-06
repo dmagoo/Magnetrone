@@ -122,7 +122,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .hear { display: flex; align-items: center; gap: 6px; }
 .hear button:not(.icon) { padding: 3px 10px; font-size: 12px; font-weight: 600; }
 .hear label { margin-left: 4px; }
-.load input { width: 9em; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
+.load input { width: 11em; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
 .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; }
 .groups table { border-collapse: collapse; width: 100%; }
 .groups th, .groups td { text-align: left; padding: 3px 4px; vertical-align: top; }
@@ -130,6 +130,9 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .groups tbody th { font-weight: 500; white-space: nowrap; padding-top: 7px; }
 .groups td select { width: 100%; }
 .groups label { font-size: 12px; display: block; margin-top: 3px; }
+.turns { display: flex; align-items: center; gap: 2px; margin: 2px 0; }
+.turns button { width: 22px; height: 22px; padding: 0; font: 600 12px ui-monospace, Consolas, monospace; }
+.scenefoot { margin-top: 14px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
 .dot.a { background: var(--a); }
 .dot.b { background: var(--b); }
@@ -237,14 +240,14 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
             <label class="small" title="When a scene setting changes, hear that layer's run (not while the grid plays)"><input type="checkbox" id="autoHear"> Auto</label>
           </div>
           <div class="hear">
-            <button id="swapAB" class="icon" title="Swap Layers A and B: Voice, Root, Octave, Scale, Shift, Low Note and Wrap" aria-label="Swap Layers A and B">
+            <button id="swapAB" class="icon" title="Swap Layers A and B: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the turns" aria-label="Swap Layers A and B">
               <svg class="i" viewBox="0 0 24 24"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
             </button>
-            <button id="copyAB" title="Copy Layer A to Layer B: Voice, Root, Octave, Scale, Shift, Low Note and Wrap">A&rarr;B</button>
+            <button id="copyAB" title="Copy Layer A to Layer B: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the turns">A&rarr;B</button>
           </div>
         </div>
         <div class="load">
-          <input id="codeIn" placeholder="Scene Code" maxlength="10" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
+          <input id="codeIn" placeholder="Scene Code" maxlength="14" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
           <button id="codeLoad">Load</button>
           <span id="codeMsg" class="muted small"></span>
         </div>
@@ -253,6 +256,9 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         <div><h3>Sound</h3><table id="gSound"></table></div>
         <div><h3>Arrangement</h3><table id="gArrange"></table></div>
         <div><h3>Layers</h3><table id="gLayers"></table></div>
+      </div>
+      <div class="scenefoot">
+        <button id="resetScene" class="small" title="Every scene setting to the factory values, as with nothing saved. The grid, BPM and template settings stay.">Reset Scene</button>
       </div>
     </section>
   </div>
@@ -322,6 +328,9 @@ const VOICE_NAMES = ["Piano", "Strings", "Leads", "Bass", "Drums", "None"];
 const VOICE_DRUMS = 4, VOICE_NONE = 5;
 const MODE_ON = 0, MODE_OFF = 1, MODE_SAME_AS_A = 2, MODE_STACK = 3;
 const MODE_NAMES  = ["On", "Off", "Same as A", "Stack"];
+const TURNS_TOGETHER = 0, TURNS_ALTERNATE = 1, TURNS_CUSTOM = 2;
+const TURNS_NAMES = ["Together", "Alternate", "Custom"];
+const TURN_MAX = 8;
 
 // firmware/src/sequencer/scale.cpp
 const SCALE_INTERVALS = [
@@ -338,18 +347,38 @@ const SCALE_INTERVALS = [
 const KIT_NAMES = ["Crash", "Low Tom", "High Tom", "Clap", "Open Hat", "Snare", "Kick", "Closed Hat"];
 
 // Factory scene, as Scene Code version 1 pins it (defaults of V1_FIELDS).
+// turnLen and turnMask are each layer's turn pattern (version 2).
 function factoryScene() {
   return {
-    A: { root: 0, octave: 4, scale: 0, voice: 0, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON },
+    A: { root: 0, octave: 4, scale: 0, voice: 0, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
+         turnLen: TURN_MAX, turnMask: 0xFF },
     B: { root: 0, octave: 3, scale: 0, voice: VOICE_DRUMS, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
-         shiftSameAsA: 0, lowNoteSameAsA: 0, turns: 0 },
+         shiftSameAsA: 0, lowNoteSameAsA: 0, turns: TURNS_TOGETHER, turnLen: TURN_MAX, turnMask: 0xFF },
   };
+}
+
+// --- Layer Turns: port of turnPattern() in firmware/src/config/storage.h --------
+// The pattern a layer plays: a cycle of `len` revolutions, heard on turn i+1
+// if bit i of `mask` is set. Layer B's turns picks it.
+function turnPattern(s, l) {
+  const c = l === 0 ? s.A : s.B;
+  if (s.B.turns === TURNS_CUSTOM) {
+    return { len: c.turnLen >= 1 && c.turnLen <= TURN_MAX ? c.turnLen : TURN_MAX, mask: c.turnMask & 0xFF };
+  }
+  if (s.B.turns === TURNS_ALTERNATE) return { len: TURN_MAX, mask: l === 0 ? 0x55 : 0xAA };
+  return { len: TURN_MAX, mask: 0xFF };
+}
+
+// Whether layer `l` is heard on revolution `rev` (0 = turn 1).
+function turnHeard(s, l, rev) {
+  const { len, mask } = turnPattern(s, l);
+  return !!(mask & (1 << (((rev % len) + len) % len)));
 }
 
 // --- Scene Code: port of firmware/src/sequencer/scene_code.cpp ------------------
 const SCENE_CODE_ALPHABET = "AHJLMTWXY347CEFKNPR96DQGUVB8S5Z2";
-const SCENE_CODE_MAX = 10;
-const CODE_VERSION = 1, VERSION_BITS = 4, CHAR_BITS = 5, CODE_BITS = SCENE_CODE_MAX * CHAR_BITS;
+const SCENE_CODE_MAX = 14;
+const VERSION_BITS = 4, CHAR_BITS = 5, CODE_BITS = SCENE_CODE_MAX * CHAR_BITS;
 
 // Version 1, pinned: layer, field, bits, number of values, default (stored as 0).
 const V1_FIELDS = [
@@ -367,6 +396,14 @@ const V1_FIELDS = [
   ["B", "turns", 1, 2, 0],  // Together, Alternate
 ].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
 
+// Version 2, pinned, written when Layer Turns is Custom: version 1 without
+// turns, then each layer's turn pattern.
+const V2_FIELDS = [
+  ...V1_FIELDS.filter((f) => f.key !== "turns").map((f) => [f.layer, f.key, f.bits, f.count, f.def]),
+  ["A", "turnLen", 3, 8, 7], ["A", "turnMask", 8, 256, 255],
+  ["B", "turnLen", 3, 8, 7], ["B", "turnMask", 8, 256, 255],
+].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
+
 const atMost = (v, max) => (v > max ? max : v);
 
 // The value each field holds in the code, as sceneCodeEncode() takes it from the config.
@@ -379,7 +416,9 @@ function codeFieldValue(s, f) {
     case "voice":  return (c.voice | 0) < 6 ? c.voice | 0 : 0;
     case "shift":  return atMost(c.shift | 0, NUM_TRACKS - 1);
     case "mode":   return f.layer === "A" ? (c.mode === MODE_OFF ? 1 : 0) : atMost(c.mode | 0, 3);
-    case "turns":  return c.turns === 1 ? 1 : 0;
+    case "turns":  return c.turns === TURNS_ALTERNATE ? 1 : 0;
+    case "turnLen":  return turnPattern(s, f.layer === "A" ? 0 : 1).len - 1;
+    case "turnMask": return turnPattern(s, f.layer === "A" ? 0 : 1).mask;
     default:       return c[f.key] ? 1 : 0;   // lowNote, wrap, Same as A flags
   }
 }
@@ -390,8 +429,9 @@ function sceneCodeEncode(s) {
     acc |= BigInt(value) << BigInt(CODE_BITS - pos - bits);
     pos += bits;
   };
-  put(CODE_VERSION, VERSION_BITS);
-  for (const f of V1_FIELDS) put((codeFieldValue(s, f) + f.count - f.def) % f.count, f.bits);
+  const custom = s.B.turns === TURNS_CUSTOM;
+  put(custom ? 2 : 1, VERSION_BITS);
+  for (const f of custom ? V2_FIELDS : V1_FIELDS) put((codeFieldValue(s, f) + f.count - f.def) % f.count, f.bits);
 
   let out = "", len = 0;
   for (let i = 0; i < SCENE_CODE_MAX; i++) {
@@ -418,12 +458,17 @@ function sceneCodeDecode(code) {
     pos += bits;
     return v;
   };
-  if (get(VERSION_BITS) !== 1) return null;
+  const version = get(VERSION_BITS);
+  if (version !== 1 && version !== 2) return null;
   const s = factoryScene();
-  for (const f of V1_FIELDS) {
+  for (const f of version === 2 ? V2_FIELDS : V1_FIELDS) {
     const e = get(f.bits);
     if (e >= f.count) return null;
     s[f.layer][f.key] = (e + f.def) % f.count;
+  }
+  if (version === 2) {
+    s.B.turns = TURNS_CUSTOM;
+    s.A.turnLen++; s.B.turnLen++;
   }
   if (pos < CODE_BITS && (acc & ((1n << BigInt(CODE_BITS - pos)) - 1n))) return null;   // padding
   return s;
@@ -474,11 +519,10 @@ function layerNoteFor(s, l, track) {
 }
 
 // Which layers a magnet of this pole plays (0 = A, normal; 1 = B, reversed),
-// and whether it is heard on revolution `rev` (Layer Turns: A on even, B on odd).
+// and whether it is heard on revolution `rev` (Layer Turns, by the pole's layer).
 function layersForPole(s, pole, rev) {
   const stack = s.B.mode === MODE_STACK;
-  const alternate = s.B.turns === 1;
-  if (alternate && rev !== undefined && pole !== (rev % 2)) return [];
+  if (rev !== undefined && !turnHeard(s, pole, rev)) return [];
   return [0, 1].filter((l) => stack || l === pole);
 }
 
@@ -1213,7 +1257,8 @@ const TERMS = {
   "Low Note": "Which end of the arm plays the lowest note: Inner or Outer. On Drums it flips the kit end to end.",
   "Wrap": "With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. Drums always wrap.",
   "Mode": "On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits.",
-  "Layer Turns": "Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn.",
+  "Layer Turns": "Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. Custom: each layer plays its own pattern from Edit Turns.",
+  "Edit Turns": "Each layer's turns, up to 8 revolutions, then it repeats. A number: the layer's magnets are heard on that turn. -: not heard. |: the cycle ends there, so it can be any length; the layers can differ. Click a turn: on, off, end of the cycle (not turn 1). Click the end or past it for 8 turns again. Changing a turn makes Layer Turns Custom, starting from what it was playing.",
   "shiftSameAsA": "Layer B follows Layer A's Shift, and with it A's Wrap.",
   "lowNoteSameAsA": "Layer B follows Layer A's Low Note.",
 };
@@ -1244,6 +1289,17 @@ function renderScene() {
   const LOW_NOTE_NAMES = ["Inner (track 1)", "Outer (track 8)"];
   const num = (l, key, min, max) => cell(l, key, `<input type="number" data-l="${l}" data-k="${key}" min="${min}" max="${max}" value="${s[l][key]}">`);
   const head = `<thead><tr><th></th><th><span class="dot a"></span>Layer A</th><th><span class="dot b"></span>Layer B</th></tr></thead>`;
+  // Edit Turns, as the table shows it: each turn's number, - if silent, |
+  // where the cycle ends, blank after; each a button.
+  const turnStrip = (l) => {
+    const { len, mask } = turnPattern(s, l);
+    let html = `<div class="turns"><span class="dot ${l ? "b" : "a"}"></span>`;
+    for (let i = 0; i < TURN_MAX; i++) {
+      const ch = i < len ? (mask & (1 << i) ? String(i + 1) : "-") : i === len ? "|" : "";
+      html += `<button data-turn="${i}" data-tl="${l}" aria-label="Layer ${l ? "B" : "A"} turn ${i + 1}">${ch}</button>`;
+    }
+    return html + "</div>";
+  };
   const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
 
   $("gSound").innerHTML = head + "<tbody>" +
@@ -1257,7 +1313,8 @@ function renderScene() {
     row("Wrap", sel("A", "wrap", ["No Wrap", "Wrap"]), sel("B", "wrap", ["No Wrap", "Wrap"])) + "</tbody>";
   $("gLayers").innerHTML = head + "<tbody>" +
     row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
-    row("Layer Turns", "<td></td>", sel("B", "turns", ["Together", "Alternate"])) + "</tbody>";
+    row("Layer Turns", "<td></td>", sel("B", "turns", TURNS_NAMES)) +
+    `<tr><th>${term("Edit Turns")}</th><td colspan="2">${turnStrip(0)}${turnStrip(1)}</td></tr>` + "</tbody>";
   $("code").textContent = sceneCodeEncode(s);
 }
 
@@ -1299,9 +1356,43 @@ function copyText(text, msg) {
 
 $("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied"));
 
-// Swap A/B and Copy A to B: the settings both layers have. Mode, Layer B's
-// Same as A flags and Layer Turns stay as they are.
-const SHARED_KEYS = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap"];
+// Edit Turns: a click on turn t of layer l, as the table's Edit Turns does it.
+function turnClick(l, t) {
+  const s = state.scene;
+  if (s.B.turns !== TURNS_CUSTOM) {
+    [s.A, s.B].forEach((c, k) => {
+      const p = turnPattern(s, k);
+      c.turnLen = p.len;
+      c.turnMask = p.mask;
+    });
+    s.B.turns = TURNS_CUSTOM;
+  }
+  const c = l === 0 ? s.A : s.B, bit = 1 << t;
+  if (t >= c.turnLen) { c.turnMask |= bit; c.turnLen = TURN_MAX; }   // the end, or past it
+  else if (c.turnMask & bit) c.turnMask &= ~bit;                      // on: off
+  else if (t > 0) c.turnLen = t;                                      // off: the end
+  else c.turnMask |= bit;                                             // turn 1 cannot end the cycle
+  $("codeMsg").textContent = "";
+  changed();
+}
+$("gLayers").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-turn]");
+  if (b) turnClick(+b.dataset.tl, +b.dataset.turn);
+});
+
+// Reset Scene: every scene setting to the factory values, as with nothing
+// saved. The grid, BPM and template stay.
+$("resetScene").addEventListener("click", () => {
+  if (!confirm("Reset every scene setting to the factory values? The grid, BPM and template settings stay.")) return;
+  state.scene = factoryScene();
+  $("codeMsg").textContent = "";
+  changed();
+});
+
+// Swap A/B and Copy A to B: the settings both layers have, the turn
+// patterns included. Mode, Layer B's Same as A flags and Layer Turns stay as
+// they are.
+const SHARED_KEYS = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap", "turnLen", "turnMask"];
 $("swapAB").addEventListener("click", () => {
   const { A, B } = state.scene;
   for (const k of SHARED_KEYS) [A[k], B[k]] = [B[k], A[k]];
@@ -1772,7 +1863,8 @@ function placeBand() {
   const gaps = state.subdiv > 1 ? Math.floor(cursor / state.subdiv) : 0;
   band.style.gridColumn = `${2 + cursor + gaps} / span 1`;
   band.hidden = false;
-  $("turn").textContent = state.scene.B.turns === 1 ? `Turn: Layer ${((cursorRev % 2) + 2) % 2 ? "B" : "A"}` : "";
+  const heard = ["A", "B"].filter((n, l) => turnHeard(state.scene, l, cursorRev));
+  $("turn").textContent = state.scene.B.turns === TURNS_TOGETHER ? "" : `Turn: ${heard.length ? heard.join(" + ") : "none"}`;
 }
 
 function showPlayhead(s, r) {

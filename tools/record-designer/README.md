@@ -45,7 +45,7 @@ theme: Auto (follows your system), Light or Dark.
 
 The Scene Code fields, grouped as Sound (voice, root, octave, scale),
 Arrangement (shift, Low Note, Wrap, Layer B's Same as A settings) and
-Layers (modes, Layer Turns). Settings that have no effect right now (a Drums
+Layers (modes, Layer Turns, Edit Turns). Settings that have no effect right now (a Drums
 layer's root, a layer that is Off, Layer B on Same as A) are greyed out but
 stay editable, since the code still holds them; hover one to see why.
 Hover a setting's name (dotted underline) for what it does. Each Shift
@@ -60,11 +60,23 @@ plays the changed layer's run, unless the grid is playing.
 
 Beside it, the swap button (two arrows) swaps Layers A and B, and **A→B**
 copies Layer A to Layer B, leaving A as it is. Both cover the settings the
-two layers share: Voice, Root, Octave, Scale, Shift, Low Note and Wrap.
-Mode, Layer B's Same as A boxes and Layer Turns stay as they are.
+two layers share: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the
+turn patterns. Mode, Layer B's Same as A boxes and Layer Turns stay as they
+are.
+
+**Edit Turns** shows each layer's turns as the table does: a turn's number
+if the layer's magnets are heard on that revolution, - if not, | where the
+cycle ends (8 turns without one). Click a turn to change it: on, off, the
+end of the cycle (not turn 1), on again. Clicking the | or past it makes the
+cycle 8 turns again. Changing a turn sets Layer Turns to Custom, starting
+from what it was playing; Together and Alternate keep the Custom patterns.
+
+**Reset Scene**, under the settings, sets every scene setting to the factory
+values, as with nothing saved (asks first). The grid, BPM and template
+settings stay.
 
 The code shows beside Play, with a copy button, and updates as you change
-the settings. A code can be loaded back. Enter the
+the settings. It is up to 10 characters, or 14 with Layer Turns on Custom. A code can be loaded back. Enter the
 code on the table under Aux > Scene Codes > Enter. Beats/Rev is not in the
 code; set it on the table under Menu > Play Setup > Beats/Rev.
 
@@ -74,8 +86,9 @@ Plays the grid at the BPM given, with the table's note mapping (scale
 degree, Shift, Wrap, Low Note, Same as A, Stack, Off, Layer Turns, the drum
 kit). The RPM that BPM means on the table is shown beside it; BPM is kept
 within the table's 1 to 120 RPM at the current Beats/Rev. The sounds are
-approximations of the table's voices. With Layer Turns on Alternate, Layer
-A plays the first revolution.
+approximations of the table's voices. Turn 1 of Layer Turns is the first
+revolution, and beside BPM the layers heard on the current revolution are
+shown ("Turn: A + B") unless Layer Turns is Together.
 
 - Play / Pause (Space). Pause keeps the position; Play goes on from there.
 - To start (Home) moves the position back to step 1.

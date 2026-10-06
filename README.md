@@ -22,7 +22,8 @@ turning physical arrangement into musical pattern.
   scenes)
 - Two magnet layers: a magnet's normal pole plays Layer A, its reversed pole Layer B
   (or both, with Layer B's Mode on Stack, or taking turns by revolution, with
-  Layer Turns on Alternate),
+  Layer Turns on Alternate, or each on its own Edit Turns pattern of up to 8
+  revolutions),
   each with its own voice, MIDI channel, root note, scale, octave, level, Track
   Shift, Wrap and Low Note
 - Per-layer effects, in a fixed chain: Tone (low-pass Cutoff and Resonance),
@@ -54,9 +55,9 @@ turning physical arrangement into musical pattern.
   only, on top of the current scene. Read-only demo scenes are built into the
   firmware from JSON files (docs/scene-format.md), and a `scenes` serial
   command prints the saved scenes in that format
-- Scene Codes (Aux > Scene Codes): a code of up to 10 characters for the
+- Scene Codes (Aux > Scene Codes): a code of up to 14 characters for the
   current sound's main settings (each layer's root, octave, scale, voice,
-  shift, Low Note, Wrap and mode, plus Layer Turns), to enter on another
+  shift, Low Note, Wrap and mode, plus Layer Turns and the turn patterns), to enter on another
   table or after a firmware update. Fields at their defaults cost nothing, so
   a code changing only the roots is 3 characters
 - [Record Designer](https://dmagoo.github.io/Magnetrone/tools/record-designer/) (`tools/record-designer/`): a

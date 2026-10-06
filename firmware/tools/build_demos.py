@@ -29,7 +29,8 @@ MODES = {"on": "On", "off": "Off", "sameasa": "SameAsA", "stack": "Stack"}
 WAVES = ["sine", "triangle", "saw", "square"]
 WAVE_ENUM = ["Sine", "Triangle", "Saw", "Square"]
 LOW_NOTES = {"inner": "Inner", "outer": "Outer"}
-TURNS = {"together": "Together", "alternate": "Alternate"}
+TURNS = {"together": "Together", "alternate": "Alternate", "custom": "Custom"}
+TURN_MAX = 8
 DELAY_MODES = {"sync": "Sync", "free": "Free"}
 # Order is the stored position, as SYNC_TIMES in layers.cpp.
 SYNC_TIMES = ["1", "1/2", "3/8", "1/3", "1/4", "1/5", "1/6", "3/16", "1/8",
@@ -174,10 +175,31 @@ def fx_code(path, key, fx, is_b, out, tgt):
             out.append("%s.reverbMix = %d;" % (t, pct(path + ".mix", fx["mix"], off_at=0)))
 
 
+def turn_pattern(path, p):
+    """A turn pattern as Edit Turns shows it ("1-3-5-7-", "1--|"): turn n's
+    number if the layer plays it, - if not, then | where the cycle ends
+    (left out for 8 turns). Returns (length, mask)."""
+    if not isinstance(p, str):
+        fail(path, "must be a string such as \"1-3|\"")
+    body = p[:-1] if p.endswith("|") else p
+    if not 1 <= len(body) <= TURN_MAX or (len(body) == TURN_MAX and p.endswith("|")):
+        fail(path, "must be 1 to %d turns, with | after fewer than %d" % (TURN_MAX, TURN_MAX))
+    if not p.endswith("|") and len(body) != TURN_MAX:
+        fail(path, "fewer than %d turns must end in |" % TURN_MAX)
+    mask = 0
+    for i, ch in enumerate(body):
+        if ch == str(i + 1):
+            mask |= 1 << i
+        elif ch != "-":
+            fail(path, "turn %d must be %d or -" % (i + 1, i + 1))
+    return len(body), mask
+
+
 def layer_code(path, lay, l, out):
     is_b = l == 1
     keys = {"mode", "voice", "sceneVoice", "channel", "root", "scale", "learned", "custom",
-            "octave", "level", "shift", "wrap", "lowNote", "tone", "chorus", "delay", "reverb"}
+            "octave", "level", "shift", "wrap", "lowNote", "turnPattern", "tone", "chorus",
+            "delay", "reverb"}
     if is_b:
         keys |= {"shiftSameAsA", "lowNoteSameAsA", "turns"}
     check_keys(path, lay, keys)
@@ -244,6 +266,10 @@ def layer_code(path, lay, l, out):
     if "turns" in lay:
         n = name(path + ".turns", lay["turns"], TURNS)
         out.append("%s.turns = LayerTurns::%s;" % (t, TURNS[n]))
+    if "turnPattern" in lay:
+        length, mask = turn_pattern(path + ".turnPattern", lay["turnPattern"])
+        out.append("%s.turnLen = %d;" % (t, length))
+        out.append("%s.turnMask = 0x%02X;" % (t, mask))
     for key in ("tone", "chorus", "delay", "reverb"):
         if key in lay:
             fx_code(path + "." + key, key, lay[key], is_b, out, t)

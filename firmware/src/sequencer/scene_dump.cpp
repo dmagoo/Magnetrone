@@ -158,8 +158,21 @@ static Obj layerObj(const LayerCfg& a, const LayerCfg& f, const VoiceSlot& sv,
     if (isB && a.shiftSameAsA != f.shiftSameAsA) o.flag("shiftSameAsA", a.shiftSameAsA);
     if (a.lowNote != f.lowNote) o.str("lowNote", a.lowNote == (uint8_t)LowNote::Outer ? "outer" : "inner");
     if (isB && a.lowNoteSameAsA != f.lowNoteSameAsA) o.flag("lowNoteSameAsA", a.lowNoteSameAsA);
-    if (isB && a.turns != f.turns)
-        o.str("turns", a.turns == LayerTurns::Alternate ? "alternate" : "together");
+    if (isB && a.turns != f.turns) {
+        static const char* const TURNS_KEYS[] = { "together", "alternate", "custom" };
+        o.str("turns", pick(TURNS_KEYS, 3, (uint8_t)a.turns));
+    }
+    if (a.turnLen != f.turnLen || a.turnMask != f.turnMask) {
+        // As the Edit Turns screen shows it: the turn's number or - if
+        // silent, then | if the cycle ends before turn 8.
+        char p[TURN_MAX + 2];
+        uint8_t n = (a.turnLen >= 1 && a.turnLen <= TURN_MAX) ? a.turnLen : TURN_MAX;
+        uint8_t i = 0;
+        for (; i < n; i++) p[i] = (a.turnMask & (1u << i)) ? (char)('1' + i) : '-';
+        if (n < TURN_MAX) p[i++] = '|';
+        p[i] = '\0';
+        o.str("turnPattern", p);
+    }
 
     const LayerFx& x = a.fx;
     const LayerFx& y = f.fx;

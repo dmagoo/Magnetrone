@@ -57,7 +57,8 @@ each layer's main settings, not effects, levels or custom voices.
 | `shiftSameAsA` | Layer B only: play A's Shift and Wrap. |
 | `lowNote` | `inner` or `outer`. |
 | `lowNoteSameAsA` | Layer B only: play A's Low Note. |
-| `turns` | Layer B only: Layer Turns, `together` or `alternate`. |
+| `turns` | Layer B only: Layer Turns, `together`, `alternate` or `custom`. |
+| `turnPattern` | The layer's turns (Edit Turns), played while Layer B's `turns` is `custom`: as the table shows them, turn n's number if the layer plays it, `-` if not, then `\|` where the cycle ends if it is shorter than 8, such as `"1-3-5-7-"` or `"1--\|"`. Factory `"12345678"`. |
 | `tone`, `chorus`, `delay`, `reverb` | The layer's effects, below. |
 
 ## Effects
