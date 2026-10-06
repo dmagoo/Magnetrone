@@ -31,7 +31,8 @@ current scene, the key and the volume, and every menu leads back to it.
 Speed and Volume work from any screen, and touching either one returns to the
 home screen. Menus also return to the home screen after a while untouched
 (Menu Timeout, 30 seconds by default). Calibration and reset questions are the
-exception: they stay on screen until answered.
+exception: they stay on screen until answered. So does entering a Scene Code,
+so a code half entered is not lost.
 
 In this guide, **Menu >** paths start at the main menu and **Aux >** paths
 start at the Aux function list.
@@ -401,12 +402,13 @@ built-in it was made from, and a Learned or Custom scale as Major.
 - **Get** shows the code for the current sound, Aux changes included.
 - **Enter** builds a code one character at a time, on the bottom line. Turn
   the Aux knob to pick the character at the end of the code and press to take
-  it. Past the characters are `<-` (press to delete the last one, or to leave
+  it. The characters run A to Z, then 2 to 9 (codes have no I, O, 0 or 1).
+  Speed and Volume work as usual without leaving the screen. Past the characters are `<-` (press to delete the last one, or to leave
   when the code is empty) and a block (press when done); the top line says
   which, such as `Code: [<-=del]`. A 14-character code is checked as soon as
   it is complete. If the code is not a valid one, the screen says `Invalid
-  Code`; press to go back and fix it. A valid code shows each layer's key and
-  voice; press to load it.
+  Code`; press to go back and fix it. A valid code loads as soon as it is
+  done, and the screen shows each layer's key and voice; press to close it.
 
 A code loads like a scene, at the next bar or at once with Scene Load on Now.
 It changes only the sound you are playing: the current scene stays, shown with

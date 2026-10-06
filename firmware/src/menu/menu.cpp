@@ -82,7 +82,7 @@ enum class MenuState : uint8_t {
     SceneCodeGet,     //   the live sound's code
     SceneCodeEnter,   //   enter a code, a character at a time
     SceneCodeInvalid, //   the code entered is not one
-    SceneCodePreview, //   what a valid code holds; click loads it
+    SceneCodePreview, //   what the code just loaded holds; click closes
     CalClearPrompt,     // calibration step 1: clear the platter
     CalSampling,        //   blocking: baselines
     CalMagnetPrompt,    // calibration step 2: one magnet on the start mark
@@ -713,6 +713,10 @@ static const uint8_t SAVE_COUNT = NUM_SCENES;   // 8 slots + Back
 static const char*   CODE_MENU_ITEMS[] = { "Get","Enter","Back" };
 static const uint8_t CODE_MENU_COUNT = 3;
 enum : uint8_t { CODE_MENU_GET, CODE_MENU_ENTER };
+// The characters in the order the knob turns through them: A to Z, then 2
+// to 9, so a character is easy to find. The code's own order (most distinct
+// first, SCENE_CODE_ALPHABET) only sets each character's value.
+static const char    CODE_PICK_ORDER[33] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 static const uint8_t CODE_PICK_BACK = 32;
 static const uint8_t CODE_PICK_END  = 33;
 static const uint8_t CODE_PICKS     = 34;
@@ -725,7 +729,7 @@ static Scene   codeScene;                     // what the entered code holds
 static void codeUntake() {
     if (codeLen == 0) { codePick = 0; return; }
     codeLen--;
-    codePick = (uint8_t)(strchr(SCENE_CODE_ALPHABET, codeBuf[codeLen]) - SCENE_CODE_ALPHABET);
+    codePick = (uint8_t)(strchr(CODE_PICK_ORDER, codeBuf[codeLen]) - CODE_PICK_ORDER);
     codeBuf[codeLen] = '\0';
 }
 
@@ -2341,9 +2345,13 @@ void menuUpdate(SavedConfig& cfg) {
     // the live display back from the menus and the Aux screens. Any menu or
     // aux input in the same pass is dropped, since it was aimed at the screen
     // that just closed.
+    // Entering a Scene Code is the exception: closing it would lose a code
+    // entered a character at a time, so the knobs act and the screen stays.
     bool liveKnob = ev.speedDelta != 0 || ev.speedPressed ||
                     ev.volumeDelta != 0 || ev.volumePressed;
-    if (liveKnob && state != MenuState::Status && !isPrompt) {
+    bool codeEntry = state == MenuState::SceneCodeEnter ||
+                     state == MenuState::SceneCodeInvalid;
+    if (liveKnob && state != MenuState::Status && !isPrompt && !codeEntry) {
         enterState(MenuState::Status);
         ev.menuDelta = 0;  ev.menuPressed = false;
         ev.auxDelta  = 0;  ev.auxPressed  = false;
@@ -2716,14 +2724,19 @@ void menuUpdate(SavedConfig& cfg) {
             } else if (codePick == CODE_PICK_END) {
                 check = true;
             } else {
-                codeBuf[codeLen++] = SCENE_CODE_ALPHABET[codePick];
+                codeBuf[codeLen++] = CODE_PICK_ORDER[codePick];
                 codeBuf[codeLen]   = '\0';
                 check = (codeLen == SCENE_CODE_MAX);
             }
             needsRedraw = true;
             if (check) {
-                if (sceneCodeDecode(codeBuf, codeScene)) enterState(MenuState::SceneCodePreview);
-                else                                     enterState(MenuState::SceneCodeInvalid);
+                // A valid code loads at once; the preview only shows what loaded.
+                if (sceneCodeDecode(codeBuf, codeScene)) {
+                    sceneQueueCode(cfg, codeScene);
+                    enterState(MenuState::SceneCodePreview);
+                } else {
+                    enterState(MenuState::SceneCodeInvalid);
+                }
             }
             break;
         }
@@ -2737,11 +2750,7 @@ void menuUpdate(SavedConfig& cfg) {
             break;
 
         case MenuState::SceneCodePreview:
-            if (ev.menuPressed) { enterState(MenuState::Status); break; }
-            if (ev.auxPressed) {
-                sceneQueueCode(cfg, codeScene);
-                enterState(MenuState::Status);
-            }
+            if (ev.menuPressed || ev.auxPressed) enterState(MenuState::Status);
             break;
 
         case MenuState::AuxParam:
@@ -4059,7 +4068,7 @@ void menuUpdate(SavedConfig& cfg) {
             case MenuState::SceneCodeEnter: {
                 char pick = codePick == CODE_PICK_BACK ? (char)LCD_ARROW_LEFT
                           : codePick == CODE_PICK_END  ? (char)LCD_BLOCK
-                          : SCENE_CODE_ALPHABET[codePick];
+                          : CODE_PICK_ORDER[codePick];
                 // The top line says what the two symbols do; a character
                 // needs no word. The code has the bottom line to itself, and
                 // a full code is checked as its last character is taken, so
@@ -4076,7 +4085,7 @@ void menuUpdate(SavedConfig& cfg) {
                 lcdLine(1, "Click: fix it");
                 break;
             case MenuState::SceneCodePreview:
-                // Each layer's key and voice; click loads.
+                // Each layer's key and voice, as loaded; a click closes.
                 for (uint8_t l = 0; l < NUM_LAYERS; l++) {
                     const LayerCfg& c = codeScene.layer[l];
                     char name = l == LAYER_A ? 'A' : 'B';

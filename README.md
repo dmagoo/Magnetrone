@@ -73,7 +73,8 @@ turning physical arrangement into musical pattern.
   set the effects
 - LCD menu: Sound Defaults (both layers), Play Setup, System and Tools
 - Speed and volume adjustable live at any time via dedicated encoders; touching
-  either one returns to the home screen from any menu (prompts excepted).
+  either one returns to the home screen from any menu (prompts and Scene
+  Code entry excepted).
   From a stop, turning Speed starts from zero in the turned direction; a
   press resumes the last speed
 - Aux knob changes one bound function live (Pitch, A/B Balance, Layer Turns, Load Scene,
