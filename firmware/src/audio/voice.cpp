@@ -7,16 +7,20 @@
 // on the high octaves. Auto channels: Piano 1, Bass 2, Strings 3, Leads 4; Drums
 // take 10, per General MIDI. Drums ignore waveform and envelope (the drum bank has
 // its own per-drum sounds); its note length only times the MIDI Note Off.
-// Every built-in starts with its filter Off. The envelope values are where
-// Voice Edit starts from once the cutoff comes down.
-static constexpr VoiceFilter FILTER_OFF = { VOICE_FILTER_OFF, 0, 0, 50, 5, 300, 300 };
+// Piano, Drums and None have their filter Off. Strings, Leads and Bass, the
+// saw and square voices, have a fixed low-pass at 63% (about 3 kHz, as the
+// Record Designer plays them), which takes the edge off; agreed 2026-10-06
+// by ear. The envelope values are where Voice Edit starts from (Amount 0
+// leaves the cutoff fixed).
+static constexpr VoiceFilter FILTER_OFF  = { VOICE_FILTER_OFF, 0, 0, 50, 5, 300, 300 };
+static constexpr VoiceFilter FILTER_SOFT = { 63, 0, 0, 50, 5, 300, 300 };
 
 static const Voice VOICES[VOICE_COUNT] = {
     //  name       waveform                      A    D    S      R    note  ch  source              harmonics   filter
     { "Piano",   WAVEFORM_TRIANGLE,             5, 400, 0.2f, 400, 250,  1, NoteSource::Scale,  {}, false, FILTER_OFF },
-    { "Strings", WAVEFORM_BANDLIMIT_SAWTOOTH, 150, 100, 0.8f, 600, 800,  3, NoteSource::Scale,  {}, false, FILTER_OFF },
-    { "Leads",   WAVEFORM_BANDLIMIT_SQUARE,     5, 100, 0.7f, 150, 200,  4, NoteSource::Scale,  {}, false, FILTER_OFF },
-    { "Bass",    WAVEFORM_BANDLIMIT_SAWTOOTH,   5, 150, 0.5f, 100, 250,  2, NoteSource::Scale,  {}, false, FILTER_OFF },
+    { "Strings", WAVEFORM_BANDLIMIT_SAWTOOTH, 150, 100, 0.8f, 600, 800,  3, NoteSource::Scale,  {}, false, FILTER_SOFT },
+    { "Leads",   WAVEFORM_BANDLIMIT_SQUARE,     5, 100, 0.7f, 150, 200,  4, NoteSource::Scale,  {}, false, FILTER_SOFT },
+    { "Bass",    WAVEFORM_BANDLIMIT_SAWTOOTH,   5, 150, 0.5f, 100, 250,  2, NoteSource::Scale,  {}, false, FILTER_SOFT },
     { "Drums",   WAVEFORM_SINE,                 0,   0, 0.0f,   0,  50, 10, NoteSource::Kit,    {}, false, FILTER_OFF },
     { "None",    WAVEFORM_SINE,                 0,   0, 0.0f,   0,   0,  1, NoteSource::Silent, {}, false, FILTER_OFF },
 };

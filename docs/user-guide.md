@@ -546,6 +546,9 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Drums   | Drum kit, one drum per track | 10               |
 | None    | Silent                    | -                   |
 
+Strings, Leads and Bass have their filter at Cutoff 63% (about 3 kHz), which
+softens their edge; Piano's is Off. Voice Edit > Filter starts from these.
+
 Custom voices and Scene Voices (see [Voice Edit](#voice-edit)) use the MIDI
 channel of the voice they were made from.
 

@@ -139,8 +139,7 @@ size, no fit to page) and check the 100 mm scale bar.
 | Blue `#0000FF` | Score: track rings, start mark, the A/B mark beside each hole, Scene Code and Beats/Rev, song name |
 | Black | Labels and scale bar, below the record. Not part of the record. |
 
-All lines are hairlines (0.001 in). The start mark is at the bottom (6:00),
-toward you, as the platter sits in Placement Mode with the mark at Front.
+All lines are hairlines (0.001 in). The start mark is at the top.
 
 - Track rings are broken around every hole, with a gap 1 mm wider than the
   hole, so they never cross one. A ring with no holes is a whole circle.
@@ -150,8 +149,8 @@ toward you, as the platter sits in Placement Mode with the mark at Front.
 - The Scene Code and Beats/Rev ("J  4 BEATS/REV") are 5 mm tall along a
   track ring, centered in the longest stretch with no magnets, outer tracks
   first; the ring is broken under them. Without room at 5 mm they are 3 mm;
-  without room at 3 mm they fall back to 1.5 mm along the outer edge at the
-  top, and the Template view says so. Leaving a few steps in a row free on one track
+  without room at 3 mm they fall back to 1.5 mm along the outer edge, and
+  the Template view says so. Leaving a few steps in a row free on one track
   (outer tracks need the fewest) keeps them readable.
 - **Platter marks** (Template settings: Off, 10, 12 or 16, default 16): 5 mm ticks
   across every ring, evenly spaced from the start mark, like the marks on a

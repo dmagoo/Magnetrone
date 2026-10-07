@@ -655,16 +655,12 @@ const MARK_ROOM_MM = 1.2;
 const PLATTER_MARK_MM = 5;
 // Code text heights to try on a ring, largest first, before the edge band.
 const CODE_TEXT_MM = [5, 3];
-// The start mark is at the bottom (6:00), toward you, as the platter sits in
-// Placement Mode with the mark at Front. Screen angles: y down, so clockwise
-// is increasing and the bottom is +90 degrees.
-const START_ANGLE = Math.PI / 2;
 function stepAngle(step, steps, forward) {
   // A platter turning clockwise (seen from above) carries the template past a
   // fixed arm in counterclockwise order, and the other way round. Step 1 is at
-  // the start mark.
+  // the top. Screen angles: y down, so clockwise is increasing.
   const dir = forward === "cw" ? -1 : 1;
-  return START_ANGLE + dir * 2 * Math.PI * step / steps;
+  return -Math.PI / 2 + dir * 2 * Math.PI * step / steps;
 }
 
 function templateModel(d) {
@@ -726,11 +722,11 @@ function templateModel(d) {
     }
   }
 
-  // The band outside the outer ring of holes holds the start mark (bottom).
+  // The band outside the outer ring of holes holds the start mark (top).
   const bandIn = TRACK_RADIUS_MM[NUM_TRACKS - 1] + clearanceMm(hole) / 2 + 0.3;
   const bandOut = R - 0.4;
-  const half = 1.5 / R;
-  path([polar(START_ANGLE, bandIn), polar(START_ANGLE - half, R), polar(START_ANGLE + half, R)], COLOR_SCORE, true);
+  const top = -Math.PI / 2, half = 1.5 / R;
+  path([polar(top, bandIn), polar(top - half, R), polar(top + half, R)], COLOR_SCORE, true);
 
   // Hole angles per track, for the ring gaps and the code text.
   const holeAngles = Array.from({ length: NUM_TRACKS }, (_, t) =>
@@ -772,12 +768,11 @@ function templateModel(d) {
       : (u, v) => polar(spot.center + (u - tw / 2) / r, r - th / 2 + v);
     for (const p of textPaths(text, th, map)) path(p, COLOR_SCORE);
   };
-  // The outer band's fallback text, 1.5 mm or so, centered at the top,
-  // opposite the start mark, upright: its tops toward the edge.
+  // The outer band's fallback text, 1.5 mm or so, centered at the bottom.
   const scoreOnEdge = (text) => {
     const th = Math.min(2.5, Math.max(bandOut - bandIn, 0.8));
-    const tw = textWidth(text, th), base = bandOut - th;
-    for (const p of textPaths(text, th, (u, v) => polar(-Math.PI / 2 + (u - tw / 2) / base, base + v))) {
+    const tw = textWidth(text, th);
+    for (const p of textPaths(text, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
       path(p, COLOR_SCORE);
     }
   };
@@ -817,7 +812,7 @@ function templateModel(d) {
   // hole (and its A/B mark) or across text on its ring is left out.
   const marks = d.marks || 0;
   for (let k = 0; k < marks; k++) {
-    const a = START_ANGLE + k * TAU / marks;
+    const a = -Math.PI / 2 + k * TAU / marks;
     for (let t = 0; t < NUM_TRACKS; t++) {
       const r = TRACK_RADIUS_MM[t];
       const near = (b) => Math.abs((((a - b) % TAU) + TAU + Math.PI) % TAU - Math.PI);   // angle apart
@@ -1722,7 +1717,7 @@ function playTone(note, voice, t, key, dest = bus, noteMs = null) {
   let node = osc;
   if (v.wave !== "triangle") {
     const lp = ac.createBiquadFilter();
-    lp.type = "lowpass"; lp.frequency.value = 3000;
+    lp.type = "lowpass"; lp.frequency.value = 3000;   // the table's built-in voice filter, Cutoff 63%
     osc.connect(lp); node = lp;
   }
   node.connect(env); env.connect(cut); cut.connect(dest);
