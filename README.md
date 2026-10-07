@@ -26,7 +26,8 @@ turning physical arrangement into musical pattern.
   Layer Turns on Alternate, or each on its own Edit Turns pattern of up to 8
   revolutions),
   each with its own voice, MIDI channel, root note, scale, octave, level, Track
-  Shift, Wrap and Low Note
+  Shift, Wrap and Low Note (Layer B can follow A's root, scale, shift and Low
+  Note one by one; root and scale follow by default)
 - Per-layer effects, in a fixed chain: Tone (low-pass Cutoff and Resonance),
   Chorus (Rate, Depth, Mix), Delay (Sync to the beat or Free in ms, up to
   2.4 s, Feedback up to 90%, Mix) and Reverb (Room Size, Damping, Mix). Saved

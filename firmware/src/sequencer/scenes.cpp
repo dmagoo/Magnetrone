@@ -199,6 +199,7 @@ static bool layerEqual(const LayerCfg& a, const LayerCfg& b) {
            a.shiftSameAsA == b.shiftSameAsA && a.lowNote == b.lowNote &&
            a.lowNoteSameAsA == b.lowNoteSameAsA && a.turns == b.turns &&
            a.turnLen == b.turnLen && a.turnMask == b.turnMask &&
+           a.rootSameAsA == b.rootSameAsA && a.scaleSameAsA == b.scaleSameAsA &&
            fxEqual(a.fx, b.fx);
 }
 

@@ -95,11 +95,19 @@ bool layerActive(const SavedConfig& cfg, uint8_t layer) {
     return m == LayerMode::On || m == LayerMode::Stack;
 }
 
-const LayerCfg& layerEffective(const SavedConfig& cfg, uint8_t layer) {
-    if (layer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
-        return cfg.layer[LAYER_A];
+LayerCfg layerEffective(const SavedConfig& cfg, uint8_t layer) {
+    if (layer != LAYER_B) return cfg.layer[layer];
+    const LayerCfg& a = cfg.layer[LAYER_A];
+    const LayerCfg& b = cfg.layer[LAYER_B];
+    if (b.mode == LayerMode::SameAsA) return a;
+    LayerCfg e = b;
+    if (b.rootSameAsA) e.root = a.root;
+    if (b.scaleSameAsA) {
+        e.scale   = a.scale;
+        e.learned = a.learned;
+        memcpy(e.custom, a.custom, CUSTOM_SCALE_SLOTS);
     }
-    return cfg.layer[layer];
+    return e;
 }
 
 const Voice& layerVoice(const SavedConfig& cfg, uint8_t layer) {

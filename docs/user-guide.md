@@ -488,8 +488,8 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. Custom: each layer plays its own pattern from Edit Turns. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
 | Edit Turns  | Layer  | Yes | Which revolutions the layer is heard on, in a cycle of up to 8. See [Edit Turns](#edit-turns). | Every turn |
 | Voice       | Layer  | Yes | Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
-| Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
-| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, Learned (from an older MIDI Scale Learn, kept in scenes saved with it), Custom (one note per track, see [Edit Scale](#edit-scale), or played in from MIDI, see [MIDI In](#midi-in)), or a saved Custom 1 to 8. Drums ignore it. | Major |
+| Root Note   | Layer  | Yes | Key of the scale. On Layer B, Same as A follows A's root (picking a note sets B's own). Drums ignore it. | C; B: Same as A |
+| Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, Learned (from an older MIDI Scale Learn, kept in scenes saved with it), Custom (one note per track, see [Edit Scale](#edit-scale), or played in from MIDI, see [MIDI In](#midi-in)), or a saved Custom 1 to 8. On Layer B, Same as A follows A's scale, its Custom and Learned notes included (picking a scale sets B's own). Drums ignore it. | Major; B: Same as A |
 | Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
 | Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. On Layer B, Same as A follows A's shift. On Drums it moves each drum to another track. | 0 |
 | Wrap        | Layer  | Yes | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
@@ -502,7 +502,12 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 
 When Layer B is on **Same as A**, the Aux knob shows **Layer B is Same as A**
 instead of changing B's settings. Mode is the exception, so you can switch B
-back from the Aux.
+back from the Aux. The same goes for a single setting B follows: with B's Root
+on Same as A, Aux > Layer B > Root shows **B Root is Same as A** (likewise
+Scale, Shift and Low Note); pick a value for it in **Sound Defaults > Layer
+B** to set B's own. Out of the box, B's Root and Scale follow A, so changing
+Layer A's key moves both layers. Edit Scale on Layer B waits the same way
+while B's Scale follows A.
 
 Mode on the Aux is also the way to give a saved scene Stack: load the scene,
 set Layer B's Mode to Stack on the Aux, then choose **Save Scene**.
@@ -537,7 +542,7 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 | Machine Info    | Tools | Read-only pages, turned through with the Menu knob: RPM, belt ratio, StartPos (and where the platter is in the bar now), threshold, and whether the motor driver is answering. | - |
 | Sensor Levels   | Tools | Live reading of all 8 sensors, 1 to 4 on top and 5 to 8 below: which way each is pushed (+ or -) and by how much. Pass a magnet over a track to see its sensor respond. | - |
 | Sensor Timing   | Tools | One sensor per page, turned through with the Menu knob. Notes play when a magnet is centered on its sensor, and each sensor learns how far the platter turns from first sensing the magnet to its center. Top line: the sensor, how many of the last 8 passes it has learned from, **F** (how many of those had no clear center: a magnet too strong, too weak, or at the wrong height), and that angle. Bottom line: **Pk**, the last pass's strongest reading; **N**, the sensor's resting noise from calibration; **S**, how many readings the last pass lasted. Relearned every power-up, after a few turns. | - |
-| Track Notes     | Tools | What each track plays right now, Layer A on the top line and Layer B below, inner track on the left, two characters per track (`C D E F G A B C`). Includes everything that moves the notes: root, scale, octave, Pitch, Shift, Wrap and Low Note. Sharps or flats follow the key (D Minor shows Bb); Chromatic, Learned and Custom scales use sharps. Drums show a letter per drum: **X** crash, **t** low tom, **T** high tom, **C** clap, **O** open hat, **S** snare, **K** kick, **H** closed hat. Turn the Menu knob for more screens: each layer's key (`A: G Blues`), its Shift and Wrap (`A: Shift1 Wrap`; drums show `Kit`), and its Low Note (`A: Low Inner`). On Layer B, `=A` means it follows Layer A's setting. | - |
+| Track Notes     | Tools | What each track plays right now, Layer A on the top line and Layer B below, inner track on the left, two characters per track (`C D E F G A B C`). Includes everything that moves the notes: root, scale, octave, Pitch, Shift, Wrap and Low Note. Sharps or flats follow the key (D Minor shows Bb); Chromatic, Learned and Custom scales use sharps. Drums show a letter per drum: **X** crash, **t** low tom, **T** high tom, **C** clap, **O** open hat, **S** snare, **K** kick, **H** closed hat. Turn the Menu knob for more screens: each layer's key (`A: G Blues`), its Shift and Wrap (`A: Shift1 Wrap`; drums show `Kit`), and its Low Note (`A: Low Inner`). On Layer B, `=A` means it follows Layer A's setting (on the key screen, `B:=A C Major` when B follows A's root or scale). | - |
 | Resources       | Tools | How hard the sound engine is working, for checking there is headroom before adding voices or effects. Top line: **CPU**, the share of the processor the audio takes now, and its peak (**pk**). Bottom line: **Mem**, the sound buffers in use now and their peak, out of 160. Play something busy (both layers, many magnets, effects on) and read the peaks. Turn the Menu knob to reset the peaks. Speed and Volume work without leaving the screen. | - |
 | Reset Settings  | Tools | Returns every setting to factory defaults, the Defaults scene included, keeping calibration, the start mark, scenes 1 to 8 and the saved voices and scales. Asks first. | - |
 | Factory Reset   | Tools | Erases everything, scenes, saved voices and scales, and calibration included. Asks first. | - |

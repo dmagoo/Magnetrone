@@ -185,7 +185,11 @@ static uint8_t atMost(uint8_t v, uint8_t max) { return v > max ? max : v; }
 void sceneCodeEncode(const SavedConfig& cfg, char* out) {
     CodeFields f{};
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-        const LayerCfg& c = cfg.layer[l];
+        // B's key as it plays: A's root or scale where B follows them. The
+        // code has no Root or Scale Same as A, so it loads back as B's own.
+        LayerCfg c = cfg.layer[l];
+        if (l == LAYER_B && c.rootSameAsA)  c.root  = cfg.layer[LAYER_A].root;
+        if (l == LAYER_B && c.scaleSameAsA) c.scale = cfg.layer[LAYER_A].scale;
         f.root[l]    = (uint8_t)c.root % 12;
         f.octave[l]  = atMost(c.octave, 7);
         f.scale[l]   = (uint8_t)c.scale < (uint8_t)Scale::Learned ? (uint8_t)c.scale
@@ -299,6 +303,8 @@ bool sceneCodeDecode(const char* code, Scene& out) {
         c.wrap    = f.wrap[l] != 0;
         c.shiftSameAsA   = false;
         c.lowNoteSameAsA = false;
+        c.rootSameAsA    = false;   // every version: B's root and scale are in the code
+        c.scaleSameAsA   = false;
         c.turns   = LayerTurns::Together;
         if (version >= 2) {
             c.turnLen  = f.turnLen[l] + 1;

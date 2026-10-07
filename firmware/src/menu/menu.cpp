@@ -125,6 +125,13 @@ static const char* ROOT_ITEMS[] = {
     "C","C#","D","D#","E","F","F#","G","G#","A","A#","B","Back"
 };
 static const uint8_t ROOT_COUNT = 13;
+// Layer B's list adds Same as A, which binds its root to Layer A's, as
+// Shift's does.
+static const char* ROOT_ITEMS_B[] = {
+    "C","C#","D","D#","E","F","F#","G","G#","A","A#","B","Same as A","Back"
+};
+static const uint8_t ROOT_COUNT_B = 14;
+static const uint8_t ROOT_ITEM_SAME_AS_A = 12;
 
 // Every scale's name, Learned and Custom included, for the scale lists, the
 // live display and scenes.
@@ -848,7 +855,8 @@ static void editDefaults(SavedConfig& cfg, F set) {
 // SCALE_CHOICE_SLOT + n for Custom n+1. Picking Custom n+1 copies it into the
 // layer, so the layer plays Custom from then on.
 static const uint8_t SCALE_CHOICE_SLOT = (uint8_t)Scale::COUNT;
-static const uint8_t SCALE_CHOICE_MAX  = (uint8_t)Scale::COUNT + NUM_CUSTOM_SCALES + 1;   // + Back
+static const uint8_t SCALE_CHOICE_SAME = SCALE_CHOICE_SLOT + NUM_CUSTOM_SCALES;   // Layer B: Same as A
+static const uint8_t SCALE_CHOICE_MAX  = (uint8_t)Scale::COUNT + NUM_CUSTOM_SCALES + 2;   // + Same as A, Back
 static uint8_t     scaleChoiceIds[SCALE_CHOICE_MAX];
 static const char* scaleChoiceLabels[SCALE_CHOICE_MAX];
 static const char* CUSTOM_SCALE_NAMES[NUM_CUSTOM_SCALES] = {
@@ -862,7 +870,8 @@ static uint8_t customScaleFrom[NUM_LAYERS] = { NO_CUSTOM_SCALE, NO_CUSTOM_SCALE 
 
 // Fills the list for a layer; returns the count, Back not included (the
 // labels end with it).
-static uint8_t buildScaleChoices(const SavedConfig& cfg, const LayerCfg& lc, bool aux) {
+static uint8_t buildScaleChoices(const SavedConfig& cfg, const LayerCfg& lc, bool aux,
+                                 bool sameAsA = false) {
     uint8_t n = 0;
     for (uint8_t i = 0; i < SCALE_BUILTIN_COUNT; i++) scaleChoiceIds[n++] = i;
     if (aux && lc.learned) scaleChoiceIds[n++] = (uint8_t)Scale::Learned;
@@ -870,9 +879,11 @@ static uint8_t buildScaleChoices(const SavedConfig& cfg, const LayerCfg& lc, boo
     for (uint8_t i = 0; i < NUM_CUSTOM_SCALES; i++) {
         if (cfg.customScales[i].used) scaleChoiceIds[n++] = SCALE_CHOICE_SLOT + i;
     }
+    if (sameAsA) scaleChoiceIds[n++] = SCALE_CHOICE_SAME;
     for (uint8_t i = 0; i < n; i++) {
         uint8_t id = scaleChoiceIds[i];
-        scaleChoiceLabels[i] = (id >= SCALE_CHOICE_SLOT) ? CUSTOM_SCALE_NAMES[id - SCALE_CHOICE_SLOT]
+        scaleChoiceLabels[i] = (id == SCALE_CHOICE_SAME) ? "Same as A"
+                             : (id >= SCALE_CHOICE_SLOT) ? CUSTOM_SCALE_NAMES[id - SCALE_CHOICE_SLOT]
                                                          : SCALE_NAMES[id];
     }
     scaleChoiceLabels[n] = "Back";
@@ -884,6 +895,7 @@ static uint8_t buildScaleChoices(const SavedConfig& cfg, const LayerCfg& lc, boo
 static uint8_t scaleChoicePos(const SavedConfig& cfg, const LayerCfg& lc, uint8_t l,
                               uint8_t n, uint8_t missing) {
     uint8_t id = (uint8_t)lc.scale;
+    if (l == LAYER_B && lc.scaleSameAsA) id = SCALE_CHOICE_SAME;
     uint8_t from = customScaleFrom[l];
     if (lc.scale == Scale::Custom && from < NUM_CUSTOM_SCALES && cfg.customScales[from].used &&
         memcmp(lc.custom, cfg.customScales[from].steps, CUSTOM_SCALE_SLOTS) == 0) {
@@ -919,8 +931,10 @@ static uint8_t scaleEditLayer() {
 static const LayerCfg& scaleEditCfg(const SavedConfig& cfg) {
     return scaleEditAux ? cfg.layer[auxLayer] : cfg.scenes[SCENE_DEFAULTS].layer[editLayer];
 }
-// On the Aux, Layer B in Same as A plays A's scale: leave B's alone.
+// On the Aux, Layer B in Same as A plays A's scale: leave B's alone. So
+// does B with its Scale Same as A, from either menu.
 static bool scaleEditBlocked(const SavedConfig& cfg) {
+    if (scaleEditLayer() == LAYER_B && scaleEditCfg(cfg).scaleSameAsA) return true;
     return scaleEditAux && auxLayer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA;
 }
 
@@ -1640,7 +1654,9 @@ static void trackKeyRow(const SavedConfig& cfg, uint8_t l, char out[17]) {
     } else {
         const LayerCfg& lc = layerEffective(cfg, l);
         uint8_t root = soundingRoot(lc);
-        snprintf(out, 17, "%c: %s %s", c,
+        const LayerCfg& own = cfg.layer[l];
+        bool same = l == LAYER_B && (own.rootSameAsA || own.scaleSameAsA);
+        snprintf(out, 17, "%c:%s %s %s", c, same ? "=A" : "",
                  (spellFlats(root, lc.scale) ? NOTE_FLAT : NOTE_SHARP)[root],
                  SCALE_NAMES[(uint8_t)lc.scale % (uint8_t)Scale::COUNT]);
     }
@@ -1767,6 +1783,8 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             break;
         }
         case AuxKind::Root: {
+            // B playing A's root: turning B's would change a hidden setting.
+            if (l == LAYER_B && lc.rootSameAsA) break;
             int v = ((int)lc.root + delta) % 12;
             if (v < 0) v += 12;
             lc.root = (RootNote)v;                             // wrap: a circle
@@ -1774,7 +1792,9 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
         }
         case AuxKind::Scale: {
             // Learned is in the list only once this layer has learned one;
-            // Custom and the saved Custom 1-8 follow.
+            // Custom and the saved Custom 1-8 follow. B playing A's scale:
+            // left alone, as for its root.
+            if (l == LAYER_B && lc.scaleSameAsA) break;
             int n = buildScaleChoices(cfg, lc, true);
             int v = ((int)scaleChoicePos(cfg, lc, l, n, 0) + delta) % n;
             if (v < 0) v += n;
@@ -1865,9 +1885,19 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
             break;
         }
         case AuxKind::Root:
-            drawList(ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
+            if (l == LAYER_B && lc.rootSameAsA) {
+                lcdLine(0, "B Root is");
+                lcdLine(1, "Same as A");
+            } else {
+                drawList(ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
+            }
             break;
         case AuxKind::Scale: {
+            if (l == LAYER_B && lc.scaleSameAsA) {
+                lcdLine(0, "B Scale is");
+                lcdLine(1, "Same as A");
+                break;
+            }
             uint8_t n = buildScaleChoices(cfg, lc, true);
             drawList(scaleChoiceLabels, n, scaleChoicePos(cfg, lc, l, n, 0));
             break;
@@ -2930,10 +2960,13 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::LayerChannel,
                                    (uint8_t)constrain(lc.channel, 0, 16)); break;
                     case LAYER_ITEM_ROOT:
-                        enterState(MenuState::LayerRoot, (uint8_t)lc.root % 12); break;
+                        enterState(MenuState::LayerRoot,
+                                   (editLayer == LAYER_B && lc.rootSameAsA) ? ROOT_ITEM_SAME_AS_A
+                                                                            : (uint8_t)lc.root % 12);
+                        break;
                     case LAYER_ITEM_SCALE: {
                         // A learned scale is not in the menu list: land on Back.
-                        uint8_t n = buildScaleChoices(cfg, lc, false);
+                        uint8_t n = buildScaleChoices(cfg, lc, false, editLayer == LAYER_B);
                         enterState(MenuState::LayerScale, scaleChoicePos(cfg, lc, editLayer, n, n));
                         break;
                     }
@@ -3049,19 +3082,27 @@ void menuUpdate(SavedConfig& cfg) {
             }
             break;
 
-        case MenuState::LayerRoot:
+        case MenuState::LayerRoot: {
+            uint8_t count = (editLayer == LAYER_A) ? ROOT_COUNT : ROOT_COUNT_B;
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + ROOT_COUNT) % ROOT_COUNT;
+                cursor = (cursor + ev.menuDelta + count) % count;
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < 12) editDefaults(cfg, [](LayerCfg& c) { c.root = (RootNote)cursor; });
+                if (cursor < 12) {
+                    // Picking a note also unbinds B's root from A's.
+                    editDefaults(cfg, [](LayerCfg& c) { c.root = (RootNote)cursor; c.rootSameAsA = false; });
+                } else if (editLayer == LAYER_B && cursor == ROOT_ITEM_SAME_AS_A) {
+                    editDefaults(cfg, [](LayerCfg& c) { c.rootSameAsA = true; });
+                }
                 enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_ROOT));
             }
             break;
+        }
 
         case MenuState::LayerScale: {
-            uint8_t n = buildScaleChoices(cfg, cfg.scenes[SCENE_DEFAULTS].layer[editLayer], false);
+            uint8_t n = buildScaleChoices(cfg, cfg.scenes[SCENE_DEFAULTS].layer[editLayer], false,
+                                          editLayer == LAYER_B);
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + n + 1) % (n + 1);
                 needsRedraw = true;
@@ -3069,9 +3110,17 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < n) {   // last entry is Back
                     uint8_t id = scaleChoiceIds[cursor];
-                    editDefaults(cfg, [&cfg, id](LayerCfg& c) { scaleChoose(cfg, c, id); });
-                    customScaleFrom[editLayer] =
-                        (id >= SCALE_CHOICE_SLOT) ? id - SCALE_CHOICE_SLOT : NO_CUSTOM_SCALE;
+                    if (id == SCALE_CHOICE_SAME) {
+                        editDefaults(cfg, [](LayerCfg& c) { c.scaleSameAsA = true; });
+                    } else {
+                        // Picking a scale also unbinds B's scale from A's.
+                        editDefaults(cfg, [&cfg, id](LayerCfg& c) {
+                            scaleChoose(cfg, c, id);
+                            c.scaleSameAsA = false;
+                        });
+                        customScaleFrom[editLayer] =
+                            (id >= SCALE_CHOICE_SLOT) ? id - SCALE_CHOICE_SLOT : NO_CUSTOM_SCALE;
+                    }
                 }
                 enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_SCALE));
             }
@@ -3943,16 +3992,18 @@ void menuUpdate(SavedConfig& cfg) {
                 drawList(CHANNEL_ITEMS, CHANNEL_COUNT, cursor);
                 break;
             case MenuState::LayerRoot:
-                drawList(ROOT_ITEMS, ROOT_COUNT, cursor);
+                if (editLayer == LAYER_A) drawList(ROOT_ITEMS, ROOT_COUNT, cursor);
+                else                      drawList(ROOT_ITEMS_B, ROOT_COUNT_B, cursor);
                 break;
             case MenuState::LayerScale: {
-                uint8_t n = buildScaleChoices(cfg, cfg.scenes[SCENE_DEFAULTS].layer[editLayer], false);
+                uint8_t n = buildScaleChoices(cfg, cfg.scenes[SCENE_DEFAULTS].layer[editLayer], false,
+                                              editLayer == LAYER_B);
                 drawList(scaleChoiceLabels, n + 1, cursor);
                 break;
             }
             case MenuState::ScaleEditList:
                 if (scaleEditBlocked(cfg)) {
-                    lcdLine(0, "Layer B is");
+                    lcdLine(0, scaleEditCfg(cfg).scaleSameAsA ? "B Scale is" : "Layer B is");
                     lcdLine(1, "Same as A");
                 } else {
                     buildScaleEditItems(cfg);

@@ -112,7 +112,7 @@ static void keyShift(SavedConfig& cfg, uint8_t layers, uint8_t note) {
         if (layerShiftSource(cfg, l) != l) continue;
         if (voiceIsKit(layerVoice(cfg, l))) continue;
 
-        const LayerCfg& lc = cfg.layer[l];
+        const LayerCfg& lc = layerEffective(cfg, l);   // the key it plays (A's, if B follows it)
         uint8_t best = 0, bestDist = 12;
         for (uint8_t s = 0; s < NUM_HALL_SENSORS; s++) {
             // Degree s is what the low track plays at shift s.

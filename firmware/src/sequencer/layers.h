@@ -10,8 +10,10 @@
 // Is this layer making sound? Layer B in Same as A follows Layer A's On/Off.
 bool layerActive(const SavedConfig& cfg, uint8_t layer);
 
-// The settings this layer plays with. Layer B in Same as A returns Layer A's.
-const LayerCfg& layerEffective(const SavedConfig& cfg, uint8_t layer);
+// The settings this layer plays with. Layer B in Same as A returns Layer A's;
+// with its Root or Scale Same as A, its own with A's root, or A's scale
+// (Learned and Custom notes included), in their place.
+LayerCfg layerEffective(const SavedConfig& cfg, uint8_t layer);
 
 // The voice this layer plays: its live copy (see Voice Edit below). Layer B
 // in Same as A plays Layer A's, tweaks included.

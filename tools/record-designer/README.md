@@ -43,7 +43,8 @@ theme: Auto (follows your system), Light or Dark.
 
 ## Scene
 
-The Scene Code fields, grouped as Sound (voice, root, octave, scale),
+The Scene Code fields, grouped as Sound (voice, root, octave, scale, with
+Layer B's Root and Scale Same as A, on by default),
 Arrangement (shift, Low Note, Wrap, Layer B's Same as A settings) and
 Layers (modes, Layer Turns, Edit Turns). Settings that have no effect right now (a Drums
 layer's root, a layer that is Off, Layer B on Same as A) are greyed out but

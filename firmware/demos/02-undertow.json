@@ -2,7 +2,9 @@
   "name": "Undertow",
   "layerB": {
     "voice": "piano",
+    "rootSameAsA": false,
     "root": "d",
+    "scaleSameAsA": false,
     "scale": "pentatonicMinor",
     "octave": 2,
     "lowNote": "outer"

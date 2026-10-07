@@ -298,6 +298,61 @@ struct SavedConfigV24 {
 static_assert(offsetof(SavedConfigV24, layer) == offsetof(SavedConfig, layer),
               "the version 25 header no longer matches version 24");
 
+// The version 25 layout: the version 24 layer plus the turn patterns, but no
+// Root and Scale Same as A.
+struct LayerCfgV25 {
+    LayerCfgV24 v24;
+    uint8_t     turnLen, turnMask;
+};
+static_assert(sizeof(LayerCfgV25) == 42, "the version 25 layer changed");
+struct SceneV25 {
+    LayerCfgV25 layer[NUM_LAYERS];
+    int8_t      balance;
+    float       pitch;
+};
+struct SavedConfigV25 {
+    uint16_t magic;
+    uint8_t  version;
+    bool     calibrated;
+    uint16_t hallThreshold;
+    uint16_t hallBaseline[NUM_HALL_SENSORS];
+    float    rpmCorrection;
+    int8_t   magnetPolarity;
+    int32_t  barPhase;
+    bool     barPhaseValid;
+    float    volume, rpm;
+    bool     muted;
+    bool     playWelcomeTune;
+    uint8_t  lcdTimeout, menuTimeout;
+    bool     startCheck;
+    uint8_t  beatsPerRev, auxFn, pitchStepDiv, midiFn;
+    uint8_t  midiInChannel[NUM_LAYERS];
+    LayerCfgV25     layer[NUM_LAYERS];
+    SceneV25        scenes[NUM_SCENES];
+    bool            sceneUsed[NUM_SCENES];
+    uint8_t         currentScene;
+    VoiceSlot       customVoices[NUM_SAVED_VOICES];
+    VoiceSlot       sceneVoices[NUM_SCENES][NUM_LAYERS];
+    uint32_t        frontPhase;
+    bool            frontKnown;
+    bool            midiCc;
+    uint16_t        hallNoise[NUM_HALL_SENSORS];
+    CustomScaleSlot customScales[NUM_CUSTOM_SCALES];
+    bool            sceneLoadNow;
+};
+static_assert(offsetof(SavedConfigV25, layer) == offsetof(SavedConfig, layer),
+              "the version 26 header no longer matches version 25");
+
+static LayerCfg fromV24(const LayerCfgV24& o);
+
+// A version 25 layer: Root and Scale Same as A off (LayerCfg{} zeroes them).
+static LayerCfg fromV25(const LayerCfgV25& o) {
+    LayerCfg l = fromV24(o.v24);
+    l.turnLen  = o.turnLen;
+    l.turnMask = o.turnMask;
+    return l;
+}
+
 // An old layer plays every turn.
 static LayerCfg fromV24(const LayerCfgV24& o) {
     LayerCfg l{};
@@ -405,12 +460,15 @@ Scene storageFactoryScene() {
     customUnset(a.custom);
     turnsFactory(a);
 
-    // Layer B plays its own voice out of the box, drums, with nothing bound
-    // to A: undoing Same as A by hand everywhere was clunky.
+    // Layer B plays its own voice out of the box, drums, with only its key
+    // bound to A: undoing Same as A by hand everywhere was clunky, but Root
+    // and Scale are as quick to set apart as to set the same (2026-10-07).
     LayerCfg& b = s.layer[LAYER_B];
-    b        = a;
-    b.voice  = (uint8_t)VoiceId::Drums;
-    b.octave = DEFAULT_OCTAVE_B;
+    b              = a;
+    b.voice        = (uint8_t)VoiceId::Drums;
+    b.octave       = DEFAULT_OCTAVE_B;
+    b.rootSameAsA  = true;
+    b.scaleSameAsA = true;
 
     s.balance = 0;
     s.pitch   = 0.0f;
@@ -581,10 +639,11 @@ static void fromV20to22(SavedConfig& cfg) {
     storageSave(cfg);
 }
 
-// Versions 23 and 24 keep everything. Version 23 has no Scene Load, and
-// neither has the turn patterns.
-static void fromV23to24(SavedConfig& cfg) {
-    SavedConfigV24 old;
+// Everything kept from a version 23 or later layout `Old`, whose layers
+// `layer` converts. Version 23 has no Scene Load.
+template <typename Old, typename OldLayer>
+static void fromLayout(SavedConfig& cfg, LayerCfg (*layer)(const OldLayer&)) {
+    Old old;
     EEPROM.get(EEPROM_ADDRESS, old);
     if (old.version == 23) old.sceneLoadNow = DEFAULT_SCENE_LOAD_NOW;
 
@@ -612,11 +671,11 @@ static void fromV23to24(SavedConfig& cfg) {
     c.midiFn          = old.midiFn;
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         c.midiInChannel[l] = old.midiInChannel[l];
-        c.layer[l]         = fromV24(old.layer[l]);
+        c.layer[l]         = layer(old.layer[l]);
     }
     for (uint8_t i = 0; i < NUM_SCENES; i++) {
         for (uint8_t l = 0; l < NUM_LAYERS; l++) {
-            c.scenes[i].layer[l] = fromV24(old.scenes[i].layer[l]);
+            c.scenes[i].layer[l] = layer(old.scenes[i].layer[l]);
             c.sceneVoices[i][l]  = old.sceneVoices[i][l];
         }
         c.scenes[i].balance = old.scenes[i].balance;
@@ -642,8 +701,13 @@ void storageLoad(SavedConfig& cfg) {
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 20 && cfg.version <= 22) {
         fromV20to22(cfg);
     }
+    // Versions 23 and 24 have no turn patterns, and 23 to 25 no Root and
+    // Scale Same as A (off for them, so saved scenes sound as before).
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 23 && cfg.version <= 24) {
-        fromV23to24(cfg);
+        fromLayout<SavedConfigV24, LayerCfgV24>(cfg, fromV24);
+    }
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 25) {
+        fromLayout<SavedConfigV25, LayerCfgV25>(cfg, fromV25);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
         // Past the slots is a demo, which scenesInit() checks.
