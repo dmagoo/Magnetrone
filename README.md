@@ -94,7 +94,7 @@ turning physical arrangement into musical pattern.
   (e.g. "Belt 10.9:1", counted in motor steps) and the bar start
 - Tools menu: Go to StartPos, Go to Front, Placement Mode, calibration,
   StartPos, Machine Info (RPM, belt ratio, StartPos, threshold, motor driver), live
-  Sensor Levels, Sensor Timing and Track Notes screens, Reset Settings (keeps calibration, Front and scenes
+  Sensor Levels, Sensor Timing, Track Notes and Resources (audio load) screens, Reset Settings (keeps calibration, Front and scenes
   1-8) and Factory Reset
 - All settings persisted to EEPROM across power cycles
 - Teensy 4.1

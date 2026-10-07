@@ -100,6 +100,7 @@ enum class MenuState : uint8_t {
     StartCheck,         // setting: whether the boot prompt above is shown
     Info,               // read-only pages: belt, StartPos, threshold, driver
     SensorLevels,       // live: each sensor's reading against its rest level
+    Resources,          // live: the audio's processor load and buffers, with peaks
     SensorTiming,       // live: each sensor's learned trigger timing
     TrackNotes,         // live: what each track plays now, per layer
     ResetCalPrompt,
@@ -375,13 +376,14 @@ static_assert(MIDI_FN_COUNT == (uint8_t)MidiFn::COUNT + 1, "one item per MIDI Fn
 static const char* TOOLS_ITEMS[] = {
     "Go to StartPos","Go to Front","Placement Mode","Full Calibrate",
     "Reset Calib.","Calib. StartPos","Machine Info","Sensor Levels","Sensor Timing",
-    "Track Notes","Reset Settings","Factory Reset","Back"
+    "Track Notes","Resources","Reset Settings","Factory Reset","Back"
 };
-static const uint8_t TOOLS_COUNT = 13;
+static const uint8_t TOOLS_COUNT = 14;
 enum : uint8_t { TOOL_GO_TO_START, TOOL_GO_TO_FRONT, TOOL_PLACEMENT,
                  TOOL_FULL_CAL, TOOL_RESET_CAL,
                  TOOL_CALIB_START, TOOL_INFO, TOOL_SENSOR_LEVELS,
-                 TOOL_SENSOR_TIMING, TOOL_TRACK_NOTES, TOOL_RESET_SETTINGS, TOOL_FACTORY_RESET, TOOL_BACK };
+                 TOOL_SENSOR_TIMING, TOOL_TRACK_NOTES, TOOL_RESOURCES, TOOL_RESET_SETTINGS,
+                 TOOL_FACTORY_RESET, TOOL_BACK };
 
 // Info: one page per value, turned through with the menu knob.
 enum : uint8_t { INFO_RPM, INFO_BELT, INFO_START_POS, INFO_THRESHOLD,
@@ -1537,6 +1539,16 @@ static void drawSensorLevels() {
     }
 }
 
+// How hard the audio is working, now and its peak: processor load on top,
+// audio blocks below, out of AUDIO_BLOCKS.
+//   CPU 23% pk 41%
+//   Mem 12 pk 30/160
+static void drawResources() {
+    AudioResources r = audioResources();
+    lcdLine(0, "CPU%3d%% pk%3d%%", (int)lroundf(r.cpu), (int)lroundf(r.cpuPeak));
+    lcdLine(1, "Mem%3u pk%3u/%u", (unsigned)r.blocks, (unsigned)r.blocksPeak, (unsigned)AUDIO_BLOCKS);
+}
+
 // One sensor's learned timing. Top: the sensor, passes recorded of the last
 // 8, how many of those had no clear peak in time (F: a saturated or weak
 // magnet, or its height), and the learned angle from the threshold crossing
@@ -2347,11 +2359,13 @@ void menuUpdate(SavedConfig& cfg) {
     // that just closed.
     // Entering a Scene Code is the exception: closing it would lose a code
     // entered a character at a time, so the knobs act and the screen stays.
+    // So is Resources, which is read while playing.
     bool liveKnob = ev.speedDelta != 0 || ev.speedPressed ||
                     ev.volumeDelta != 0 || ev.volumePressed;
-    bool codeEntry = state == MenuState::SceneCodeEnter ||
-                     state == MenuState::SceneCodeInvalid;
-    if (liveKnob && state != MenuState::Status && !isPrompt && !codeEntry) {
+    bool keepScreen = state == MenuState::SceneCodeEnter ||
+                      state == MenuState::SceneCodeInvalid ||
+                      state == MenuState::Resources;
+    if (liveKnob && state != MenuState::Status && !isPrompt && !keepScreen) {
         enterState(MenuState::Status);
         ev.menuDelta = 0;  ev.menuPressed = false;
         ev.auxDelta  = 0;  ev.auxPressed  = false;
@@ -2398,6 +2412,7 @@ void menuUpdate(SavedConfig& cfg) {
     // short; the menu button is the way out.
     bool isView = (state == MenuState::Info ||
                    state == MenuState::SensorLevels ||
+                   state == MenuState::Resources ||
                    state == MenuState::SensorTiming ||
                    state == MenuState::TrackNotes);
 
@@ -3481,6 +3496,7 @@ void menuUpdate(SavedConfig& cfg) {
                     case TOOL_SENSOR_LEVELS: enterState(MenuState::SensorLevels); break;
                     case TOOL_SENSOR_TIMING: enterState(MenuState::SensorTiming); break;
                     case TOOL_TRACK_NOTES:   enterState(MenuState::TrackNotes);   break;
+                    case TOOL_RESOURCES:     enterState(MenuState::Resources);    break;
                     case TOOL_RESET_SETTINGS: enterState(MenuState::ResetSettingsPrompt); break;
                     case TOOL_FACTORY_RESET:  enterState(MenuState::FactoryResetPrompt); break;
                     default: enterState(MenuState::MainMenu, MAIN_ITEM_TOOLS); break;
@@ -3726,6 +3742,13 @@ void menuUpdate(SavedConfig& cfg) {
 
         case MenuState::SensorLevels:
             if (ev.menuPressed) enterState(MenuState::Tools, TOOL_SENSOR_LEVELS);
+            if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
+            break;
+
+        // Turning the Menu knob resets the peaks; pressing goes back.
+        case MenuState::Resources:
+            if (ev.menuDelta) { audioResourcesReset(); needsRedraw = true; }
+            if (ev.menuPressed) enterState(MenuState::Tools, TOOL_RESOURCES);
             if (millis() - lastLiveDraw >= LIVE_REDRAW_MS) needsRedraw = true;
             break;
 
@@ -4184,6 +4207,10 @@ void menuUpdate(SavedConfig& cfg) {
                 break;
             case MenuState::SensorLevels:
                 drawSensorLevels();
+                lastLiveDraw = millis();
+                break;
+            case MenuState::Resources:
+                drawResources();
                 lastLiveDraw = millis();
                 break;
             case MenuState::SensorTiming:

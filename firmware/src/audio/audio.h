@@ -64,3 +64,15 @@ void audioSetDrumLayer(uint8_t layer);
 // Fires one drum of the shared kit (slot = DrumSlot, see kit.h). Drums are
 // one-shots with no matching off. A closed hat chokes the open hat.
 void audioDrumHit(uint8_t slot, uint8_t velocity);
+
+// How hard the audio is working, for Tools > Resources: the processor time
+// the audio takes, in percent, and the audio blocks (sound buffers) in use,
+// out of AUDIO_BLOCKS. Each now and its peak since the last reset (or
+// power-up).
+constexpr uint16_t AUDIO_BLOCKS = 160;
+struct AudioResources {
+    float    cpu, cpuPeak;
+    uint16_t blocks, blocksPeak;
+};
+AudioResources audioResources();
+void           audioResourcesReset();

@@ -260,7 +260,7 @@ void audioInit(float volume, bool muted) {
     // 16 voices with their filters, the drum kit, the mixers and the
     // effects. Running short of blocks fails as silent dropouts, not an
     // error, so this is sized with headroom rather than to the minimum.
-    AudioMemory(160);
+    AudioMemory(AUDIO_BLOCKS);
 
     sgtl5000.enable();
     sgtl5000.volume(muted ? 0.0f : volume);
@@ -581,4 +581,18 @@ void audioDrumHit(uint8_t slot, uint8_t velocity) {
         case DrumSlot::Crash:   crashEnv.noteOn();   break;
         default: break;
     }
+}
+
+AudioResources audioResources() {
+    AudioResources r;
+    r.cpu        = AudioProcessorUsage();
+    r.cpuPeak    = AudioProcessorUsageMax();
+    r.blocks     = AudioMemoryUsage();
+    r.blocksPeak = AudioMemoryUsageMax();
+    return r;
+}
+
+void audioResourcesReset() {
+    AudioProcessorUsageMaxReset();
+    AudioMemoryUsageMaxReset();
 }
