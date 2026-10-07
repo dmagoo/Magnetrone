@@ -204,6 +204,16 @@ constexpr float RESONANCE_MAX = 0.9f;
 constexpr float VOICE_Q_MIN          = 0.707f;
 constexpr float VOICE_Q_MAX          = 4.0f;
 constexpr float VOICE_FILTER_OCTAVES = 7.0f;
+// The highest the voice filter goes, its envelope included. The state
+// variable filter turns unstable above about 15 kHz at low resonance and
+// bursts into static (heard on the strike of Piano and Mallets, 2026-10-07),
+// so the cutoff and how far the envelope opens it stop here.
+constexpr float VOICE_FILTER_MAX_HZ  = 14000.0f;
+// Voices play at half level and the sub-mixers make it up, so the voice
+// filter has 6 dB of headroom: at full level any resonance or overshoot
+// clipped inside it, a crackle on the strike (E. Piano, Guitar, Synth).
+constexpr float VOICE_LEVEL          = 0.5f;
+constexpr float SUB_GAIN             = 0.25f / VOICE_LEVEL;
 
 // Chorus Rate, percent to Hz, exponentially; Depth, percent of the full sweep.
 constexpr float CHORUS_RATE_MIN_HZ = 0.1f;
@@ -265,11 +275,11 @@ void audioInit(float volume, bool muted) {
     sgtl5000.enable();
     sgtl5000.volume(muted ? 0.0f : volume);
 
-    // 0.25 per voice * 4 voices = 1.0 max per sub-mixer, as before. Each
-    // voice feeds two of them, before and after its filter; audioSetVoice()
-    // opens one and closes the other.
+    // Voices at VOICE_LEVEL times SUB_GAIN = 0.25 per voice, * 4 voices = 1.0
+    // max per sub-mixer, as before. Each voice feeds two of them, before and
+    // after its filter; audioSetVoice() opens one and closes the other.
     for (int m = 0; m < 4 * NUM_LAYERS; m++) {
-        for (int i = 0; i < 4; i++) sub[m].gain(i, 0.25f);
+        for (int i = 0; i < 4; i++) sub[m].gain(i, SUB_GAIN);
     }
     for (uint8_t l = 0; l < NUM_LAYERS; l++) {
         for (int i = 0; i < 4; i++) melIn[l].gain(i, 1.0f);
@@ -399,6 +409,11 @@ void audioSetVoice(uint8_t layer, const Voice& voice) {
     const int16_t* wave = nullptr;
     if (voice.harmonicsEdited) wave = harmonicWave(layer, voice.harmonics);
     const VoiceFilter& f = voice.filter;
+    // The envelope opens the cutoff by up to VOICE_FILTER_OCTAVES at Amount
+    // 100%; Amount is cut back so the peak stays at VOICE_FILTER_MAX_HZ.
+    float cutoff = min(cutoffHz(f.cutoff), VOICE_FILTER_MAX_HZ);
+    float amount = constrain(f.amount, 0, 100) / 100.0f;
+    amount = min(amount, log2f(VOICE_FILTER_MAX_HZ / cutoff) / VOICE_FILTER_OCTAVES);
     for (int i = layer * VOICES_PER_LAYER; i < (layer + 1) * VOICES_PER_LAYER; i++) {
         if (wave) osc[i].arbitraryWaveform(wave, 0.0f);
         osc[i].begin(wave ? WAVEFORM_ARBITRARY : voice.waveform);
@@ -406,9 +421,9 @@ void audioSetVoice(uint8_t layer, const Voice& voice) {
         env[i].decay(voice.decayMs);
         env[i].sustain(voice.sustain);
         env[i].release(voice.releaseMs);
-        vfilt[i].frequency(cutoffHz(f.cutoff));
+        vfilt[i].frequency(cutoff);
         vfilt[i].resonance(VOICE_Q_MIN + constrain(f.resonance, 0, 100) / 100.0f * (VOICE_Q_MAX - VOICE_Q_MIN));
-        fdc[i].amplitude(constrain(f.amount, 0, 100) / 100.0f);
+        fdc[i].amplitude(amount);
         fenv[i].attack(f.attackMs);
         fenv[i].decay(f.decayMs);
         fenv[i].sustain(constrain(f.sustainPct, 0, 100) / 100.0f);
@@ -418,8 +433,8 @@ void audioSetVoice(uint8_t layer, const Voice& voice) {
     bool on = f.cutoff < VOICE_FILTER_OFF;
     for (int h = 0; h < 2; h++) {
         for (int i = 0; i < 4; i++) {
-            sub[4 * layer + h].gain(i,     on ? 0.0f : 0.25f);
-            sub[4 * layer + h + 2].gain(i, on ? 0.25f : 0.0f);
+            sub[4 * layer + h].gain(i,     on ? 0.0f : SUB_GAIN);
+            sub[4 * layer + h + 2].gain(i, on ? SUB_GAIN : 0.0f);
         }
     }
 }
@@ -502,7 +517,7 @@ static void startVoice(uint8_t layer, uint8_t note, bool key, uint8_t velocity,
     env[v].noteOff();
     fenv[v].noteOff();
 
-    float amp = (velocity / 127.0f);
+    float amp = (velocity / 127.0f) * VOICE_LEVEL;
     osc[v].frequency(hz);
     osc[v].amplitude(amp);
     env[v].noteOn();

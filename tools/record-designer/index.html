@@ -1692,8 +1692,10 @@ const VOICE_SOUNDS = [
   { h: [100, 80, 60, 40, 20], a: 0, d: 800, s: 0, r: 300, ms: 500, c: 30, q: 10, m: 45, fs: 0, fa: 0, fd: 180, fr: 300 },     // Guitar
 ];
 // firmware/src/audio/audio.cpp: cutoff % to Hz, resonance % to Q; the filter
-// envelope opens the cutoff by up to 7 octaves at Amount 100%.
-const cutoffHz = (pct) => 60 * Math.pow(16000 / 60, Math.min(pct, 90) / 90);
+// envelope opens the cutoff by up to 7 octaves at Amount 100%, never past
+// VOICE_FILTER_MAX_HZ (14 kHz).
+const FILTER_MAX_HZ = 14000;
+const cutoffHz = (pct) => Math.min(60 * Math.pow(16000 / 60, Math.min(pct, 90) / 90), FILTER_MAX_HZ);
 const filterQ  = (pct) => 0.707 + (pct / 100) * (4 - 0.707);
 // An ADSR's level t seconds after Note On, with Note Off at n: 0 to 1.
 function envAt(t, a, d, s, r, n) {
@@ -1772,7 +1774,7 @@ function playTone(note, voice, t, key, dest = bus, noteMs = null) {
   const dur = on + r, steps = Math.max(8, Math.ceil(dur * 400));
   let node = osc;
   if (v.c < 100) {
-    const lp = ac.createBiquadFilter(), nyq = ac.sampleRate / 2 - 100, base = cutoffHz(v.c);
+    const lp = ac.createBiquadFilter(), nyq = Math.min(ac.sampleRate / 2 - 100, FILTER_MAX_HZ), base = cutoffHz(v.c);
     lp.type = "lowpass";
     lp.Q.value = 20 * Math.log10(filterQ(v.q || 0));   // Web Audio's low-pass Q is in dB
     if (v.m) {

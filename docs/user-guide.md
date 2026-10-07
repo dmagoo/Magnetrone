@@ -276,6 +276,9 @@ brightness. It is separate from the layer's Tone (see [Effects](#effects)).
 
 A plucky sound: Cutoff low, Amount high, short Decay, low Sustain.
 
+The filter never opens past about 14 kHz, however high Cutoff and Amount
+go: above that the table's filter turns unstable and crackles.
+
 To keep a tweaked voice, choose **Save As...** at the bottom of the Voice Edit
 list:
 
