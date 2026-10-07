@@ -1,4 +1,4 @@
 {
   "name": "Ladder",
-  "layerB": { "voice": "piano", "octave": 5 }
+  "layerB": { "voice": "piano", "octaveSameAsA": false, "octave": 5 }
 }

@@ -1,4 +1,4 @@
 {
   "name": "Chords",
-  "layerB": { "mode": "stack", "voice": "piano", "octave": 4, "shift": 2 }
+  "layerB": { "mode": "stack", "voice": "piano", "shift": 2 }
 }

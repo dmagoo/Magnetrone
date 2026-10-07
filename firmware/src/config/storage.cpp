@@ -260,12 +260,14 @@ struct LayerCfgV24 {
 };
 static_assert(sizeof(LayerCfgV24) == 40 && offsetof(LayerCfgV24, custom) == 32,
               "the version 24 layer no longer matches versions 23 and 24");
-struct SceneV24 {
-    LayerCfgV24 layer[NUM_LAYERS];
-    int8_t      balance;
-    float       pitch;
+// Versions 23 to 26 differ only in the layer; everything around it is the
+// same, so one layout serves them all.
+template <typename L> struct SceneOf {
+    L        layer[NUM_LAYERS];
+    int8_t   balance;
+    float    pitch;
 };
-struct SavedConfigV24 {
+template <typename L> struct SavedConfigOf {
     uint16_t magic;
     uint8_t  version;
     bool     calibrated;
@@ -282,8 +284,8 @@ struct SavedConfigV24 {
     bool     startCheck;
     uint8_t  beatsPerRev, auxFn, pitchStepDiv, midiFn;
     uint8_t  midiInChannel[NUM_LAYERS];
-    LayerCfgV24     layer[NUM_LAYERS];
-    SceneV24        scenes[NUM_SCENES];
+    L               layer[NUM_LAYERS];
+    SceneOf<L>      scenes[NUM_SCENES];
     bool            sceneUsed[NUM_SCENES];
     uint8_t         currentScene;
     VoiceSlot       customVoices[NUM_SAVED_VOICES];
@@ -293,8 +295,9 @@ struct SavedConfigV24 {
     bool            midiCc;
     uint16_t        hallNoise[NUM_HALL_SENSORS];
     CustomScaleSlot customScales[NUM_CUSTOM_SCALES];
-    bool            sceneLoadNow;                        // version 24
+    bool            sceneLoadNow;                        // version 24 on
 };
+typedef SavedConfigOf<LayerCfgV24> SavedConfigV24;
 static_assert(offsetof(SavedConfigV24, layer) == offsetof(SavedConfig, layer),
               "the version 25 header no longer matches version 24");
 
@@ -305,43 +308,15 @@ struct LayerCfgV25 {
     uint8_t     turnLen, turnMask;
 };
 static_assert(sizeof(LayerCfgV25) == 42, "the version 25 layer changed");
-struct SceneV25 {
-    LayerCfgV25 layer[NUM_LAYERS];
-    int8_t      balance;
-    float       pitch;
+typedef SavedConfigOf<LayerCfgV25> SavedConfigV25;
+
+// The version 26 layout: Root and Scale Same as A, but no Voice and Octave.
+struct LayerCfgV26 {
+    LayerCfgV25 v25;
+    bool        rootSameAsA, scaleSameAsA;
 };
-struct SavedConfigV25 {
-    uint16_t magic;
-    uint8_t  version;
-    bool     calibrated;
-    uint16_t hallThreshold;
-    uint16_t hallBaseline[NUM_HALL_SENSORS];
-    float    rpmCorrection;
-    int8_t   magnetPolarity;
-    int32_t  barPhase;
-    bool     barPhaseValid;
-    float    volume, rpm;
-    bool     muted;
-    bool     playWelcomeTune;
-    uint8_t  lcdTimeout, menuTimeout;
-    bool     startCheck;
-    uint8_t  beatsPerRev, auxFn, pitchStepDiv, midiFn;
-    uint8_t  midiInChannel[NUM_LAYERS];
-    LayerCfgV25     layer[NUM_LAYERS];
-    SceneV25        scenes[NUM_SCENES];
-    bool            sceneUsed[NUM_SCENES];
-    uint8_t         currentScene;
-    VoiceSlot       customVoices[NUM_SAVED_VOICES];
-    VoiceSlot       sceneVoices[NUM_SCENES][NUM_LAYERS];
-    uint32_t        frontPhase;
-    bool            frontKnown;
-    bool            midiCc;
-    uint16_t        hallNoise[NUM_HALL_SENSORS];
-    CustomScaleSlot customScales[NUM_CUSTOM_SCALES];
-    bool            sceneLoadNow;
-};
-static_assert(offsetof(SavedConfigV25, layer) == offsetof(SavedConfig, layer),
-              "the version 26 header no longer matches version 25");
+static_assert(sizeof(LayerCfgV26) == 44, "the version 26 layer changed");
+typedef SavedConfigOf<LayerCfgV26> SavedConfigV26;
 
 static LayerCfg fromV24(const LayerCfgV24& o);
 
@@ -350,6 +325,14 @@ static LayerCfg fromV25(const LayerCfgV25& o) {
     LayerCfg l = fromV24(o.v24);
     l.turnLen  = o.turnLen;
     l.turnMask = o.turnMask;
+    return l;
+}
+
+// A version 26 layer: Voice and Octave Same as A off.
+static LayerCfg fromV26(const LayerCfgV26& o) {
+    LayerCfg l = fromV25(o.v25);
+    l.rootSameAsA  = o.rootSameAsA;
+    l.scaleSameAsA = o.scaleSameAsA;
     return l;
 }
 
@@ -467,8 +450,10 @@ Scene storageFactoryScene() {
     b              = a;
     b.voice        = (uint8_t)VoiceId::Drums;
     b.octave       = DEFAULT_OCTAVE_B;
-    b.rootSameAsA  = true;
-    b.scaleSameAsA = true;
+    b.rootSameAsA   = true;
+    b.scaleSameAsA  = true;
+    b.octaveSameAsA = true;    // drums ignore it; a pitched B starts in A's octave
+    b.voiceSameAsA  = false;   // B plays its own voice, drums
 
     s.balance = 0;
     s.pitch   = 0.0f;
@@ -701,13 +686,17 @@ void storageLoad(SavedConfig& cfg) {
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 20 && cfg.version <= 22) {
         fromV20to22(cfg);
     }
-    // Versions 23 and 24 have no turn patterns, and 23 to 25 no Root and
-    // Scale Same as A (off for them, so saved scenes sound as before).
+    // Versions 23 and 24 have no turn patterns, 23 to 25 no Root and Scale
+    // Same as A, and 23 to 26 no Voice and Octave Same as A (all off for
+    // them, so saved scenes sound as before).
     if (cfg.magic == EEPROM_MAGIC && cfg.version >= 23 && cfg.version <= 24) {
         fromLayout<SavedConfigV24, LayerCfgV24>(cfg, fromV24);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == 25) {
         fromLayout<SavedConfigV25, LayerCfgV25>(cfg, fromV25);
+    }
+    if (cfg.magic == EEPROM_MAGIC && cfg.version == 26) {
+        fromLayout<SavedConfigV26, LayerCfgV26>(cfg, fromV26);
     }
     if (cfg.magic == EEPROM_MAGIC && cfg.version == EEPROM_VERSION) {
         // Past the slots is a demo, which scenesInit() checks.

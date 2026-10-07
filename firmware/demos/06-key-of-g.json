@@ -1,4 +1,4 @@
 {
   "name": "Key of G",
-  "layerB": { "voice": "piano", "octave": 4, "rootSameAsA": false, "root": "g" }
+  "layerB": { "voice": "piano", "rootSameAsA": false, "root": "g" }
 }

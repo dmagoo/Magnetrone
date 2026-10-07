@@ -11,12 +11,12 @@
 bool layerActive(const SavedConfig& cfg, uint8_t layer);
 
 // The settings this layer plays with. Layer B in Same as A returns Layer A's;
-// with its Root or Scale Same as A, its own with A's root, or A's scale
-// (Learned and Custom notes included), in their place.
+// with its Voice, Octave, Root or Scale Same as A, its own with A's in their
+// place (the scale with its Learned and Custom notes).
 LayerCfg layerEffective(const SavedConfig& cfg, uint8_t layer);
 
 // The voice this layer plays: its live copy (see Voice Edit below). Layer B
-// in Same as A plays Layer A's, tweaks included.
+// in Same as A, or with its Voice Same as A, plays Layer A's, tweaks included.
 const Voice& layerVoice(const SavedConfig& cfg, uint8_t layer);
 
 // MIDI channel 1-16, with Auto resolved from the voice.

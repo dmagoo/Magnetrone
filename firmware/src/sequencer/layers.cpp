@@ -41,7 +41,8 @@ static const VoiceSlot* slotFor(const SavedConfig& cfg, uint8_t l, uint8_t id) {
 
 // Whose voice this layer plays: Layer A's for B in Same as A.
 static uint8_t voiceSource(const SavedConfig& cfg, uint8_t layer) {
-    return (layer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) ? LAYER_A : layer;
+    const LayerCfg& b = cfg.layer[LAYER_B];
+    return (layer == LAYER_B && (b.mode == LayerMode::SameAsA || b.voiceSameAsA)) ? LAYER_A : layer;
 }
 
 static void sync(const SavedConfig& cfg, uint8_t l) {
@@ -101,6 +102,8 @@ LayerCfg layerEffective(const SavedConfig& cfg, uint8_t layer) {
     const LayerCfg& b = cfg.layer[LAYER_B];
     if (b.mode == LayerMode::SameAsA) return a;
     LayerCfg e = b;
+    if (b.voiceSameAsA)  e.voice  = a.voice;   // what plays is layerVoice(): A's, tweaks included
+    if (b.octaveSameAsA) e.octave = a.octave;
     if (b.rootSameAsA) e.root = a.root;
     if (b.scaleSameAsA) {
         e.scale   = a.scale;

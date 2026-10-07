@@ -6,6 +6,7 @@
     "root": "d",
     "scaleSameAsA": false,
     "scale": "pentatonicMinor",
+    "octaveSameAsA": false,
     "octave": 2,
     "lowNote": "outer"
   }

@@ -146,6 +146,12 @@ static const char* OCTAVE_ITEMS[] = {
     "0","1","2","3","4","5","6","7","Back"
 };
 static const uint8_t OCTAVE_COUNT = 9;
+// Layer B's list adds Same as A, as Root's does.
+static const char* OCTAVE_ITEMS_B[] = {
+    "0","1","2","3","4","5","6","7","Same as A","Back"
+};
+static const uint8_t OCTAVE_COUNT_B = 10;
+static const uint8_t OCTAVE_ITEM_SAME_AS_A = 8;
 
 // --- Layer submenu --------------------------------------------------------
 // Layer A and Layer B share one submenu; editLayer says which is open.
@@ -544,19 +550,25 @@ static void buildVoiceEditLabels(const SavedConfig& cfg) {
 // The voices a layer can pick, as shown: the built-ins, the used custom
 // slots, then (for the Aux, outside Defaults) the scene's own voice if it
 // has one for this layer. Rebuilt before use, since slots come and go.
-static const uint8_t VOICE_CHOICE_MAX = VOICE_COUNT + NUM_CUSTOM_VOICES + 1;
+static const uint8_t VOICE_CHOICE_MAX  = VOICE_COUNT + NUM_CUSTOM_VOICES + 2;   // + scene voice, Same as A
+static const uint8_t VOICE_CHOICE_SAME = 0xFE;   // Layer B: Same as A
 static uint8_t     voiceChoiceIds[VOICE_CHOICE_MAX];
 static const char* voiceChoiceLabels[VOICE_CHOICE_MAX + 1];   // + Back
 static char        voiceChoiceMarked[17];
 
-static uint8_t buildVoiceChoices(const SavedConfig& cfg, uint8_t layer, bool withScene) {
+static uint8_t buildVoiceChoices(const SavedConfig& cfg, uint8_t layer, bool withScene,
+                                 bool sameAsA = false) {
     uint8_t n = 0;
     for (uint8_t i = 0; i < VOICE_COUNT; i++) voiceChoiceIds[n++] = VOICE_MENU_ORDER[i];
     for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++) {
         if (cfg.customVoices[i].used) voiceChoiceIds[n++] = VOICE_CUSTOM_FIRST + i;
     }
     if (withScene && layerSceneVoice(layer).used) voiceChoiceIds[n++] = VOICE_SCENE;
-    for (uint8_t i = 0; i < n; i++) voiceChoiceLabels[i] = voiceIdName(voiceChoiceIds[i]);
+    if (sameAsA) voiceChoiceIds[n++] = VOICE_CHOICE_SAME;
+    for (uint8_t i = 0; i < n; i++) {
+        voiceChoiceLabels[i] = voiceChoiceIds[i] == VOICE_CHOICE_SAME ? "Same as A"
+                                                                     : voiceIdName(voiceChoiceIds[i]);
+    }
     voiceChoiceLabels[n] = "Back";
     return n;
 }
@@ -670,7 +682,8 @@ static void buildHarmonicItems(const SavedConfig& cfg) {
 // Layer B in Same as A plays A's voice, and Drums and None have nothing to
 // tweak.
 static bool voiceEditable(const SavedConfig& cfg, uint8_t l) {
-    if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) return false;
+    if (l == LAYER_B && (cfg.layer[LAYER_B].mode == LayerMode::SameAsA ||
+                         cfg.layer[LAYER_B].voiceSameAsA)) return false;
     const Voice& v = layerVoice(cfg, l);
     return !voiceIsKit(v) && !voiceIsSilent(v);
 }
@@ -1727,6 +1740,86 @@ static void drawTrackNotes(const SavedConfig& cfg, uint8_t view) {
 // Wrap it is a rotation, 7 to 0 moving one sensor; with No Wrap it transposes
 // the whole run, and 7 to 0 would drop every sensor an octave at once. Low
 // Note clamps too, right = Outer as listed, so a stray click cannot flip it.
+// --- Layer B's links to A, on the Aux ------------------------------------------
+// The Aux lists of the settings B can follow from A (Voice, Octave, Root,
+// Scale, Shift with its Wrap, Low Note) start with "Same as A". It sits at
+// the seam: turning off it gives B its own setting, starting from A's so
+// nothing jumps; turning back past the first value (or, on a list that goes
+// round, past either end) links it again. Added 2026-10-07: they used to
+// show "Same as A" and not turn, so B could only be freed from the menu.
+static bool auxLinkable(uint8_t l, AuxKind k) {
+    if (l != LAYER_B) return false;
+    switch (k) {
+        case AuxKind::Voice: case AuxKind::Root: case AuxKind::Scale: case AuxKind::Octave:
+        case AuxKind::Shift: case AuxKind::Wrap: case AuxKind::LowNote: return true;
+        default: return false;
+    }
+}
+static bool auxLinked(const LayerCfg& b, AuxKind k) {
+    switch (k) {
+        case AuxKind::Voice:   return b.voiceSameAsA;
+        case AuxKind::Root:    return b.rootSameAsA;
+        case AuxKind::Scale:   return b.scaleSameAsA;
+        case AuxKind::Octave:  return b.octaveSameAsA;
+        case AuxKind::Shift:
+        case AuxKind::Wrap:    return b.shiftSameAsA;   // Wrap goes with the shift
+        case AuxKind::LowNote: return b.lowNoteSameAsA;
+        default:               return false;
+    }
+}
+// Links B's setting `k` to A's, or frees it starting from A's value.
+static void auxSetLink(SavedConfig& cfg, AuxKind k, bool link) {
+    const LayerCfg& a = cfg.layer[LAYER_A];
+    LayerCfg&       b = cfg.layer[LAYER_B];
+    switch (k) {
+        case AuxKind::Voice:
+            // A's scene voice is A's own: B takes the built-in it was made from.
+            if (!link) b.voice = (a.voice == VOICE_SCENE) ? layerSceneVoice(LAYER_A).base : a.voice;
+            b.voiceSameAsA = link;
+            layersApply(cfg);
+            break;
+        case AuxKind::Root:
+            if (!link) b.root = a.root;
+            b.rootSameAsA = link;
+            break;
+        case AuxKind::Scale:
+            if (!link) {
+                b.scale   = a.scale;
+                b.learned = a.learned;
+                memcpy(b.custom, a.custom, CUSTOM_SCALE_SLOTS);
+                customScaleFrom[LAYER_B] = customScaleFrom[LAYER_A];
+            }
+            b.scaleSameAsA = link;
+            break;
+        case AuxKind::Octave:
+            if (!link) b.octave = a.octave;
+            b.octaveSameAsA = link;
+            break;
+        case AuxKind::Shift:
+        case AuxKind::Wrap:
+            if (!link) { b.shift = a.shift; b.wrap = a.wrap; }
+            b.shiftSameAsA = link;
+            break;
+        case AuxKind::LowNote:
+            if (!link) b.lowNote = a.lowNote;
+            b.lowNoteSameAsA = link;
+            break;
+        default:
+            break;
+    }
+}
+
+// A list with "Same as A" on top for a setting B can follow; the plain list
+// otherwise. `cur` is the value's place in `items`.
+static const char* linkItems[32];
+static void drawAuxList(const SavedConfig& cfg, uint8_t l, AuxKind k,
+                        const char** items, uint8_t n, uint8_t cur) {
+    if (!auxLinkable(l, k) || n + 1 > 32) { drawList(items, n, cur); return; }
+    linkItems[0] = "Same as A";
+    for (uint8_t i = 0; i < n; i++) linkItems[i + 1] = items[i];
+    drawList(linkItems, n + 1, auxLinked(cfg.layer[LAYER_B], k) ? 0 : cur + 1);
+}
+
 static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
     AuxFn fn = (AuxFn)cfg.auxFn;
     switch (fn) {
@@ -1772,31 +1865,45 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
     if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA &&
         auxKindOf(fn) != AuxKind::Mode) return;
     LayerCfg& lc = cfg.layer[l];
+    AuxKind kind = auxKindOf(fn);
 
-    switch (auxKindOf(fn)) {
+    // B following A for this setting: any turn frees it, from A's value.
+    bool linkable = auxLinkable(l, kind);
+    if (linkable && auxLinked(lc, kind)) {
+        auxSetLink(cfg, kind, false);
+        return;
+    }
+    // Past the seam (see above): link it again.
+    auto seam = [&](int v, int n, bool circle) {
+        return linkable && (v < 0 || (circle && v >= n));
+    };
+
+    switch (kind) {
         case AuxKind::Voice: {
             uint8_t n = buildVoiceChoices(cfg, l, true);
-            int v = ((int)voiceChoicePos(lc.voice, n) + delta) % n;
+            int v = (int)voiceChoicePos(lc.voice, n) + delta;
+            if (seam(v, n, true)) { auxSetLink(cfg, kind, true); break; }
+            v %= n;
             if (v < 0) v += n;
             lc.voice = voiceChoiceIds[v];                      // wrap: a list
             layersApply(cfg);
             break;
         }
         case AuxKind::Root: {
-            // B playing A's root: turning B's would change a hidden setting.
-            if (l == LAYER_B && lc.rootSameAsA) break;
-            int v = ((int)lc.root + delta) % 12;
+            int v = (int)lc.root + delta;
+            if (seam(v, 12, true)) { auxSetLink(cfg, kind, true); break; }
+            v %= 12;
             if (v < 0) v += 12;
             lc.root = (RootNote)v;                             // wrap: a circle
             break;
         }
         case AuxKind::Scale: {
             // Learned is in the list only once this layer has learned one;
-            // Custom and the saved Custom 1-8 follow. B playing A's scale:
-            // left alone, as for its root.
-            if (l == LAYER_B && lc.scaleSameAsA) break;
+            // Custom and the saved Custom 1-8 follow.
             int n = buildScaleChoices(cfg, lc, true);
-            int v = ((int)scaleChoicePos(cfg, lc, l, n, 0) + delta) % n;
+            int v = (int)scaleChoicePos(cfg, lc, l, n, 0) + delta;
+            if (seam(v, n, true)) { auxSetLink(cfg, kind, true); break; }
+            v %= n;
             if (v < 0) v += n;
             uint8_t id = scaleChoiceIds[v];                    // wrap: a list
             scaleChoose(cfg, lc, id);
@@ -1805,14 +1912,15 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
         }
         case AuxKind::Octave: {
             int v = (int)lc.octave + delta;
+            if (seam(v, 8, false)) { auxSetLink(cfg, kind, true); break; }
             lc.octave = (uint8_t)constrain(v, 0, 7);           // clamp: a range
             break;
         }
         case AuxKind::Shift: {
-            // B playing A's shift: turning B's would change a hidden setting.
-            if (layerShiftSource(cfg, l) != l) break;
-            int v = (int)lc.shift + delta;
-            if (layerWraps(cfg, l)) {                          // kits always wrap
+            int  v      = (int)lc.shift + delta;
+            bool circle = layerWraps(cfg, l);                  // kits always wrap
+            if (seam(v, NUM_HALL_SENSORS, circle)) { auxSetLink(cfg, kind, true); break; }
+            if (circle) {
                 v %= NUM_HALL_SENSORS;
                 if (v < 0) v += NUM_HALL_SENSORS;              // wrap: a rotation
             } else {
@@ -1822,15 +1930,15 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
             break;
         }
         case AuxKind::LowNote: {
-            if (layerLowNoteSource(cfg, l) != l) break;        // playing A's
             int v = (int)lc.lowNote + delta;
+            if (seam(v, LOW_NOTE_VALUES, false)) { auxSetLink(cfg, kind, true); break; }
             lc.lowNote = (uint8_t)constrain(v, 0, LOW_NOTE_VALUES - 1);
             break;
         }
         case AuxKind::Wrap: {
-            // Wrap goes with the shift: B playing A's shift plays A's Wrap.
-            if (layerShiftSource(cfg, l) != l) break;
+            // Wrap goes with the shift: B following A's shift follows its Wrap.
             int v = (lc.wrap ? 0 : 1) + delta;                 // index 0 = Wrap
+            if (seam(v, 2, false)) { auxSetLink(cfg, kind, true); break; }
             lc.wrap = constrain(v, 0, 1) == 0;                 // clamp: a list
             break;
         }
@@ -1860,8 +1968,8 @@ static void auxApplyDelta(SavedConfig& cfg, int8_t delta) {
     }
 }
 
-// A per-layer Fn's parameter screen. Layer B in Same as A says so instead,
-// as do B's Shift and Low Note while bound to A's.
+// A per-layer Fn's parameter screen. Layer B in Same as A says so instead;
+// the settings B can follow one by one list "Same as A" first.
 static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
     if (l == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA &&
         kind != AuxKind::Mode) {
@@ -1881,57 +1989,34 @@ static void drawAuxLayerParam(const SavedConfig& cfg, AuxKind kind, uint8_t l) {
                 snprintf(voiceChoiceMarked, sizeof(voiceChoiceMarked), "%s*", voiceChoiceLabels[cur]);
                 voiceChoiceLabels[cur] = voiceChoiceMarked;
             }
-            drawList(voiceChoiceLabels, n, cur);
+            drawAuxList(cfg, l, kind, voiceChoiceLabels, n, cur);
             break;
         }
         case AuxKind::Root:
-            if (l == LAYER_B && lc.rootSameAsA) {
-                lcdLine(0, "B Root is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
-            }
+            drawAuxList(cfg, l, kind, ROOT_ITEMS, 12, (uint8_t)lc.root % 12);
             break;
         case AuxKind::Scale: {
-            if (l == LAYER_B && lc.scaleSameAsA) {
-                lcdLine(0, "B Scale is");
-                lcdLine(1, "Same as A");
-                break;
-            }
             uint8_t n = buildScaleChoices(cfg, lc, true);
-            drawList(scaleChoiceLabels, n, scaleChoicePos(cfg, lc, l, n, 0));
+            drawAuxList(cfg, l, kind, scaleChoiceLabels, n, scaleChoicePos(cfg, lc, l, n, 0));
             break;
         }
         case AuxKind::Octave:
-            drawList(OCTAVE_ITEMS, 8, (uint8_t)constrain(lc.octave, 0, 7));
+            drawAuxList(cfg, l, kind, OCTAVE_ITEMS, 8, (uint8_t)constrain(lc.octave, 0, 7));
             break;
         case AuxKind::Shift:
-            if (l == LAYER_B && lc.shiftSameAsA) {
-                lcdLine(0, "B Shift is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(SHIFT_ITEMS_A, NUM_HALL_SENSORS,
-                         (uint8_t)constrain(lc.shift, 0, NUM_HALL_SENSORS - 1));
-            }
+            drawAuxList(cfg, l, kind, SHIFT_ITEMS_A, NUM_HALL_SENSORS,
+                        (uint8_t)constrain(lc.shift, 0, NUM_HALL_SENSORS - 1));
             break;
         case AuxKind::LowNote:
-            if (l == LAYER_B && lc.lowNoteSameAsA) {
-                lcdLine(0, "B Low Note is");
-                lcdLine(1, "Same as A");
-            } else {
-                drawList(LOW_NOTE_ITEMS_A, LOW_NOTE_VALUES,
-                         (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
-            }
+            drawAuxList(cfg, l, kind, LOW_NOTE_ITEMS_A, LOW_NOTE_VALUES,
+                        (uint8_t)constrain(lc.lowNote, 0, LOW_NOTE_VALUES - 1));
             break;
         case AuxKind::Wrap:
-            if (l == LAYER_B && lc.shiftSameAsA) {
-                lcdLine(0, "B Shift is");
-                lcdLine(1, "Same as A");
-            } else if (voiceIsKit(layerVoice(cfg, l))) {
+            if (voiceIsKit(layerVoice(cfg, l)) && !(l == LAYER_B && lc.shiftSameAsA)) {
                 lcdLine(0, "Drums always");
                 lcdLine(1, "wrap");
             } else {
-                drawList(WRAP_ITEMS, 2, lc.wrap ? 0 : 1);
+                drawAuxList(cfg, l, kind, WRAP_ITEMS, 2, lc.wrap ? 0 : 1);
             }
             break;
         case AuxKind::Mode:
@@ -1975,6 +2060,9 @@ static void drawVoiceEditList(const SavedConfig& cfg) {
     }
     if (auxLayer == LAYER_B && cfg.layer[LAYER_B].mode == LayerMode::SameAsA) {
         lcdLine(0, "Layer B is");
+        lcdLine(1, "Same as A");
+    } else if (auxLayer == LAYER_B && cfg.layer[LAYER_B].voiceSameAsA) {
+        lcdLine(0, "B Voice is");
         lcdLine(1, "Same as A");
     } else {
         lcdLine(0, "%s can't be", layerVoice(cfg, auxLayer).name);
@@ -2952,10 +3040,13 @@ void menuUpdate(SavedConfig& cfg) {
                         turnEditAux = false;
                         enterState(MenuState::TurnEdit, 0);
                         break;
-                    case LAYER_ITEM_VOICE:
+                    case LAYER_ITEM_VOICE: {
+                        uint8_t n = buildVoiceChoices(cfg, editLayer, false, editLayer == LAYER_B);
                         enterState(MenuState::LayerVoice,
-                                   voiceChoicePos(lc.voice, buildVoiceChoices(cfg, editLayer, false)));
+                                   voiceChoicePos((editLayer == LAYER_B && lc.voiceSameAsA)
+                                                      ? VOICE_CHOICE_SAME : lc.voice, n));
                         break;
+                    }
                     case LAYER_ITEM_CHANNEL:
                         enterState(MenuState::LayerChannel,
                                    (uint8_t)constrain(lc.channel, 0, 16)); break;
@@ -2976,7 +3067,10 @@ void menuUpdate(SavedConfig& cfg) {
                         enterState(MenuState::ScaleEditList, 0);
                         break;
                     case LAYER_ITEM_OCTAVE:
-                        enterState(MenuState::LayerOctave, (uint8_t)constrain(lc.octave, 0, 7)); break;
+                        enterState(MenuState::LayerOctave,
+                                   (editLayer == LAYER_B && lc.octaveSameAsA)
+                                       ? OCTAVE_ITEM_SAME_AS_A : (uint8_t)constrain(lc.octave, 0, 7));
+                        break;
                     case LAYER_ITEM_LEVEL:
                         enterState(MenuState::LayerLevel,
                                    (uint8_t)(constrain(lc.level, 0, 100) / 10)); break;
@@ -3054,7 +3148,7 @@ void menuUpdate(SavedConfig& cfg) {
         }
 
         case MenuState::LayerVoice: {
-            uint8_t n = buildVoiceChoices(cfg, editLayer, false);
+            uint8_t n = buildVoiceChoices(cfg, editLayer, false, editLayer == LAYER_B);
             if (ev.menuDelta) {
                 cursor = (cursor + ev.menuDelta + n + 1) % (n + 1);
                 needsRedraw = true;
@@ -3062,7 +3156,12 @@ void menuUpdate(SavedConfig& cfg) {
             if (ev.menuPressed) {
                 if (cursor < n) {   // last entry is Back
                     uint8_t id = voiceChoiceIds[cursor];
-                    editDefaults(cfg, [id](LayerCfg& c) { c.voice = id; });
+                    if (id == VOICE_CHOICE_SAME) {
+                        editDefaults(cfg, [](LayerCfg& c) { c.voiceSameAsA = true; });
+                    } else {
+                        // Picking a voice also unbinds B's voice from A's.
+                        editDefaults(cfg, [id](LayerCfg& c) { c.voice = id; c.voiceSameAsA = false; });
+                    }
                 }
                 enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_VOICE));
             }
@@ -3196,16 +3295,23 @@ void menuUpdate(SavedConfig& cfg) {
             break;
         }
 
-        case MenuState::LayerOctave:
+        case MenuState::LayerOctave: {
+            uint8_t count = (editLayer == LAYER_A) ? OCTAVE_COUNT : OCTAVE_COUNT_B;
             if (ev.menuDelta) {
-                cursor = (cursor + ev.menuDelta + OCTAVE_COUNT) % OCTAVE_COUNT;
+                cursor = (cursor + ev.menuDelta + count) % count;
                 needsRedraw = true;
             }
             if (ev.menuPressed) {
-                if (cursor < OCTAVE_COUNT - 1) editDefaults(cfg, [](LayerCfg& c) { c.octave = cursor; });
+                if (cursor < 8) {
+                    // Picking an octave also unbinds B's octave from A's.
+                    editDefaults(cfg, [](LayerCfg& c) { c.octave = cursor; c.octaveSameAsA = false; });
+                } else if (editLayer == LAYER_B && cursor == OCTAVE_ITEM_SAME_AS_A) {
+                    editDefaults(cfg, [](LayerCfg& c) { c.octaveSameAsA = true; });
+                }
                 enterState(MenuState::LayerMenu, layerMenuPos(LAYER_ITEM_OCTAVE));
             }
             break;
+        }
 
         case MenuState::LayerLevel:
             if (ev.menuDelta) {
@@ -3973,7 +4079,7 @@ void menuUpdate(SavedConfig& cfg) {
                 else                      drawList(MODE_ITEMS_B, MODE_COUNT_B, cursor);
                 break;
             case MenuState::LayerVoice: {
-                uint8_t n = buildVoiceChoices(cfg, editLayer, false);
+                uint8_t n = buildVoiceChoices(cfg, editLayer, false, editLayer == LAYER_B);
                 drawList(voiceChoiceLabels, n + 1, cursor);
                 break;
             }
@@ -4031,7 +4137,8 @@ void menuUpdate(SavedConfig& cfg) {
                     cursor == 1 ? LCD_ARROW_RIGHT : ' ');
                 break;
             case MenuState::LayerOctave:
-                drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);
+                if (editLayer == LAYER_A) drawList(OCTAVE_ITEMS, OCTAVE_COUNT, cursor);
+                else                      drawList(OCTAVE_ITEMS_B, OCTAVE_COUNT_B, cursor);
                 break;
             case MenuState::LayerLevel:
                 drawList(LEVEL_ITEMS, LEVEL_COUNT, cursor);

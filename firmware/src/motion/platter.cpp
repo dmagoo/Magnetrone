@@ -13,7 +13,7 @@ Platter* Platter::instance_ = nullptr;
 // -----------------------------------------------------------------------------
 Platter::Config Platter::defaultConfig() {
     Config c;
-    c.startRPM           = DEFAULT_RPM;                 // 45
+    c.startRPM           = DEFAULT_RPM;                 // 15
     c.minRPM             = MIN_RPM;                     // 1
     c.maxRPM             = MAX_RPM;                     // 120 (see UNCERTAINTIES)
     c.rpmStep            = 1.0f;                        // guess; no config constant

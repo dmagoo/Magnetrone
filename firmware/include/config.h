@@ -128,7 +128,7 @@ constexpr uint8_t   DEFAULT_BEATS_PER_REV = 8;
 // -------------------------------------------------------------------------
 // Motion
 // -------------------------------------------------------------------------
-constexpr float     DEFAULT_RPM          = 45.0f;
+constexpr float     DEFAULT_RPM          = 15.0f;   // 120 BPM at the default 8 beats/rev (was 45: 360 BPM)
 constexpr float     MIN_RPM              = 1.0f;
 constexpr float     MAX_RPM              = 120.0f;
 

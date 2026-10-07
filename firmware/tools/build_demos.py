@@ -203,7 +203,8 @@ def layer_code(path, lay, l, out):
             "octave", "level", "shift", "wrap", "lowNote", "turnPattern", "tone", "chorus",
             "delay", "reverb"}
     if is_b:
-        keys |= {"shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA", "turns"}
+        keys |= {"shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA",
+                 "voiceSameAsA", "octaveSameAsA", "turns"}
     check_keys(path, lay, keys)
     t = "s.layer[%d]" % l
     if "mode" in lay:
@@ -259,7 +260,8 @@ def layer_code(path, lay, l, out):
     for key, lo, hi in (("octave", 0, 7), ("level", 0, 100), ("shift", 0, 7)):
         if key in lay:
             out.append("%s.%s = %d;" % (t, key, integer(path + "." + key, lay[key], lo, hi)))
-    for key in ("wrap", "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA"):
+    for key in ("wrap", "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA",
+                "voiceSameAsA", "octaveSameAsA"):
         if key in lay:
             out.append("%s.%s = %s;" % (t, key, boolean(path + "." + key, lay[key])))
     if "lowNote" in lay:

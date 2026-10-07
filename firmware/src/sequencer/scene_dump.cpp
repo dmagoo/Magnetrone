@@ -161,6 +161,8 @@ static Obj layerObj(const LayerCfg& a, const LayerCfg& f, const VoiceSlot& sv,
     if (isB && a.lowNoteSameAsA != f.lowNoteSameAsA) o.flag("lowNoteSameAsA", a.lowNoteSameAsA);
     if (isB && a.rootSameAsA != f.rootSameAsA)       o.flag("rootSameAsA", a.rootSameAsA);
     if (isB && a.scaleSameAsA != f.scaleSameAsA)     o.flag("scaleSameAsA", a.scaleSameAsA);
+    if (isB && a.voiceSameAsA != f.voiceSameAsA)     o.flag("voiceSameAsA", a.voiceSameAsA);
+    if (isB && a.octaveSameAsA != f.octaveSameAsA)   o.flag("octaveSameAsA", a.octaveSameAsA);
     if (isB && a.turns != f.turns) {
         static const char* const TURNS_KEYS[] = { "together", "alternate", "custom" };
         o.str("turns", pick(TURNS_KEYS, 3, (uint8_t)a.turns));

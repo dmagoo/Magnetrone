@@ -5,7 +5,7 @@
 #include "config.h"
 
 constexpr uint16_t EEPROM_MAGIC   = 0xBEEF;
-constexpr uint8_t  EEPROM_VERSION = 26;
+constexpr uint8_t  EEPROM_VERSION = 27;
 constexpr int      EEPROM_ADDRESS = 0;
 
 // One side of a magnet: Layer A plays the normal pole, Layer B the reversed
@@ -108,6 +108,11 @@ struct LayerCfg {
     // anything saved before.
     bool      rootSameAsA;
     bool      scaleSameAsA;
+    // Layer B only: play A's Voice (Voice Edit tweaks included), and A's
+    // Octave. Added in version 27; Octave on in the factory sound, Voice off;
+    // both off in anything saved before.
+    bool      voiceSameAsA;
+    bool      octaveSameAsA;
 };
 
 // The turn pattern layer `l` of a scene's (or the live) pair plays: Layer

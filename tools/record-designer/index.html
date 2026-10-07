@@ -357,7 +357,7 @@ function factoryScene() {
     A: { root: 0, octave: 4, scale: 0, voice: 0, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
          turnLen: TURN_MAX, turnMask: 0xFF },
     B: { root: 0, octave: 3, scale: 0, voice: VOICE_DRUMS, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
-         shiftSameAsA: 0, lowNoteSameAsA: 0, rootSameAsA: 1, scaleSameAsA: 1,
+         shiftSameAsA: 0, lowNoteSameAsA: 0, rootSameAsA: 1, scaleSameAsA: 1, voiceSameAsA: 0, octaveSameAsA: 1,
          turns: TURNS_TOGETHER, turnLen: TURN_MAX, turnMask: 0xFF },
   };
 }
@@ -425,9 +425,9 @@ function codeFieldValue(s, f) {
   const c = s[f.layer];
   switch (f.key) {
     case "root":   return ((f.layer === "B" ? bKey(s).root : c.root) | 0) % 12;
-    case "octave": return atMost(c.octave | 0, 7);
+    case "octave": return atMost((f.layer === "B" ? bKey(s).octave : c.octave) | 0, 7);
     case "scale": { const sc = (f.layer === "B" ? bKey(s).scale : c.scale) | 0; return sc < 8 ? sc : 0; }
-    case "voice":  return (c.voice | 0) < VOICE_NAMES.length ? c.voice | 0 : 0;
+    case "voice": { const v = (f.layer === "B" ? bKey(s).voice : c.voice) | 0; return v < VOICE_NAMES.length ? v : 0; }
     case "shift":  return atMost(c.shift | 0, NUM_TRACKS - 1);
     case "mode":   return f.layer === "A" ? (c.mode === MODE_OFF ? 1 : 0) : atMost(c.mode | 0, 3);
     case "turns":  return c.turns === TURNS_ALTERNATE ? 1 : 0;
@@ -463,10 +463,12 @@ function sceneCodeEncode(s) {
   return out.slice(0, len);
 }
 
-// Layer B's root and scale as it plays them: A's where B follows them
-// (firmware layerEffective()).
+// Layer B's voice, octave, root and scale as it plays them: A's where B
+// follows them (firmware layerEffective()).
 function bKey(s) {
-  return { root: s.B.rootSameAsA ? s.A.root : s.B.root, scale: s.B.scaleSameAsA ? s.A.scale : s.B.scale };
+  const A = s.A, B = s.B;
+  return { voice: B.voiceSameAsA ? A.voice : B.voice, octave: B.octaveSameAsA ? A.octave : B.octave,
+           root: B.rootSameAsA ? A.root : B.root, scale: B.scaleSameAsA ? A.scale : B.scale };
 }
 
 // The scene a code holds, or null if it is not a valid code.
@@ -488,8 +490,10 @@ function sceneCodeDecode(code) {
   const version = get(VERSION_BITS);
   if (version < 1 || version > 3) return null;
   const s = factoryScene();
-  s.B.rootSameAsA = 0;   // every version holds B's own root and scale
+  s.B.rootSameAsA = 0;   // every version holds B's own voice, octave, root and scale
   s.B.scaleSameAsA = 0;
+  s.B.voiceSameAsA = 0;
+  s.B.octaveSameAsA = 0;
   for (const f of version === 3 ? V3_FIELDS : version === 2 ? V2_FIELDS : V1_FIELDS) {
     const e = get(f.bits);
     if (e >= f.count) return null;
@@ -1024,7 +1028,7 @@ const DEFAULTS = {
   name: "",        // the current song's name
   songs: [],       // saved songs (chips): { id, name, song: songEncode() text }
   songId: null,    // the chip the current song came from
-  bpm: 180,   // DEFAULT_RPM (45) in config.h at 4 beats/rev
+  bpm: 120,   // the table's default, 120 BPM (DEFAULT_RPM 15 in config.h at 8 beats/rev)
   paper: "letter", hole: 11, forward: "cw",
 };
 
@@ -1043,6 +1047,8 @@ function loadState() {
       const sb = (saved.scene || {}).B || {};
       if (sb.rootSameAsA === undefined) st.scene.B.rootSameAsA = 0;
       if (sb.scaleSameAsA === undefined) st.scene.B.scaleSameAsA = 0;
+      if (sb.voiceSameAsA === undefined) st.scene.B.voiceSameAsA = 0;
+      if (sb.octaveSameAsA === undefined) st.scene.B.octaveSameAsA = 0;
     }
   } catch (e) { /* no storage: start fresh */ }
   st.songs = Array.isArray(st.songs) ? st.songs.filter((c) => c && c.id && typeof c.song === "string") : [];
@@ -1267,18 +1273,22 @@ function sceneDims(s) {
   if (s.A.mode === MODE_OFF) dim("A", all, "Layer A is Off");
   if (s.B.mode === MODE_OFF) dim("B", all, "Layer B is Off");
   if (s.B.mode === MODE_SAME_AS_A) {
-    dim("B", [...all, "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA"], "Layer B is Same as A: it plays Layer A's settings");
+    dim("B", [...all, "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA", "voiceSameAsA", "octaveSameAsA"],
+        "Layer B is Same as A: it plays Layer A's settings");
   }
+  if (s.B.voiceSameAsA) dim("B", ["voice"], "Follows Layer A's Voice");
+  if (s.B.octaveSameAsA) dim("B", ["octave"], "Follows Layer A's Octave");
   if (s.B.rootSameAsA) dim("B", ["root"], "Follows Layer A's Root");
   if (s.B.scaleSameAsA) dim("B", ["scale"], "Follows Layer A's Scale");
   if (s.B.shiftSameAsA) dim("B", ["shift", "wrap"], "Follows Layer A's Shift and Wrap");
   if (s.B.lowNoteSameAsA) dim("B", ["lowNote"], "Follows Layer A's Low Note");
   for (const l of ["A", "B"]) {
-    if (s[l].voice === VOICE_DRUMS) {
+    const voice = l === "B" ? bKey(s).voice : s.A.voice;   // as it plays
+    if (voice === VOICE_DRUMS) {
       dim(l, ["root", "octave", "scale"], "Drums ignore root, octave and scale");
       dim(l, ["wrap"], "Drums always wrap");
     }
-    if (s[l].voice === VOICE_NONE) dim(l, ["root", "octave", "scale", "shift", "lowNote", "wrap"], "Voice None is silent");
+    if (voice === VOICE_NONE) dim(l, ["root", "octave", "scale", "shift", "lowNote", "wrap"], "Voice None is silent");
   }
   return dims;
 }
@@ -1298,6 +1308,8 @@ const TERMS = {
   "Edit Turns": "Each layer's turns, up to 8 revolutions, then it repeats. A number: the layer's magnets are heard on that turn. -: not heard. |: the cycle ends there, so it can be any length; the layers can differ. Click a turn: on, off, end of the cycle (not turn 1). Click the end or past it for 8 turns again. Changing a turn makes Layer Turns Custom, starting from what it was playing.",
   "shiftSameAsA": "Layer B follows Layer A's Shift, and with it A's Wrap.",
   "rootSameAsA": "Layer B follows Layer A's Root. On in the factory sound.",
+  "voiceSameAsA": "Layer B follows Layer A's Voice.",
+  "octaveSameAsA": "Layer B follows Layer A's Octave. On in the factory sound (drums ignore it).",
   "scaleSameAsA": "Layer B follows Layer A's Scale. On in the factory sound.",
   "lowNoteSameAsA": "Layer B follows Layer A's Low Note.",
 };
@@ -1311,11 +1323,16 @@ function renderScene() {
     return `<td${why ? ` class="dim" title="${why}"` : ""}>${html}</td>`;
   };
   const sel = (l, key, names, order = null) => cell(l, key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key], order)}</select>`);
-  const selWith = (l, key, names, flag) => {
-    const why = dims[l][key];
-    return `<td>${`<div${why ? ` class="dim" title="${why}"` : ""}><select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select></div>`}` +
+  // A Layer B control with its Same as A box below.
+  const linkCell = (key, control, flag) => {
+    const why = dims.B[key];
+    return `<td><div${why ? ` class="dim" title="${why}"` : ""}>${control}</div>` +
       `<label${dims.B[flag] ? ` class="dim" title="${dims.B[flag]}"` : ""}><input type="checkbox" data-l="B" data-k="${flag}"${s.B[flag] ? " checked" : ""}> ${term("Same as A", flag)}</label></td>`;
   };
+  const selWith = (l, key, names, flag, order = null) =>
+    linkCell(key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key], order)}</select>`, flag);
+  const numWith = (key, min, max, flag) =>
+    linkCell(key, `<input type="number" data-l="B" data-k="${key}" min="${min}" max="${max}" value="${s.B[key]}">`, flag);
   // Shift options: the number and what the low track then plays, from the
   // layer's own settings. The low track plays degree `shift` either way
   // round (Low Note flips first), so only the number changes the note.
@@ -1342,9 +1359,9 @@ function renderScene() {
   const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
 
   $("gSound").innerHTML = head + "<tbody>" +
-    row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), sel("B", "voice", VOICE_NAMES, VOICE_MENU_ORDER)) +
+    row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), selWith("B", "voice", VOICE_NAMES, "voiceSameAsA", VOICE_MENU_ORDER)) +
     row("Root", sel("A", "root", ROOT_NAMES), selWith("B", "root", ROOT_NAMES, "rootSameAsA")) +
-    row("Octave", num("A", "octave", 0, 7), num("B", "octave", 0, 7)) +
+    row("Octave", num("A", "octave", 0, 7), numWith("octave", 0, 7, "octaveSameAsA")) +
     row("Scale", sel("A", "scale", SCALE_NAMES), selWith("B", "scale", SCALE_NAMES, "scaleSameAsA")) + "</tbody>";
   $("gArrange").innerHTML = head + "<tbody>" +
     row("Shift", sel("A", "shift", shiftNames("A")), selWith("B", "shift", shiftNames("B"), "shiftSameAsA")) +

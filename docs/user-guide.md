@@ -487,10 +487,10 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Mode        | Layer  | Yes | On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits. Off silences every magnet that way up. | On |
 | Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. Custom: each layer plays its own pattern from Edit Turns. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
 | Edit Turns  | Layer  | Yes | Which revolutions the layer is heard on, in a cycle of up to 8. See [Edit Turns](#edit-turns). | Every turn |
-| Voice       | Layer  | Yes | Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
+| Voice       | Layer  | Yes | Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. On Layer B, Same as A plays A's voice, Voice Edit tweaks included. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. On Layer B, Same as A follows A's root (picking a note sets B's own). Drums ignore it. | C; B: Same as A |
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, Learned (from an older MIDI Scale Learn, kept in scenes saved with it), Custom (one note per track, see [Edit Scale](#edit-scale), or played in from MIDI, see [MIDI In](#midi-in)), or a saved Custom 1 to 8. On Layer B, Same as A follows A's scale, its Custom and Learned notes included (picking a scale sets B's own). Drums ignore it. | Major; B: Same as A |
-| Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
+| Octave      | Layer  | Yes | 0 to 7. On Layer B, Same as A follows A's octave. Drums ignore it. | A: 4; B: Same as A |
 | Shift       | Layer  | Yes | Moves the run up by scale degrees, 0 to 7. On Layer B, Same as A follows A's shift. On Drums it moves each drum to another track. | 0 |
 | Wrap        | Layer  | Yes | With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. If B follows A's shift, it uses A's Wrap. Drums always wrap. | No Wrap |
 | Low Note    | Layer  | Yes | Which end of the arm plays the lowest note: Inner or Outer. On Layer B, Same as A follows A. On Drums it flips the kit end to end. | Inner |
@@ -502,12 +502,18 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 
 When Layer B is on **Same as A**, the Aux knob shows **Layer B is Same as A**
 instead of changing B's settings. Mode is the exception, so you can switch B
-back from the Aux. The same goes for a single setting B follows: with B's Root
-on Same as A, Aux > Layer B > Root shows **B Root is Same as A** (likewise
-Scale, Shift and Low Note); pick a value for it in **Sound Defaults > Layer
-B** to set B's own. Out of the box, B's Root and Scale follow A, so changing
-Layer A's key moves both layers. Edit Scale on Layer B waits the same way
-while B's Scale follows A.
+back from the Aux.
+
+Layer B can also follow A one setting at a time: Voice, Octave, Root Note,
+Scale, Shift (with its Wrap) and Low Note each have a **Same as A** choice.
+Out of the box B's Octave, Root and Scale follow A, so changing Layer A's
+key moves both layers. On the Aux, B's list for each starts with **Same as
+A**: turn off it and B gets its own setting, starting from A's so nothing
+jumps; turn back past the first value (or, on a list that goes round, past
+either end) to follow A again. In **Sound Defaults > Layer B**, Same as A is
+near the end of each list, and picking a value sets B's own. While B's Voice
+follows A, Voice Edit on Layer B shows **B Voice is Same as A**; while its
+Scale does, Edit Scale waits the same way.
 
 Mode on the Aux is also the way to give a saved scene Stack: load the scene,
 set Layer B's Mode to Stack on the Aux, then choose **Save Scene**.
