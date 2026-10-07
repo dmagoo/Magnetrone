@@ -425,8 +425,10 @@ Codes keep working after firmware updates.
 The [Record Designer](https://dmagoo.github.io/Magnetrone/tools/record-designer/) is a web page for
 planning a record: a magnet pattern plus the Scene Code that sets the table up
 to play it. Place magnets on a grid (Layer A or B, one row per track), set the
-sound, and listen to it in the browser (forwards or backwards, or each
-layer's run on its own, as the welcome tune plays it). Songs can be saved in
+sound (including Layer Turns and each layer's turns), and listen to it in the
+browser with the table's voices (forwards or backwards, or each layer's run
+on its own, as the welcome tune plays it). Buttons swap the two layers' sound
+settings, copy Layer A's to Layer B, or reset the scene. Songs can be saved in
 the browser and shared as links. It shows the Scene Code to enter under
 **Scene Codes > Enter**, and exports a full-size template (SVG or PDF) to print
 and lay on the platter, or to laser cut into a cover with the magnet holes.
