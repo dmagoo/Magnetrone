@@ -12,8 +12,9 @@ turning physical arrangement into musical pattern.
 - 8 analog Hall effect sensors, one per note in the current scale
 - MIDI note output on DIN connector
 - Teensy Audio Shield output (headphone/line out) with a built-in synth and drum kit
-- Voices: Piano, Strings, Leads, Bass and Drums, each with its own envelope and note
-  length, plus None to mute a layer
+- Voices: Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar
+  and Drums, each with its own wave or harmonics, envelope, note length and filter,
+  plus None to mute a layer
 - Voice Edit (Aux): live tweaks to a layer's wave, envelope and note length,
   its first 16 harmonics, and its own filter with a filter envelope; Save As keeps them in Custom 1-8 (shared by all
   scenes) or as the current scene's own Scene Voice

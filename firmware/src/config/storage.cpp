@@ -373,7 +373,7 @@ VoiceSlot storageStockVoice(uint8_t base) {
     VoiceSlot s{};
     s.used       = true;
     s.base       = base;
-    s.wave       = (uint8_t)voiceWave(v.waveform);
+    s.wave       = (uint8_t)voiceWave(v.waveform) | (v.harmonicsEdited ? SLOT_HARMONICS_EDITED : 0);
     s.sustainPct = (uint8_t)lroundf(v.sustain * 100.0f);
     s.attackMs   = v.attackMs;
     s.decayMs    = v.decayMs;

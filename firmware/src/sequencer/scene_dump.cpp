@@ -7,7 +7,8 @@
 
 // The JSON names, in enum order. docs/scene-format.md and
 // tools/build_demos.py use the same ones.
-static const char* VOICE_KEYS[VOICE_COUNT] = { "piano", "strings", "leads", "bass", "drums", "none" };
+static const char* VOICE_KEYS[VOICE_COUNT] = { "piano", "strings", "synth", "bass", "drums", "none",
+                                               "ePiano", "organ", "brass", "mallets", "reed", "guitar" };
 static const char* ROOT_KEYS[12] = { "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" };
 static const char* SCALE_KEYS[(uint8_t)Scale::COUNT] = {
     "major", "minor", "pentatonicMajor", "pentatonicMinor", "blues",

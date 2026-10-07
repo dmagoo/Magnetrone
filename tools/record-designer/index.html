@@ -324,7 +324,11 @@ const COLOR_CUT = "#FF0000", COLOR_HOLE_A = "#00FF00", COLOR_HOLE_B = "#FF00FF",
 // --- Scene names (firmware order) ------------------------------------------------
 const ROOT_NAMES  = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const SCALE_NAMES = ["Major", "Minor", "Pent. Major", "Pent. Minor", "Blues", "Chromatic", "Dorian", "Mixolydian"];
-const VOICE_NAMES = ["Piano", "Strings", "Leads", "Bass", "Drums", "None"];
+// Stored order (firmware VoiceId), and the order the lists show them (VOICE_MENU_ORDER).
+const VOICE_NAMES = ["Piano", "Strings", "Synth", "Bass", "Drums", "None",
+                     "E. Piano", "Organ", "Brass", "Mallets", "Reed", "Guitar"];
+const VOICE_MENU_ORDER = [0, 6, 7, 2, 3, 1, 8, 9, 10, 11, 4, 5];
+const V1_VOICES = 6;   // Piano to None: what Scene Code versions 1 and 2 hold
 const VOICE_DRUMS = 4, VOICE_NONE = 5;
 const MODE_ON = 0, MODE_OFF = 1, MODE_SAME_AS_A = 2, MODE_STACK = 3;
 const MODE_NAMES  = ["On", "Off", "Same as A", "Stack"];
@@ -404,6 +408,15 @@ const V2_FIELDS = [
   ["B", "turnLen", 3, 8, 7], ["B", "turnMask", 8, 256, 255],
 ].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
 
+// Version 3, pinned, written when a layer plays a voice added after version 2
+// (E. Piano on): version 1 with 4-bit voices, then the turn patterns. Layer
+// Turns stays one bit; Custom is implied by a pattern other than every turn.
+const V3_FIELDS = [
+  ...V1_FIELDS.map((f) => [f.layer, f.key, f.key === "voice" ? 4 : f.bits, f.key === "voice" ? 12 : f.count, f.def]),
+  ["A", "turnLen", 3, 8, 7], ["A", "turnMask", 8, 256, 255],
+  ["B", "turnLen", 3, 8, 7], ["B", "turnMask", 8, 256, 255],
+].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
+
 const atMost = (v, max) => (v > max ? max : v);
 
 // The value each field holds in the code, as sceneCodeEncode() takes it from the config.
@@ -413,7 +426,7 @@ function codeFieldValue(s, f) {
     case "root":   return (c.root | 0) % 12;
     case "octave": return atMost(c.octave | 0, 7);
     case "scale":  return (c.scale | 0) < 8 ? c.scale | 0 : 0;
-    case "voice":  return (c.voice | 0) < 6 ? c.voice | 0 : 0;
+    case "voice":  return (c.voice | 0) < VOICE_NAMES.length ? c.voice | 0 : 0;
     case "shift":  return atMost(c.shift | 0, NUM_TRACKS - 1);
     case "mode":   return f.layer === "A" ? (c.mode === MODE_OFF ? 1 : 0) : atMost(c.mode | 0, 3);
     case "turns":  return c.turns === TURNS_ALTERNATE ? 1 : 0;
@@ -430,8 +443,15 @@ function sceneCodeEncode(s) {
     pos += bits;
   };
   const custom = s.B.turns === TURNS_CUSTOM;
-  put(custom ? 2 : 1, VERSION_BITS);
-  for (const f of custom ? V2_FIELDS : V1_FIELDS) put((codeFieldValue(s, f) + f.count - f.def) % f.count, f.bits);
+  const version = (codeFieldValue(s, { layer: "A", key: "voice" }) >= V1_VOICES ||
+                   codeFieldValue(s, { layer: "B", key: "voice" }) >= V1_VOICES) ? 3 : custom ? 2 : 1;
+  put(version, VERSION_BITS);
+  for (const f of version === 3 ? V3_FIELDS : version === 2 ? V2_FIELDS : V1_FIELDS) {
+    // Version 3 holds patterns only for Custom: every turn otherwise.
+    const plain = version === 3 && !custom && (f.key === "turnLen" || f.key === "turnMask");
+    const v = plain ? f.def : codeFieldValue(s, f);
+    put((v + f.count - f.def) % f.count, f.bits);
+  }
 
   let out = "", len = 0;
   for (let i = 0; i < SCENE_CODE_MAX; i++) {
@@ -459,16 +479,17 @@ function sceneCodeDecode(code) {
     return v;
   };
   const version = get(VERSION_BITS);
-  if (version !== 1 && version !== 2) return null;
+  if (version < 1 || version > 3) return null;
   const s = factoryScene();
-  for (const f of version === 2 ? V2_FIELDS : V1_FIELDS) {
+  for (const f of version === 3 ? V3_FIELDS : version === 2 ? V2_FIELDS : V1_FIELDS) {
     const e = get(f.bits);
     if (e >= f.count) return null;
     s[f.layer][f.key] = (e + f.def) % f.count;
   }
-  if (version === 2) {
-    s.B.turns = TURNS_CUSTOM;
+  if (version >= 2) {
     s.A.turnLen++; s.B.turnLen++;
+    const patterned = [s.A, s.B].some((c) => c.turnLen !== TURN_MAX || c.turnMask !== 0xFF);
+    if (version === 2 || patterned) s.B.turns = TURNS_CUSTOM;
   }
   if (pos < CODE_BITS && (acc & ((1n << BigInt(CODE_BITS - pos)) - 1n))) return null;   // padding
   return s;
@@ -1219,8 +1240,9 @@ function bindSteps() {
 }
 
 // --- Scene panel -------------------------------------------------------------------------
-function options(names, value) {
-  return names.map((n, i) => `<option value="${i}"${i === value ? " selected" : ""}>${n}</option>`).join("");
+function options(names, value, order = null) {
+  return (order || names.map((_, i) => i))
+    .map((i) => `<option value="${i}"${i === value ? " selected" : ""}>${names[i]}</option>`).join("");
 }
 
 // Settings that have no effect right now, with why. They stay editable: the
@@ -1249,7 +1271,7 @@ function sceneDims(s) {
 // Tooltips for the setting names, worded from the Performance Functions
 // table in docs/user-guide.md. Keep them in step with it.
 const TERMS = {
-  "Voice": "Piano, Strings, Leads, Bass, Drums or None. None silences the layer.",
+  "Voice": "Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None. None silences the layer.",
   "Root": "Key of the scale. Drums ignore it.",
   "Octave": "0 to 7. Drums ignore it.",
   "Scale": "The scale the tracks climb through, one scale step per track. Drums ignore it.",
@@ -1271,7 +1293,7 @@ function renderScene() {
     const why = dims[l][key];
     return `<td${why ? ` class="dim" title="${why}"` : ""}>${html}</td>`;
   };
-  const sel = (l, key, names) => cell(l, key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select>`);
+  const sel = (l, key, names, order = null) => cell(l, key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key], order)}</select>`);
   const selWith = (l, key, names, flag) => {
     const why = dims[l][key];
     return `<td>${`<div${why ? ` class="dim" title="${why}"` : ""}><select data-l="${l}" data-k="${key}">${options(names, s[l][key])}</select></div>`}` +
@@ -1303,7 +1325,7 @@ function renderScene() {
   const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
 
   $("gSound").innerHTML = head + "<tbody>" +
-    row("Voice", sel("A", "voice", VOICE_NAMES), sel("B", "voice", VOICE_NAMES)) +
+    row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), sel("B", "voice", VOICE_NAMES, VOICE_MENU_ORDER)) +
     row("Root", sel("A", "root", ROOT_NAMES), sel("B", "root", ROOT_NAMES)) +
     row("Octave", num("A", "octave", 0, 7), num("B", "octave", 0, 7)) +
     row("Scale", sel("A", "scale", SCALE_NAMES), sel("B", "scale", SCALE_NAMES)) + "</tbody>";
@@ -1652,13 +1674,43 @@ function bindSettings() {
 }
 
 // --- Sound preview ----------------------------------------------------------------------------
-// Envelopes from firmware/src/audio/voice.cpp: attack, decay, sustain, release, note length (ms).
+// The built-in voices from firmware/src/audio/voice.cpp, by voice id: wave, or
+// h = harmonic levels 1-16 (%); a/d/s/r = envelope (ms, ms, %, ms); ms = note
+// length; filter c = cutoff % (100 = off), q = resonance %, m = amount %,
+// fs/fa/fd/fr = its envelope (%, ms). Drums (4) and None (5) are not tones.
 const VOICE_SOUNDS = [
-  { wave: "triangle", a: 5,   d: 400, s: 0.2, r: 400, ms: 250 },   // Piano
-  { wave: "sawtooth", a: 150, d: 100, s: 0.8, r: 600, ms: 800 },   // Strings
-  { wave: "square",   a: 5,   d: 100, s: 0.7, r: 150, ms: 200 },   // Leads
-  { wave: "sawtooth", a: 5,   d: 150, s: 0.5, r: 100, ms: 250 },   // Bass
+  { h: [100, 25, 22, 6, 8, 2, 2], a: 1, d: 1200, s: 0, r: 300, ms: 500, c: 65, q: 0, m: 35, fs: 0, fa: 0, fd: 60, fr: 200 },   // Piano
+  { h: [100, 50, 33, 25, 20, 17, 14, 12], a: 300, d: 0, s: 100, r: 600, ms: 350, c: 50, q: 0, m: 0 },                     // Strings
+  { h: [100, 20, 65, 10, 35, 5, 25, 5, 15], a: 1, d: 280, s: 5, r: 300, ms: 450, c: 60, q: 5, m: 15, fs: 5, fa: 1, fd: 180, fr: 250 },   // Synth
+  { wave: "sawtooth", a: 2, d: 300, s: 35, r: 80, ms: 220, c: 30, q: 10, m: 20, fs: 15, fa: 0, fd: 200, fr: 80 },              // Bass
+  null, null,
+  { h: [100, 40, 8, 5, 8, 0, 6], a: 0, d: 1200, s: 10, r: 350, ms: 400, c: 40, q: 10, m: 35, fs: 0, fa: 0, fd: 600, fr: 400 },   // E. Piano
+  { h: [100, 70, 50, 60, 0, 40, 0, 45, 0, 0, 0, 6, 0, 0, 0, 5], a: 40, d: 0, s: 100, r: 120, ms: 800, c: 100 },               // Organ
+  { h: [100, 90, 80, 70, 55, 40, 30, 20, 12, 8], a: 60, d: 300, s: 70, r: 100, ms: 400, c: 35, q: 15, m: 60, fs: 30, fa: 80, fd: 250, fr: 100 },   // Brass
+  { wave: "triangle", a: 1, d: 500, s: 0, r: 200, ms: 400, c: 55, q: 0, m: 35, fs: 0, fa: 0, fd: 60, fr: 200 },              // Mallets
+  { h: [100, 0, 45, 0, 25, 0, 14, 0, 8, 0, 4], a: 40, d: 100, s: 85, r: 150, ms: 1200, c: 45, q: 10, m: 0 },                // Reed
+  { h: [100, 80, 60, 40, 20], a: 0, d: 800, s: 0, r: 300, ms: 500, c: 30, q: 10, m: 45, fs: 0, fa: 0, fd: 180, fr: 300 },     // Guitar
 ];
+// firmware/src/audio/audio.cpp: cutoff % to Hz, resonance % to Q; the filter
+// envelope opens the cutoff by up to 7 octaves at Amount 100%.
+const cutoffHz = (pct) => 60 * Math.pow(16000 / 60, Math.min(pct, 90) / 90);
+const filterQ  = (pct) => 0.707 + (pct / 100) * (4 - 0.707);
+// An ADSR's level t seconds after Note On, with Note Off at n: 0 to 1.
+function envAt(t, a, d, s, r, n) {
+  const held = (x) => (x < a ? (a ? x / a : 1) : x < a + d ? 1 + (s - 1) * (d ? (x - a) / d : 1) : s);
+  if (t < n) return held(t);
+  return r ? Math.max(0, held(n) * (1 - (t - n) / r)) : 0;
+}
+const periodicWaves = new Map();   // per audio context, by levels
+function periodicWave(levels) {
+  const key = levels.join(",");
+  if (!periodicWaves.has(key)) {
+    const re = new Float32Array(17), im = new Float32Array(17);
+    levels.forEach((v, i) => { im[i + 1] = v / 100; });   // sine partials, scaled to full level as the table does
+    periodicWaves.set(key, ac.createPeriodicWave(re, im));
+  }
+  return periodicWaves.get(key);
+}
 
 let ac = null, master = null, bus = null, noiseBuf = null, timer = null;
 let nextTime = 0, nextStep = 0, rev = 0;
@@ -1692,6 +1744,7 @@ document.addEventListener("visibilitychange", () => {
   if (timer) pause();
   ac.close();
   ac = null; bus = null; hearBus = null;
+  periodicWaves.clear();
 });
 
 // Every sound goes through the bus. A new one fades the old out, which
@@ -1710,29 +1763,33 @@ function newBus() {
 }
 
 function playTone(note, voice, t, key, dest = bus, noteMs = null) {
-  const v = VOICE_SOUNDS[voice];
+  const v = VOICE_SOUNDS[voice] || VOICE_SOUNDS[0];
   const osc = ac.createOscillator(), env = ac.createGain(), cut = ac.createGain();
-  osc.type = v.wave;
+  if (v.h) osc.setPeriodicWave(periodicWave(v.h));
+  else osc.type = v.wave;
   osc.frequency.value = 440 * Math.pow(2, (note - 69) / 12);
+  const a = v.a / 1000, d = v.d / 1000, s = v.s / 100, r = v.r / 1000, on = (noteMs ?? v.ms) / 1000;
+  const dur = on + r, steps = Math.max(8, Math.ceil(dur * 400));
   let node = osc;
-  if (v.wave !== "triangle") {
-    const lp = ac.createBiquadFilter();
-    lp.type = "lowpass"; lp.frequency.value = 3000;   // the table's built-in voice filter, Cutoff 63%
+  if (v.c < 100) {
+    const lp = ac.createBiquadFilter(), nyq = ac.sampleRate / 2 - 100, base = cutoffHz(v.c);
+    lp.type = "lowpass";
+    lp.Q.value = 20 * Math.log10(filterQ(v.q || 0));   // Web Audio's low-pass Q is in dB
+    if (v.m) {
+      const oct = 7 * v.m / 100, fa = v.fa / 1000, fd = v.fd / 1000, fs = v.fs / 100, fr = v.fr / 1000;
+      const fdur = Math.max(dur, on + fr), fsteps = Math.max(8, Math.ceil(fdur * 400));
+      const fc = new Float32Array(fsteps);
+      for (let i = 0; i < fsteps; i++) fc[i] = Math.min(nyq, base * Math.pow(2, oct * envAt(fdur * i / (fsteps - 1), fa, fd, fs, fr, on)));
+      lp.frequency.setValueCurveAtTime(fc, t, Math.max(fdur, 0.01));
+    } else lp.frequency.value = Math.min(nyq, base);
     osc.connect(lp); node = lp;
   }
   node.connect(env); env.connect(cut); cut.connect(dest);
-  const peak = 0.25, a = v.a / 1000, d = v.d / 1000, sus = v.s * peak, r = v.r / 1000, on = (noteMs ?? v.ms) / 1000;
-  const g = env.gain, off = t + on;
-  g.setValueAtTime(0, t);
-  if (on <= a) {
-    g.linearRampToValueAtTime(peak * on / a, off);
-  } else {
-    g.linearRampToValueAtTime(peak, t + a);
-    if (on <= a + d) g.linearRampToValueAtTime(peak + (sus - peak) * (on - a) / d, off);
-    else { g.linearRampToValueAtTime(sus, t + a + d); g.setValueAtTime(sus, off); }
-  }
-  g.linearRampToValueAtTime(0, off + r);
-  const end = off + r + 0.02;
+  const curve = new Float32Array(steps);
+  for (let i = 0; i < steps; i++) curve[i] = 0.22 * envAt(dur * i / (steps - 1), a, d, s, r, on);
+  env.gain.value = 0;
+  env.gain.setValueCurveAtTime(curve, t, Math.max(dur, 0.01));
+  const end = t + dur + 0.02;
   osc.start(t); osc.stop(end);
   // Retrigger: the sensor's previous note on this layer ends.
   const prev = sounding.get(key);

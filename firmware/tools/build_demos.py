@@ -15,9 +15,11 @@ import sys
 
 MAX_DEMOS = 246   # scene ids are a byte, after the 9 slots
 
-VOICES = ["piano", "strings", "leads", "bass", "drums", "none"]
-VOICE_ENUM = ["Piano", "Strings", "Leads", "Bass", "Drums", "None"]
-BASE_VOICES = ["piano", "strings", "leads", "bass", "drums"]
+VOICES = ["piano", "strings", "synth", "bass", "drums", "none",
+          "epiano", "organ", "brass", "mallets", "reed", "guitar"]
+VOICE_ENUM = ["Piano", "Strings", "Synth", "Bass", "Drums", "None",
+              "EPiano", "Organ", "Brass", "Mallets", "Reed", "Guitar"]
+BASE_VOICES = [v for v in VOICES if v != "none"]
 ROOTS = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"]
 SCALES = ["major", "minor", "pentatonicmajor", "pentatonicminor", "blues",
           "chromatic", "dorian", "mixolydian", "learned", "custom"]

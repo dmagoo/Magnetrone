@@ -76,7 +76,8 @@ values, as with nothing saved (asks first). The grid, BPM and template
 settings stay.
 
 The code shows beside Play, with a copy button, and updates as you change
-the settings. It is up to 10 characters, or 14 with Layer Turns on Custom. A code can be loaded back. Enter the
+the settings. It is up to 10 characters, or 14 with Layer Turns on Custom or
+a voice from E. Piano on. A code can be loaded back. Enter the
 code on the table under Aux > Scene Codes > Enter. Beats/Rev is not in the
 code; set it on the table under Menu > Play Setup > Beats/Rev.
 

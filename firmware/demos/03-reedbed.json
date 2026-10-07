@@ -3,7 +3,7 @@
   "layerA": {
     "voice": "sceneVoice",
     "sceneVoice": {
-      "base": "leads",
+      "base": "synth",
       "harmonics": [100, 5, 70, 3, 45, 2, 25, 0, 12, 0, 6],
       "attack": 50,
       "decay": 100,

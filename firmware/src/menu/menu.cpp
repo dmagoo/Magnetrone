@@ -544,7 +544,7 @@ static char        voiceChoiceMarked[17];
 
 static uint8_t buildVoiceChoices(const SavedConfig& cfg, uint8_t layer, bool withScene) {
     uint8_t n = 0;
-    for (uint8_t i = 0; i < VOICE_COUNT; i++) voiceChoiceIds[n++] = i;
+    for (uint8_t i = 0; i < VOICE_COUNT; i++) voiceChoiceIds[n++] = VOICE_MENU_ORDER[i];
     for (uint8_t i = 0; i < NUM_CUSTOM_VOICES; i++) {
         if (cfg.customVoices[i].used) voiceChoiceIds[n++] = VOICE_CUSTOM_FIRST + i;
     }
@@ -4108,7 +4108,8 @@ void menuUpdate(SavedConfig& cfg) {
                 lcdLine(1, "Click: fix it");
                 break;
             case MenuState::SceneCodePreview:
-                // Each layer's key and voice, as loaded; a click closes.
+                // Each layer's key and voice, as loaded; a click closes. The
+                // voice is its first three letters ("E. Piano" reads EPi).
                 for (uint8_t l = 0; l < NUM_LAYERS; l++) {
                     const LayerCfg& c = codeScene.layer[l];
                     char name = l == LAYER_A ? 'A' : 'B';
@@ -4117,9 +4118,13 @@ void menuUpdate(SavedConfig& cfg) {
                     } else if (c.mode == LayerMode::SameAsA) {
                         lcdLine(l, "%c same as A", name);
                     } else {
-                        lcdLine(l, "%c %-2s %-7s %.3s", name, ROOT_ITEMS[(uint8_t)c.root % 12],
-                                SCALE_NAMES[(uint8_t)c.scale % (uint8_t)Scale::COUNT],
-                                voiceIdName(c.voice));
+                        char abbr[4] = {};
+                        uint8_t k = 0;
+                        for (const char* p = voiceIdName(c.voice); *p && k < 3; p++) {
+                            if (isalnum((unsigned char)*p)) abbr[k++] = *p;
+                        }
+                        lcdLine(l, "%c %-2s %-7s %s", name, ROOT_ITEMS[(uint8_t)c.root % 12],
+                                SCALE_NAMES[(uint8_t)c.scale % (uint8_t)Scale::COUNT], abbr);
                     }
                 }
                 break;

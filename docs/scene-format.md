@@ -43,7 +43,7 @@ each layer's main settings, not effects, levels or custom voices.
 | Key | Value |
 |-----|-------|
 | `mode` | `on`, `off`. Layer B also: `sameAsA`, `stack`. |
-| `voice` | `piano`, `strings`, `leads`, `bass`, `drums`, `none`, `custom1` to `custom8`, or `sceneVoice`. |
+| `voice` | `piano`, `ePiano`, `organ`, `synth`, `bass`, `strings`, `brass`, `mallets`, `reed`, `guitar`, `drums`, `none`, `custom1` to `custom8`, or `sceneVoice`. (`synth` was `leads` before 2026-10-06.) |
 | `sceneVoice` | The layer's own voice, a voice as below. Used when `voice` is `sceneVoice`. |
 | `channel` | `auto` (follows the voice), or a MIDI channel 1 to 16. |
 | `root` | `c`, `c#`, `d`, `d#`, `e`, `f`, `f#`, `g`, `g#`, `a`, `a#`, `b`. |
@@ -79,9 +79,9 @@ Used by `sceneVoice` and `customVoices`.
 
 | Key | Value |
 |-----|-------|
-| `base` | The built-in voice it was made from (`piano` ... `drums`); sets the Auto MIDI channel. |
+| `base` | The built-in voice it was made from (any `voice` name above but `none`, and not a custom or scene voice); sets the Auto MIDI channel and every field left out. |
 | `wave` | `sine`, `triangle`, `saw`, `square`. |
-| `harmonics` | Up to 16 levels, 0 to 100, from the fundamental up. Present means the voice plays these instead of the stock wave; left out, it plays the stock wave. A shorter list takes the rest from the stock wave (of `wave`, or of `base`). |
+| `harmonics` | Up to 16 levels, 0 to 100, from the fundamental up. Present means the voice plays these instead of the stock wave. Left out, it plays what `base` plays: its harmonics if it has them (most built-ins do), else its wave, or `wave` if given. A shorter list takes the rest from the stock wave (of `wave`, or of `base`). |
 | `attack`, `decay`, `release` | Milliseconds. |
 | `sustain` | 0 to 100 (percent). |
 | `length` | Note length, milliseconds. |

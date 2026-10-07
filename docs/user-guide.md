@@ -394,7 +394,8 @@ Wrap and mode, plus Layer B's Same as A settings and Layer Turns, with both
 turn patterns when Layer Turns is Custom. Everything else (effects, level,
 channel, Pitch, A/B Balance) loads as the factory sound. The more you have
 changed, the longer the code: changing only the roots makes a 3-character
-code. Without Custom turns a code is at most 10 characters.
+code. A code is at most 10 characters unless it uses Custom turns or one of
+the voices from E. Piano on.
 
 Codes hold the built-in voices and scales only. A Custom voice goes out as the
 built-in it was made from, and a Learned or Custom scale as Major.
@@ -481,7 +482,7 @@ Functions meant to be changed while playing. "Layer" means the setting is in
 | Mode        | Layer  | Yes | On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits. Off silences every magnet that way up. | On |
 | Layer Turns | Layer B | Yes | Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. Custom: each layer plays its own pattern from Edit Turns. On the Aux it is in the main list, not under Layer B. See [Playing](#playing). | Together |
 | Edit Turns  | Layer  | Yes | Which revolutions the layer is heard on, in a cycle of up to 8. See [Edit Turns](#edit-turns). | Every turn |
-| Voice       | Layer  | Yes | Piano, Strings, Leads, Bass, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
+| Voice       | Layer  | Yes | Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None, plus any saved Custom voices and, on the Aux, the scene's own Scene Voice. None silences the layer, handy for muting it live from the Aux. | A: Piano, B: Drums |
 | Root Note   | Layer  | Yes | Key of the scale. Drums ignore it. | C |
 | Scale       | Layer  | Yes | Major, Minor, Pentatonic Major and Minor, Blues, Chromatic, Dorian, Mixolydian, Learned (from an older MIDI Scale Learn, kept in scenes saved with it), Custom (one note per track, see [Edit Scale](#edit-scale), or played in from MIDI, see [MIDI In](#midi-in)), or a saved Custom 1 to 8. Drums ignore it. | Major |
 | Octave      | Layer  | Yes | 0 to 7. Drums ignore it. | A: 4, B: 3 |
@@ -538,17 +539,24 @@ same as above; the rest are under **Menu > Play Setup**, **Menu > System** and
 
 ## Voices and Drums
 
-| Voice   | Sound                     | MIDI channel (Auto) |
-|---------|---------------------------|---------------------|
-| Piano   | Plucky, short             | 1                   |
-| Bass    | Punchy                    | 2                   |
-| Strings | Slow swell, long notes    | 3                   |
-| Leads   | Bright, sustained         | 4                   |
-| Drums   | Drum kit, one drum per track | 10               |
-| None    | Silent                    | -                   |
+| Voice    | Sound                                   | MIDI channel (Auto) |
+|----------|-----------------------------------------|---------------------|
+| Piano    | Struck and fading, a bright click on the strike | 1           |
+| E. Piano | Soft electric piano with a faint bell   | 5                   |
+| Organ    | Pipe organ, held                        | 6                   |
+| Synth    | Hollow, pan-pipe-like synth             | 4                   |
+| Bass     | Saw bass with a short filter punch      | 2                   |
+| Strings  | Slow, smooth swell                      | 3                   |
+| Brass    | Horn with a brassy opening              | 7                   |
+| Mallets  | Short struck bar                        | 8                   |
+| Reed     | Clarinet-like, held                     | 9                   |
+| Guitar   | Plucked, fading                         | 11                  |
+| Drums    | Drum kit, one drum per track            | 10                  |
+| None     | Silent                                  | -                   |
 
-Strings, Leads and Bass have their filter at Cutoff 63% (about 3 kHz), which
-softens their edge; Piano's is Off. Voice Edit > Filter starts from these.
+Synth was called Leads before 2026-10-06. Most voices are built from their
+own harmonics (Voice Edit shows Harmonics\*), and most have their own filter
+setting; Voice Edit starts from the voice's values.
 
 Custom voices and Scene Voices (see [Voice Edit](#voice-edit)) use the MIDI
 channel of the voice they were made from.

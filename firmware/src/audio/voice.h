@@ -54,9 +54,14 @@ struct Voice {
 };
 
 // Order matches VOICES[] in voice.cpp, and the stored cfg.layer[].voice is an index
-// into it, so append new voices at the end or saved settings shift.
-enum class VoiceId : uint8_t { Piano, Strings, Leads, Bass, Drums, None, COUNT };
+// into it, so append new voices at the end or saved settings shift. Synth was
+// Leads until 2026-10-06; E. Piano on were added then.
+enum class VoiceId : uint8_t { Piano, Strings, Synth, Bass, Drums, None,
+                               EPiano, Organ, Brass, Mallets, Reed, Guitar, COUNT };
 constexpr uint8_t VOICE_COUNT = (uint8_t)VoiceId::COUNT;
+
+// The built-ins in the order the voice lists show them.
+extern const uint8_t VOICE_MENU_ORDER[VOICE_COUNT];
 
 // Out-of-range ids (a corrupt or future EEPROM value) fall back to Piano.
 const Voice& voiceGet(uint8_t id);

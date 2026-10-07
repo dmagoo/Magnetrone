@@ -7,7 +7,8 @@
 const char SCENE_CODE_ALPHABET[33] = "AHJLMTWXY347CEFKNPR96DQGUVB8S5Z2";
 
 // sceneCodeEncode() writes version 1, or version 2 when Layer Turns is
-// Custom, so a scene version 1 can hold keeps its version 1 code.
+// Custom, so a scene version 1 can hold keeps its version 1 code. A scene
+// with a voice added after version 2 (E. Piano on) takes version 3.
 static const uint8_t VERSION_BITS = 4;
 static const uint8_t CHAR_BITS    = 5;
 static const uint8_t CODE_BITS    = SCENE_CODE_MAX * CHAR_BITS;
@@ -98,10 +99,45 @@ static const FieldSpec V2_FIELDS[] = {
 static const uint8_t V2_COUNT = sizeof(V2_FIELDS) / sizeof(V2_FIELDS[0]);
 static_assert(TURN_MAX == 8, "turn patterns changed: new code version");
 
+// --- Version 3 ----------------------------------------------------------------
+// Version 1 with the voices widened to all 12 built-ins (added 2026-10-06),
+// then each layer's turn pattern as version 2 has them. Layer Turns stays
+// one bit (Alternate); Custom is implied by a pattern that is not every turn,
+// so a Custom scene whose patterns are every turn reads back as Together,
+// which sounds the same. That keeps it to 70 bits, 14 characters. Pinned
+// like version 1.
+static const FieldSpec V3_FIELDS[] = {
+    { AT(root, 0),           4,  12,   0 },   // C
+    { AT(root, 1),           4,  12,   0 },   // C
+    { AT(octave, 0),         3,   8,   4 },
+    { AT(octave, 1),         3,   8,   3 },
+    { AT(scale, 0),          3,   8,   0 },   // Major
+    { AT(scale, 1),          3,   8,   0 },   // Major
+    { AT(voice, 0),          4,  12,   0 },   // Piano
+    { AT(voice, 1),          4,  12,   4 },   // Drums
+    { AT(shift, 0),          3,   8,   0 },
+    { AT(shift, 1),          3,   8,   0 },
+    { AT(lowNote, 0),        1,   2,   0 },   // Inner
+    { AT(lowNote, 1),        1,   2,   0 },   // Inner
+    { AT(wrap, 0),           1,   2,   0 },   // No Wrap
+    { AT(wrap, 1),           1,   2,   0 },   // No Wrap
+    { AT(shiftSameAsA, 0),   1,   2,   0 },
+    { AT(lowNoteSameAsA, 0), 1,   2,   0 },
+    { AT(mode, 0),           1,   2,   0 },   // On, Off
+    { AT(mode, 1),           2,   4,   0 },   // On, Off, Same as A, Stack
+    { AT(turns, 0),          1,   2,   0 },   // Together (Custom: see above)
+    { AT(turnLen, 0),        3,   8,   7 },   // 8 turns
+    { AT(turnMask, 0),       8, 256, 255 },   // every turn
+    { AT(turnLen, 1),        3,   8,   7 },
+    { AT(turnMask, 1),       8, 256, 255 },
+};
+static const uint8_t V3_COUNT = sizeof(V3_FIELDS) / sizeof(V3_FIELDS[0]);
+static const uint8_t V1_VOICES = 6;   // Piano to None: what versions 1 and 2 hold
+static_assert(VOICE_COUNT == 12, "built-in voices changed: new code version");
+
 // Version 1's ranges are today's. If one of these fails, the code needs a
 // new version before the change.
 static_assert((uint8_t)Scale::Learned == 8, "built-in scales changed: new code version");
-static_assert(VOICE_COUNT == 6, "built-in voices changed: new code version");
 static_assert(NUM_HALL_SENSORS == 8, "shift range changed: new code version");
 static_assert((uint8_t)LayerMode::Stack == 3, "layer modes changed: new code version");
 
@@ -182,9 +218,14 @@ void sceneCodeEncode(const SavedConfig& cfg, char* out) {
             if (value & (1u << (bits - 1 - i))) buf[pos / 8] |= 0x80 >> (pos % 8);
         }
     };
-    const FieldSpec* fields = custom ? V2_FIELDS : V1_FIELDS;
-    uint8_t          count  = custom ? V2_COUNT : V1_COUNT;
-    put(custom ? 2 : 1, VERSION_BITS);
+    uint8_t version = (f.voice[LAYER_A] >= V1_VOICES || f.voice[LAYER_B] >= V1_VOICES) ? 3
+                    : custom ? 2 : 1;
+    if (version == 3 && !custom) {   // patterns only say Custom: every turn otherwise
+        for (uint8_t l = 0; l < NUM_LAYERS; l++) { f.turnLen[l] = TURN_MAX - 1; f.turnMask[l] = 0xFF; }
+    }
+    const FieldSpec* fields = version == 3 ? V3_FIELDS : version == 2 ? V2_FIELDS : V1_FIELDS;
+    uint8_t          count  = version == 3 ? V3_COUNT  : version == 2 ? V2_COUNT  : V1_COUNT;
+    put(version, VERSION_BITS);
     for (uint8_t i = 0; i < count; i++) {
         const FieldSpec& s = fields[i];
         put((uint8_t)((v[s.offset] + s.count - s.def) % s.count), s.bits);
@@ -230,9 +271,9 @@ bool sceneCodeDecode(const char* code, Scene& out) {
     };
 
     uint8_t version = get(VERSION_BITS);
-    if (version != 1 && version != 2) return false;
-    const FieldSpec* fields = (version == 2) ? V2_FIELDS : V1_FIELDS;
-    uint8_t          count  = (version == 2) ? V2_COUNT : V1_COUNT;
+    if (version < 1 || version > 3) return false;
+    const FieldSpec* fields = version == 3 ? V3_FIELDS : version == 2 ? V2_FIELDS : V1_FIELDS;
+    uint8_t          count  = version == 3 ? V3_COUNT  : version == 2 ? V2_COUNT  : V1_COUNT;
 
     CodeFields f{};
     uint8_t* v = (uint8_t*)&f;
@@ -259,7 +300,7 @@ bool sceneCodeDecode(const char* code, Scene& out) {
         c.shiftSameAsA   = false;
         c.lowNoteSameAsA = false;
         c.turns   = LayerTurns::Together;
-        if (version == 2) {
+        if (version >= 2) {
             c.turnLen  = f.turnLen[l] + 1;
             c.turnMask = f.turnMask[l];
         }
@@ -267,8 +308,12 @@ bool sceneCodeDecode(const char* code, Scene& out) {
     LayerCfg& b = out.layer[LAYER_B];
     b.shiftSameAsA   = f.shiftSameAsA != 0;
     b.lowNoteSameAsA = f.lowNoteSameAsA != 0;
-    if (version == 2) b.turns = LayerTurns::Custom;
-    else              b.turns = f.turns ? LayerTurns::Alternate : LayerTurns::Together;
+    bool patterned = false;   // version 3: a pattern other than every turn means Custom
+    for (uint8_t l = 0; l < NUM_LAYERS; l++) {
+        if (f.turnLen[l] != TURN_MAX - 1 || f.turnMask[l] != 0xFF) patterned = true;
+    }
+    if (version == 2 || (version == 3 && patterned)) b.turns = LayerTurns::Custom;
+    else b.turns = f.turns ? LayerTurns::Alternate : LayerTurns::Together;
     out.layer[LAYER_A].mode = f.mode[LAYER_A] ? LayerMode::Off : LayerMode::On;
     b.mode                  = (LayerMode)f.mode[LAYER_B];
     return true;
