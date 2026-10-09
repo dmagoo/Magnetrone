@@ -136,6 +136,8 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .groups label { font-size: 12px; display: block; margin-top: 3px; }
 .turns { display: flex; align-items: center; gap: 2px; margin: 2px 0; }
 .turns button { width: 22px; height: 22px; padding: 0; font: 600 12px ui-monospace, Consolas, monospace; }
+/* The playhead's turn in each layer's cycle, like the band on the grid. */
+.turns button.now { background: color-mix(in srgb, var(--text) 16%, transparent); border-color: var(--muted); }
 .scenefoot { margin-top: 14px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
 .dot.a { background: var(--a); }
@@ -1378,6 +1380,7 @@ function renderScene() {
     row("Layer Turns", "<td></td>", sel("B", "turns", TURNS_NAMES)) +
     `<tr><th>${term("Edit Turns")}</th><td colspan="2">${turnStrip(0)}${turnStrip(1)}</td></tr>` + "</tbody>";
   $("code").textContent = sceneCodeEncode(s);
+  markTurns();
 }
 
 for (const id of ["gSound", "gArrange", "gLayers"]) {
@@ -1936,7 +1939,7 @@ function scheduleStep(step, revolution, t) {
   for (let track = 0; track < NUM_TRACKS; track++) {
     const cell = state.cells[track][step];
     if (!cell) continue;
-    for (const l of layersForPole(state.scene, cell - 1, ((revolution % 2) + 2) % 2)) {
+    for (const l of layersForPole(state.scene, cell - 1, revolution)) {
       const n = layerNoteFor(state.scene, l, track);
       if (!n) continue;
       if (n.kit) playDrum(n.slot, t);
@@ -1978,6 +1981,15 @@ function placeBand() {
   band.hidden = false;
   const heard = ["A", "B"].filter((n, l) => turnHeard(state.scene, l, cursorRev));
   $("turn").textContent = state.scene.B.turns === TURNS_TOGETHER ? "" : `Turn: ${heard.length ? heard.join(" + ") : "none"}`;
+  markTurns();
+}
+
+// Edit Turns: mark the playhead's turn in each layer's cycle.
+function markTurns() {
+  for (let l = 0; l < 2; l++) {
+    const { len } = turnPattern(state.scene, l), now = ((cursorRev % len) + len) % len;
+    for (const b of document.querySelectorAll(`.turns button[data-tl="${l}"]`)) b.classList.toggle("now", +b.dataset.turn === now);
+  }
 }
 
 function showPlayhead(s, r) {

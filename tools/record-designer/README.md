@@ -71,6 +71,7 @@ cycle ends (8 turns without one). Click a turn to change it: on, off, the
 end of the cycle (not turn 1), on again. Clicking the | or past it makes the
 cycle 8 turns again. Changing a turn sets Layer Turns to Custom, starting
 from what it was playing; Together and Alternate keep the Custom patterns.
+The turn the position is on is shaded in each layer's strip.
 
 **Reset Scene**, under the settings, sets every scene setting to the factory
 values, as with nothing saved (asks first). The grid, BPM and template
