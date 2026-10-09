@@ -90,6 +90,14 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .chip.on button { color: var(--panel); }
 .chip .edited { font-style: italic; }
 #saveSong, #saveAsSong, #revertSong { flex: none; }
+/* Narrow screens: the chips wrap on their own row (no sideways scroll) and
+   the buttons go below them. */
+@media (max-width: 600px) {
+  .songs { flex-wrap: wrap; }
+  .chips { flex: 1 1 100%; flex-wrap: wrap; overflow-x: visible; order: 1; }
+  .songs > .muted { flex-basis: 100%; }
+  #saveSong, #saveAsSong, #revertSong { order: 2; }
+}
 
 /* Grid */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 14px; }

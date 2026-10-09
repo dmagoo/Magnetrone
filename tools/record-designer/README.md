@@ -167,7 +167,8 @@ Not here, as on the table: following an external clock.
 ## Songs and sharing
 
 The **Songs** strip under the transport keeps saved songs as chips, in
-this browser's local storage.
+this browser's local storage. On a narrow screen (under 600 px) the chips
+wrap onto as many rows as they need, with the buttons below them.
 
 - **Save** keeps your changes in the chip you are on (it is greyed when
   there is nothing to save). A song not saved yet (new, or started from
