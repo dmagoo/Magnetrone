@@ -102,6 +102,10 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
   background: color-mix(in srgb, var(--text) 8%, transparent); pointer-events: none; }
 #grid .lbl { font-size: 11px; white-space: nowrap; padding-right: 10px; display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
 #grid .lbl b { font-size: 12px; font-weight: 600; }
+/* Track labels (and the corner above them) stay put when the grid scrolls
+   sideways; the shadow covers the gaps around them so slots don't show through. */
+#grid .lbl, #grid .corner { position: sticky; left: 0; z-index: 2; background: var(--panel);
+  box-shadow: 0 0 0 4px var(--panel), 8px 0 0 4px var(--panel); }
 #grid .hdr { font-size: 10px; color: var(--muted); text-align: center; align-self: end; border-radius: 4px; }
 #grid .hdr.beat { color: var(--text); font-weight: 650; font-size: 11px; }
 #grid .hdr[data-hs] { cursor: pointer; }
@@ -1152,7 +1156,7 @@ function renderGrid() {
   for (let s = 0; s < N; s++) cols += (gapBefore(s) ? " 4px" : "") + " var(--cs)";
   g.style.gridTemplateColumns = cols;
 
-  let html = `<div class="band" id="band" hidden></div><div></div>`;
+  let html = `<div class="band" id="band" hidden></div><div class="corner"></div>`;
   for (let s = 0; s < N; s++) {
     if (gapBefore(s)) html += `<div></div>`;
     const beat = s % state.subdiv === 0;
