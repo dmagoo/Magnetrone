@@ -139,7 +139,7 @@ size, no fit to page) and check the 100 mm scale bar.
 | Green `#00FF00` | Layer A magnet holes (default 11 mm, for 10 mm magnets): cut through or kiss cut |
 | Magenta `#FF00FF` | Layer B magnet holes, same size |
 | Blue `#0000FF` | Score: track rings, start mark, the A/B mark beside each hole, Scene Code and Beats/Rev, song name |
-| Black | Labels and scale bar, below the record. Not part of the record. |
+| Black | Labels and scale bar, below the record. Not part of the record. Template settings **Labels below the record** (default on, kept per browser) leaves them out of the export. |
 
 All lines are hairlines (0.001 in). The start mark is at the top.
 
@@ -165,7 +165,7 @@ All lines are hairlines (0.001 in). The start mark is at the top.
   longest stretch left clear of magnets and the code. Without room on a
   ring it takes the outer edge, unless the code is already there; then it
   is left off the record. The Template view says so either way. It is also
-  the first label below the record. Letters the template font lacks are
+  the first label below the record, when labels are on. Letters the template font lacks are
   dropped.
 
 Lay the template on the platter with the center hole on the spindle and

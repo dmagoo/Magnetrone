@@ -284,6 +284,8 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         <label class="field"><span>Platter marks</span>
           <select id="marks"><option value="0">Off</option><option value="10">10</option><option value="12">12</option><option value="16">16</option></select>
           <span class="muted small">Ticks across every ring, evenly spaced from the start mark, as on a platter cover. They ignore the song's steps.</span></label>
+        <label class="field"><span><input type="checkbox" id="labels"> Labels below the record</span>
+          <span class="muted small">The black text and 100 mm bar. Off, the export has only the record's lines.</span></label>
         <div class="exports">
           <button id="exportPdf" class="primary">Export PDF</button>
           <button id="exportSvg">Export SVG</button>
@@ -296,7 +298,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
             <li><i style="background:#00FF00"></i>Layer A magnet holes</li>
             <li><i style="background:#FF00FF"></i>Layer B magnet holes</li>
             <li><i style="background:#0000FF"></i>Score: rings, start mark, marks, code</li>
-            <li><i style="background:#000"></i>Labels, not part of the record</li>
+            <li><i style="background:#000"></i>Labels, not part of the record (optional)</li>
           </ul>
         </div>
       </aside>
@@ -1639,7 +1641,9 @@ window.addEventListener("hashchange", loadFromLink);
 
 // --- Template ------------------------------------------------------------------------------
 function currentModel() {
-  return templateModel({ ...state, code: sceneCodeEncode(state.scene), marks: platterMarks });
+  const model = templateModel({ ...state, code: sceneCodeEncode(state.scene), marks: platterMarks });
+  if (!showLabels) model.items = model.items.filter((it) => it.color !== COLOR_LABEL);
+  return model;
 }
 
 function renderTemplate() {
@@ -1652,7 +1656,8 @@ function renderTemplate() {
   $("codeWarn").hidden = model.codeFit !== "edge";
   $("nameWarn").hidden = model.nameFit !== "edge" && model.nameFit !== "off";
   $("nameWarn").textContent = model.nameFit === "off"
-    ? "No room for the song name on the record, so it is only on the label below it."
+    ? (showLabels ? "No room for the song name on the record, so it is only on the label below it."
+                  : "No room for the song name on the record, so it is left off.")
     : "No track has room for a readable song name, so it is only 1.5 mm tall at the edge.";
 }
 
@@ -1682,6 +1687,17 @@ $("marks").value = String(platterMarks);
 $("marks").addEventListener("change", (e) => {
   platterMarks = parseInt(e.target.value, 10) || 0;
   try { localStorage.setItem(MARKS_KEY, String(platterMarks)); } catch (err) { /* not kept */ }
+  renderTemplate();
+});
+
+// Labels below the record, the same way: kept per browser, not in the song.
+const LABELS_KEY = "magnetrone-record-designer-labels";
+let showLabels = true;
+try { showLabels = localStorage.getItem(LABELS_KEY) !== "0"; } catch (e) { /* default */ }
+$("labels").checked = showLabels;
+$("labels").addEventListener("change", (e) => {
+  showLabels = e.target.checked;
+  try { localStorage.setItem(LABELS_KEY, showLabels ? "1" : "0"); } catch (err) { /* not kept */ }
   renderTemplate();
 });
 
