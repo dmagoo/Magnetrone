@@ -55,6 +55,7 @@ button.icon svg { width: 18px; height: 18px; }
 svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Header and tabs */
+.topbar { position: relative; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
 .topright { display: flex; align-items: center; gap: 10px; }
 .tabs { display: flex; gap: 4px; background: var(--slot); border-radius: 8px; padding: 3px; }
@@ -158,6 +159,25 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .exports { display: flex; gap: 8px; }
 .exports button { flex: 1; padding: 8px 12px; }
 .legend { list-style: none; margin: 0; padding: 0; font-size: 12px; display: grid; gap: 4px; }
+/* MIDI */
+#midiBtn { position: relative; }
+#midiBtn.on { color: var(--text); border-color: var(--muted); }
+#midiBtn:not(.on) { color: var(--muted); }
+#midiBtn.rx::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--a); }
+.midipanel { position: absolute; top: 100%; right: 16px; z-index: 20; width: min(380px, calc(100vw - 32px)); margin: 0;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.midipanel p, .midipanel h3 { margin: 0; }
+.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.mgrid label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 600; min-width: 0; }
+.mgrid label.check { flex-direction: row; align-items: center; gap: 6px; align-self: end; padding-bottom: 6px; }
+.mgrid select { width: 100%; font-weight: 400; }
+#fxReset { align-self: start; }
+/* Edit Scale */
+.escale { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 2px 0 8px; }
+.eslots { display: grid; grid-template-columns: repeat(4, max-content); gap: 3px 6px; }
+.groups .escale label.slot { display: flex; align-items: center; gap: 2px; margin: 0; font-size: 11px; }
+.escale select { padding: 2px 2px; font-size: 12px; }
+.escale button { padding: 2px 8px; font-size: 12px; }
 .legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 8px; }
 </style>
 </head>
@@ -166,11 +186,32 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
   <div class="wrap topbar">
     <h1>Magnetrone Record Designer</h1>
     <div class="topright">
+    <button id="midiBtn" class="icon" title="MIDI In and Out" aria-label="MIDI" aria-expanded="false" aria-controls="midiPanel">
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="7.5" cy="12" r=".6"/><circle cx="16.5" cy="12" r=".6"/><circle cx="9" cy="8" r=".6"/><circle cx="15" cy="8" r=".6"/><circle cx="12" cy="7" r=".6"/><path d="M10.5 19h3"/></svg>
+    </button>
     <button id="theme" class="icon" aria-label="Theme"></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="sequence">Sequence</button>
       <button role="tab" data-view="template">Template</button>
     </nav>
+    </div>
+    <div id="midiPanel" class="card midipanel" hidden role="dialog" aria-label="MIDI">
+      <h2>MIDI</h2>
+      <label class="small"><input type="checkbox" id="midiOn"> Use MIDI (Chrome or Edge)</label>
+      <p id="midiStatus" class="muted small"></p>
+      <div class="mgrid">
+        <label>MIDI In<select id="midiIn"></select></label>
+        <label>MIDI Out<select id="midiOut"></select></label>
+        <label title="The MIDI channel Layer A listens on, or Off (Sound Defaults > Layer A > MIDI In on the table)"><span><span class="dot a"></span>A In channel</span><select id="midiChA"></select></label>
+        <label title="The MIDI channel Layer B listens on, or Off. Layer B on Same as A does not listen."><span><span class="dot b"></span>B In channel</span><select id="midiChB"></select></label>
+        <label title="What keys on a MIDI keyboard do, as Play Setup > MIDI Fn on the table">MIDI Fn<select id="midiFn"></select></label>
+        <label class="check" title="On: CCs 74, 71, 93, 94, 12 and 91 change the effects (Play Setup > MIDI CC)"><input type="checkbox" id="midiCc"> MIDI CC</label>
+      </div>
+      <p class="muted small">In: keys drive the MIDI Fn, the bend wheel bends, CC 7 sets the volume and CC 20 the octave. Scene changes edit the song (Save keeps them).
+        Out: each layer's notes on its voice's Auto channel, the bend, and clock with Start and Stop while the grid plays.</p>
+      <h3>Live, not saved</h3>
+      <div id="midiLive" class="small"></div>
+      <button id="fxReset" class="small">Reset volume, bend and effects</button>
     </div>
   </div>
 </header>
@@ -264,6 +305,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         <div><h3>Arrangement</h3><table id="gArrange"></table></div>
         <div><h3>Layers</h3><table id="gLayers"></table></div>
       </div>
+      <p id="customWarn" class="warn" style="margin-top:12px" hidden></p>
       <div class="scenefoot">
         <button id="resetScene" class="small" title="Every scene setting to the factory values, as with nothing saved. The grid, BPM and template settings stay.">Reset Scene</button>
       </div>
@@ -281,6 +323,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         <p id="codeWarn" class="warn" hidden>No track has room for a readable Scene Code, so it is only 1.5 mm tall at the edge.
           Leave a few steps in a row free on one track (outer tracks need the fewest).</p>
         <p id="nameWarn" class="warn" hidden></p>
+        <p id="customTplWarn" class="warn" hidden></p>
         <label class="field"><span>Paper</span>
           <select id="paper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
         <label class="field"><span>Magnet hole (mm)</span>
@@ -332,7 +375,15 @@ const COLOR_CUT = "#FF0000", COLOR_HOLE_A = "#00FF00", COLOR_HOLE_B = "#FF00FF",
 
 // --- Scene names (firmware order) ------------------------------------------------
 const ROOT_NAMES  = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const SCALE_NAMES = ["Major", "Minor", "Pent. Major", "Pent. Minor", "Blues", "Chromatic", "Dorian", "Mixolydian"];
+// Learned (8) is the table's old Scale Learn result; the designer never makes
+// it, so the lists leave it out (SCALE_ORDER).
+const SCALE_NAMES = ["Major", "Minor", "Pent. Major", "Pent. Minor", "Blues", "Chromatic", "Dorian", "Mixolydian",
+                     "Learned", "Custom"];
+const SCALE_CUSTOM = 9;
+const SCALE_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, SCALE_CUSTOM];
+// firmware/src/sequencer/scale.h: a Custom scale is one note per track, each
+// slot semitones from the root.
+const CUSTOM_SLOTS = 8, CUSTOM_STEP_MIN = -12, CUSTOM_STEP_MAX = 35;
 // Stored order (firmware VoiceId), and the order the lists show them (VOICE_MENU_ORDER).
 const VOICE_NAMES = ["Piano", "Strings", "Synth", "Bass", "Drums", "None",
                      "E. Piano", "Organ", "Brass", "Mallets", "Reed", "Guitar"];
@@ -360,14 +411,16 @@ const SCALE_INTERVALS = [
 const KIT_NAMES = ["Crash", "Low Tom", "High Tom", "Clap", "Open Hat", "Snare", "Kick", "Closed Hat"];
 
 // Factory scene, as Scene Code version 1 pins it (defaults of V1_FIELDS).
-// turnLen and turnMask are each layer's turn pattern (version 2).
+// turnLen and turnMask are each layer's turn pattern (version 2). custom is
+// the layer's Custom scale (CUSTOM_SLOTS steps), null until one is set; the
+// Scene Code does not hold it.
 function factoryScene() {
   return {
     A: { root: 0, octave: 4, scale: 0, voice: 0, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
-         turnLen: TURN_MAX, turnMask: 0xFF },
+         turnLen: TURN_MAX, turnMask: 0xFF, custom: null },
     B: { root: 0, octave: 3, scale: 0, voice: VOICE_DRUMS, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
          shiftSameAsA: 0, lowNoteSameAsA: 0, rootSameAsA: 1, scaleSameAsA: 1, voiceSameAsA: 0, octaveSameAsA: 1,
-         turns: TURNS_TOGETHER, turnLen: TURN_MAX, turnMask: 0xFF },
+         turns: TURNS_TOGETHER, turnLen: TURN_MAX, turnMask: 0xFF, custom: null },
   };
 }
 
@@ -473,11 +526,13 @@ function sceneCodeEncode(s) {
 }
 
 // Layer B's voice, octave, root and scale as it plays them: A's where B
-// follows them (firmware layerEffective()).
+// follows them (firmware layerEffective()). Following A's scale takes its
+// Custom notes too.
 function bKey(s) {
   const A = s.A, B = s.B;
   return { voice: B.voiceSameAsA ? A.voice : B.voice, octave: B.octaveSameAsA ? A.octave : B.octave,
-           root: B.rootSameAsA ? A.root : B.root, scale: B.scaleSameAsA ? A.scale : B.scale };
+           root: B.rootSameAsA ? A.root : B.root, scale: B.scaleSameAsA ? A.scale : B.scale,
+           custom: B.scaleSameAsA ? A.custom : B.custom };
 }
 
 // The scene a code holds, or null if it is not a valid code.
@@ -541,14 +596,33 @@ function resolveLayer(s, l) {
   return { active, voice, kit, silent: voice === VOICE_NONE, degree, eff };
 }
 
-function scaleStep(scale, degree) {
+// Semitones from the root of a scale degree. Custom with none set plays as
+// Major, as on the table.
+function scaleStep(scale, degree, custom = null) {
+  if (scale === SCALE_CUSTOM && custom) {
+    return custom[degree % CUSTOM_SLOTS] + 12 * Math.floor(degree / CUSTOM_SLOTS);
+  }
   const iv = SCALE_INTERVALS[scale < SCALE_INTERVALS.length ? scale : 0];
   return iv[degree % iv.length] + 12 * Math.floor(degree / iv.length);
 }
 
+// scaleToCustom(): the scale's first eight degrees as a Custom scale, so a
+// layer switched to Custom plays the same until it is edited.
+function scaleToCustom(scale, custom) {
+  return Array.from({ length: CUSTOM_SLOTS }, (_, d) =>
+    Math.min(Math.max(scaleStep(scale, d, custom), CUSTOM_STEP_MIN), CUSTOM_STEP_MAX));
+}
+
+// A Custom step as Edit Scale shows it: the note in the layer's key with its
+// octave from the layer's Octave, "E+0", "C+1", "B-1" (scaleStepName()).
+function customStepName(root, step) {
+  const n = root + step, oct = Math.floor(n / 12);
+  return ROOT_NAMES[n - oct * 12] + (oct < 0 ? "" : "+") + oct;
+}
+
 // scaleNote(): MIDI note, C4 = 60.
-function scaleNote(root, scale, degree, octave) {
-  const n = 12 + Math.min(Math.max(octave, 0), 9) * 12 + root + scaleStep(scale, degree);
+function scaleNote(root, scale, degree, octave, custom = null) {
+  const n = 12 + Math.min(Math.max(octave, 0), 9) * 12 + root + scaleStep(scale, degree, custom);
   return n < 0 ? 0 : n > 127 ? 127 : n;
 }
 
@@ -558,7 +632,19 @@ function layerNoteFor(s, l, track) {
   if (!r.active || r.silent) return null;
   const d = r.degree(track);
   if (r.kit) return { kit: true, slot: d, voice: r.voice };
-  return { kit: false, note: scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave), voice: r.voice };
+  return { kit: false, note: scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave, r.eff.custom), voice: r.voice };
+}
+
+// The layers whose Custom scale is heard and is their own (B following A's
+// scale plays A's), as { l, name, custom, root }: what the Scene Code leaves out.
+function customInPlay(s) {
+  const out = [];
+  if (s.A.scale === SCALE_CUSTOM && s.A.custom && s.A.voice !== VOICE_DRUMS) out.push({ l: 0, name: "A", custom: s.A.custom, root: s.A.root });
+  const b = bKey(s);
+  if (s.B.mode !== MODE_SAME_AS_A && !s.B.scaleSameAsA && b.scale === SCALE_CUSTOM && b.custom && b.voice !== VOICE_DRUMS) {
+    out.push({ l: 1, name: "B", custom: b.custom, root: b.root });
+  }
+  return out;
 }
 
 // Which layers a magnet of this pole plays (0 = A, normal; 1 = B, reversed),
@@ -640,6 +726,7 @@ const FONT = {
   ",": [[[2, 0.5], [1.5, -0.8]]],
   ":": [[[2, 1], [2, 1.5]], [[2, 4], [2, 4.5]]],
   "-": [[[1, 3], [3, 3]]],
+  "+": [[[0.5, 3], [3.5, 3]], [[2, 1.5], [2, 4.5]]],
   "(": [[[3, 6], [2, 5], [2, 1], [3, 0]]],
   ")": [[[1, 6], [2, 5], [2, 1], [1, 0]]],
   "=": [[[1, 2], [3, 2]], [[1, 4], [3, 4]]],
@@ -877,6 +964,13 @@ function templateModel(d) {
   label(`IF PRINTING: 100 PERCENT (ACTUAL SIZE). THE BAR BELOW IS 100 MM.`, 2.5);
   label(`RED: CUT   GREEN: A HOLES   MAGENTA: B HOLES, ${+hole.toFixed(2)} MM   BLUE: SCORE`, 2.5);
   label(`BLACK: LABELS, NOT PART OF THE RECORD`, 2.5);
+  // Custom scales are not in the Scene Code: their notes, as the table's
+  // Edit Scale lists them, to set there by hand.
+  // At most 83 characters, so smaller text keeps it on a Letter page.
+  for (const c of d.customs || []) {
+    label(`${c.name} EDIT SCALE (NOT IN CODE): ` +
+          c.custom.map((st, i) => `${i + 1}:${customStepName(c.root, st)}`).join(" "), 2.2);
+  }
   y += 2;
   path([[cx - 50, y], [cx + 50, y]], COLOR_LABEL);
   for (let i = 0; i <= 10; i++) {
@@ -983,7 +1077,18 @@ function pdfString(model) {
 // three to a base64url character. "r1" is this format's version. The song's
 // name is optional and last (URL-encoded in a link), so links without one
 // still read.
+// "r2", written only when a layer plays its own Custom scale (which the Scene
+// Code does not hold), adds a field after <block>: Layer A's Custom steps,
+// ".", Layer B's, each 8 base64url characters (step - CUSTOM_STEP_MIN), or
+// empty for a layer whose scale is not Custom. Layer B's is the scale it
+// plays, A's when it follows A's.
 const B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+function customField(s) {
+  const one = (c) => (c.scale === SCALE_CUSTOM && c.custom ? c.custom.map((st) => B64URL[st - CUSTOM_STEP_MIN]).join("") : "");
+  const f = one(s.A) + "." + one(bKey(s));   // B as it plays, as the code holds it
+  return f === "." ? null : f;
+}
 
 function songEncode(d) {
   const flat = d.cells.flat();
@@ -991,8 +1096,9 @@ function songEncode(d) {
   for (let i = 0; i < flat.length; i += 3) {
     cells += B64URL[(flat[i] << 4) | ((flat[i + 1] || 0) << 2) | (flat[i + 2] || 0)];
   }
-  return ["r1", sceneCodeEncode(d.scene), d.beats, d.subdiv, +d.bpm, cells,
-          d.paper, +d.hole, d.forward, d.block ? 1 : 0].join("~");
+  const custom = customField(d.scene);
+  return [custom ? "r2" : "r1", sceneCodeEncode(d.scene), d.beats, d.subdiv, +d.bpm, cells,
+          d.paper, +d.hole, d.forward, d.block ? 1 : 0, ...(custom ? [custom] : [])].join("~");
 }
 
 // The song with its name, for the end of a link.
@@ -1004,9 +1110,22 @@ function songLink(d) {
 // link text already URL-decoded; everything after the tenth field is the name.
 function songDecode(str) {
   const f = str.split("~");
-  if (f.length < 10 || f[0] !== "r1") return null;
-  const name = f.slice(10).join("~");
+  const r2 = f[0] === "r2";
+  if (f.length < (r2 ? 11 : 10) || (f[0] !== "r1" && !r2)) return null;
+  const name = f.slice(r2 ? 11 : 10).join("~");
   const scene = sceneCodeDecode(f[1]);
+  if (scene && r2) {
+    // The code holds a Custom scale as Major: put Custom and its steps back.
+    const parts = f[10].split(".");
+    if (parts.length !== 2) return null;
+    for (const [k, p] of [["A", parts[0]], ["B", parts[1]]]) {
+      if (!p) continue;
+      const steps = [...p].map((ch) => B64URL.indexOf(ch) + CUSTOM_STEP_MIN);
+      if (steps.length !== CUSTOM_SLOTS || steps.some((st) => st < CUSTOM_STEP_MIN || st > CUSTOM_STEP_MAX)) return null;
+      scene[k].scale = SCALE_CUSTOM;
+      scene[k].custom = steps;
+    }
+  }
   const beats = Number(f[2]), subdiv = Number(f[3]), bpm = Number(f[4]), hole = Number(f[7]);
   if (!scene || !Number.isInteger(beats) || beats < 1 || beats > 32 ||
       !Number.isInteger(subdiv) || subdiv < 1 || subdiv > 8 || !(bpm > 0) ||
@@ -1058,6 +1177,10 @@ function loadState() {
       if (sb.scaleSameAsA === undefined) st.scene.B.scaleSameAsA = 0;
       if (sb.voiceSameAsA === undefined) st.scene.B.voiceSameAsA = 0;
       if (sb.octaveSameAsA === undefined) st.scene.B.octaveSameAsA = 0;
+      for (const c of [st.scene.A, st.scene.B]) {
+        if (!Array.isArray(c.custom) || c.custom.length !== CUSTOM_SLOTS) c.custom = null;
+        if (c.scale >= SCALE_INTERVALS.length && c.scale !== SCALE_CUSTOM) c.scale = 0;
+      }
     }
   } catch (e) { /* no storage: start fresh */ }
   st.songs = Array.isArray(st.songs) ? st.songs.filter((c) => c && c.id && typeof c.song === "string") : [];
@@ -1279,25 +1402,25 @@ function sceneDims(s) {
   const dims = { A: {}, B: {} };
   const dim = (l, keys, why) => { for (const k of keys) if (!dims[l][k]) dims[l][k] = why; };
   const all = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap"];
-  if (s.A.mode === MODE_OFF) dim("A", all, "Layer A is Off");
-  if (s.B.mode === MODE_OFF) dim("B", all, "Layer B is Off");
+  if (s.A.mode === MODE_OFF) dim("A", [...all, "editScale"], "Layer A is Off");
+  if (s.B.mode === MODE_OFF) dim("B", [...all, "editScale"], "Layer B is Off");
   if (s.B.mode === MODE_SAME_AS_A) {
-    dim("B", [...all, "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA", "voiceSameAsA", "octaveSameAsA"],
+    dim("B", [...all, "editScale", "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA", "voiceSameAsA", "octaveSameAsA"],
         "Layer B is Same as A: it plays Layer A's settings");
   }
   if (s.B.voiceSameAsA) dim("B", ["voice"], "Follows Layer A's Voice");
   if (s.B.octaveSameAsA) dim("B", ["octave"], "Follows Layer A's Octave");
   if (s.B.rootSameAsA) dim("B", ["root"], "Follows Layer A's Root");
-  if (s.B.scaleSameAsA) dim("B", ["scale"], "Follows Layer A's Scale");
+  if (s.B.scaleSameAsA) dim("B", ["scale", "editScale"], "Follows Layer A's Scale");
   if (s.B.shiftSameAsA) dim("B", ["shift", "wrap"], "Follows Layer A's Shift and Wrap");
   if (s.B.lowNoteSameAsA) dim("B", ["lowNote"], "Follows Layer A's Low Note");
   for (const l of ["A", "B"]) {
     const voice = l === "B" ? bKey(s).voice : s.A.voice;   // as it plays
     if (voice === VOICE_DRUMS) {
-      dim(l, ["root", "octave", "scale"], "Drums ignore root, octave and scale");
+      dim(l, ["root", "octave", "scale", "editScale"], "Drums ignore root, octave and scale");
       dim(l, ["wrap"], "Drums always wrap");
     }
-    if (voice === VOICE_NONE) dim(l, ["root", "octave", "scale", "shift", "lowNote", "wrap"], "Voice None is silent");
+    if (voice === VOICE_NONE) dim(l, ["root", "octave", "scale", "editScale", "shift", "lowNote", "wrap"], "Voice None is silent");
   }
   return dims;
 }
@@ -1308,7 +1431,8 @@ const TERMS = {
   "Voice": "Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None. None silences the layer.",
   "Root": "Key of the scale. Drums ignore it.",
   "Octave": "0 to 7. Drums ignore it.",
-  "Scale": "The scale the tracks climb through, one scale step per track. Drums ignore it.",
+  "Scale": "The scale the tracks climb through, one scale step per track. Custom: one note per track, set with Edit Scale (or played in from MIDI). Drums ignore it.",
+  "Edit Scale": "Each slot's note, one per track (slot 1 is the low track at Shift 0), in the layer's key: E+0 is the E in the layer's Octave, C+1 the C above. Changing one makes the scale Custom, starting from the scale it was playing. Reset goes back to the song as saved. The Scene Code does not hold a Custom scale: it reads as Major on the table, so set the notes there with Edit Scale (the template lists them).",
   "Shift": "Moves the run up by scale degrees, 0 to 7, staying in the key. Each option shows the note the low track then plays (track 1, or track 8 with Low Note Outer). On Drums it moves each drum to another track; each option shows the drum on the low track.",
   "Low Note": "Which end of the arm plays the lowest note: Inner or Outer. On Drums it flips the kit end to end.",
   "Wrap": "With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. Drums always wrap.",
@@ -1349,7 +1473,23 @@ function renderScene() {
   const shiftNames = (l) => {
     const c = l === "B" ? { ...s.B, ...bKey(s) } : s[l];
     if (c.voice === VOICE_NONE) return range(8);
-    return range(8).map((k) => `${k}${NBSP2}${c.voice === VOICE_DRUMS ? KIT_NAMES[+k] : noteName(scaleNote(c.root, c.scale, +k, c.octave))}`);
+    return range(8).map((k) => `${k}${NBSP2}${c.voice === VOICE_DRUMS ? KIT_NAMES[+k] : noteName(scaleNote(c.root, c.scale, +k, c.octave, c.custom))}`);
+  };
+  // Edit Scale, as the table lists it: each slot's note in the layer's key
+  // ("1: C+0"), the Custom scale or, until it plays one, the scale's first
+  // eight notes. A select per slot, then Reset.
+  const STEP_RANGE = Array.from({ length: CUSTOM_STEP_MAX - CUSTOM_STEP_MIN + 1 }, (_, i) => i + CUSTOM_STEP_MIN);
+  const scaleStrip = (l) => {
+    const k = l ? "B" : "A", c = s[k], root = l ? bKey(s).root : c.root;
+    const steps = scaleToCustom(c.scale, c.custom);
+    const why = dims[k].editScale;
+    let html = `<div class="escale${why ? " dim" : ""}"${why ? ` title="${why}"` : ""}><span class="dot ${l ? "b" : "a"}"></span><div class="eslots">`;
+    steps.forEach((st, i) => {
+      html += `<label class="slot"><span class="muted">${i + 1}</span><select data-es="${l}" data-slot="${i}" aria-label="Layer ${k} Edit Scale slot ${i + 1}">` +
+        STEP_RANGE.map((v) => `<option value="${v}"${v === st ? " selected" : ""}>${customStepName(root, v)}</option>`).join("") +
+        `</select></label>`;
+    });
+    return html + `</div><button class="small" data-esreset="${l}" title="Layer ${k}'s Scale and Custom notes back to the song as saved">Reset</button></div>`;
   };
   const LOW_NOTE_NAMES = ["Inner (track 1)", "Outer (track 8)"];
   const num = (l, key, min, max) => cell(l, key, `<input type="number" data-l="${l}" data-k="${key}" min="${min}" max="${max}" value="${s[l][key]}">`);
@@ -1371,7 +1511,14 @@ function renderScene() {
     row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), selWith("B", "voice", VOICE_NAMES, "voiceSameAsA", VOICE_MENU_ORDER)) +
     row("Root", sel("A", "root", ROOT_NAMES), selWith("B", "root", ROOT_NAMES, "rootSameAsA")) +
     row("Octave", num("A", "octave", 0, 7), numWith("octave", 0, 7, "octaveSameAsA")) +
-    row("Scale", sel("A", "scale", SCALE_NAMES), selWith("B", "scale", SCALE_NAMES, "scaleSameAsA")) + "</tbody>";
+    row("Scale", sel("A", "scale", SCALE_NAMES, SCALE_ORDER), selWith("B", "scale", SCALE_NAMES, "scaleSameAsA", SCALE_ORDER)) +
+    `<tr><th>${term("Edit Scale")}</th><td colspan="2">${scaleStrip(0)}${scaleStrip(1)}</td></tr>` + "</tbody>";
+  const customs = customInPlay(s);
+  $("customWarn").hidden = !customs.length;
+  $("customWarn").textContent = customs.length
+    ? `Layer ${customs.map((c) => c.name).join(" and ")} play${customs.length === 1 ? "s" : ""} a Custom scale, which the Scene Code does not hold: ` +
+      `on the table the code loads it as Major. Set the notes there with Edit Scale; the template's labels list them.`
+    : "";
   $("gArrange").innerHTML = head + "<tbody>" +
     row("Shift", sel("A", "shift", shiftNames("A")), selWith("B", "shift", shiftNames("B"), "shiftSameAsA")) +
     row("Low Note", sel("A", "lowNote", LOW_NOTE_NAMES), selWith("B", "lowNote", LOW_NOTE_NAMES, "lowNoteSameAsA")) +
@@ -1386,16 +1533,51 @@ function renderScene() {
 
 for (const id of ["gSound", "gArrange", "gLayers"]) {
   $(id).addEventListener("change", (e) => {
-    const el = e.target, l = el.dataset.l, k = el.dataset.k;
+    const el = e.target;
+    if (el.dataset.es !== undefined) { editScaleSlot(+el.dataset.es, +el.dataset.slot, parseInt(el.value, 10)); return; }
+    const l = el.dataset.l, k = el.dataset.k;
     if (!l) return;
     let v = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
     if (el.type === "number") v = Math.min(Math.max(Number.isNaN(v) ? state.scene[l][k] : v, +el.min), +el.max);
+    // Custom with none set starts from the scale it was playing.
+    if (k === "scale" && v === SCALE_CUSTOM && !state.scene[l].custom) {
+      state.scene[l].custom = scaleToCustom(state.scene[l].scale, null);
+    }
     state.scene[l][k] = v;
     $("codeMsg").textContent = "";
     changed();
     if (state.autoHear && !timer) hearLayer(l === "A" ? 0 : 1);
   });
 }
+
+// Edit Scale: slot i of layer l plays `step`. The first edit makes the scale
+// Custom, starting from the notes it was playing (the table's Edit Scale).
+// Custom arrays are replaced, never changed in place, so a copied one (Copy
+// A to B) stays apart.
+function editScaleSlot(l, i, step) {
+  const c = l ? state.scene.B : state.scene.A;
+  const next = scaleToCustom(c.scale, c.custom);
+  next[i] = step;
+  c.custom = next;
+  c.scale = SCALE_CUSTOM;
+  $("codeMsg").textContent = "";
+  changed();
+  if (state.autoHear && !timer) hearLayer(l);
+}
+
+// Reset: the layer's Scale and Custom notes back to the song as saved (the
+// chip it came from), or the factory scene for a song not saved yet.
+$("gSound").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-esreset]");
+  if (!b) return;
+  const l = +b.dataset.esreset, k = l ? "B" : "A";
+  const chip = chipById(state.songId), song = chip && songDecode(chip.song);
+  const from = song ? song.scene[k] : factoryScene()[k];
+  state.scene[k].scale = from.scale;
+  state.scene[k].custom = from.custom;
+  $("codeMsg").textContent = "";
+  changed();
+});
 
 function loadCode() {
   const code = $("codeIn").value.trim().toUpperCase();
@@ -1458,7 +1640,7 @@ $("resetScene").addEventListener("click", () => {
 // Swap A/B and Copy A to B: the settings both layers have, the turn
 // patterns included. Mode, Layer B's Same as A flags and Layer Turns stay as
 // they are.
-const SHARED_KEYS = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap", "turnLen", "turnMask"];
+const SHARED_KEYS = ["voice", "root", "octave", "scale", "custom", "shift", "lowNote", "wrap", "turnLen", "turnMask"];
 $("swapAB").addEventListener("click", () => {
   const { A, B } = state.scene;
   for (const k of SHARED_KEYS) [A[k], B[k]] = [B[k], A[k]];
@@ -1649,7 +1831,7 @@ window.addEventListener("hashchange", loadFromLink);
 
 // --- Template ------------------------------------------------------------------------------
 function currentModel() {
-  const model = templateModel({ ...state, code: sceneCodeEncode(state.scene), marks: platterMarks });
+  const model = templateModel({ ...state, code: sceneCodeEncode(state.scene), marks: platterMarks, customs: customInPlay(state.scene) });
   if (!showLabels) model.items = model.items.filter((it) => it.color !== COLOR_LABEL);
   return model;
 }
@@ -1667,6 +1849,11 @@ function renderTemplate() {
     ? (showLabels ? "No room for the song name on the record, so it is only on the label below it."
                   : "No room for the song name on the record, so it is left off.")
     : "No track has room for a readable song name, so it is only 1.5 mm tall at the edge.";
+  const customs = customInPlay(state.scene).map((c) => c.name).join(" and ");
+  $("customTplWarn").hidden = !customs;
+  $("customTplWarn").textContent = !customs ? ""
+    : showLabels ? `Layer ${customs}'s Custom scale is not in the Scene Code (the table loads it as Major). The labels below the record list its notes, to set with Edit Scale on the table.`
+                 : `Layer ${customs}'s Custom scale is not in the Scene Code (the table loads it as Major), and with the labels off it is not on the export either.`;
 }
 
 function download(name, text, type) {
@@ -1772,7 +1959,24 @@ function periodicWave(levels) {
   return periodicWaves.get(key);
 }
 
+// --- Live sound: volume, bend and effects ---------------------------------------------------
+// As on the table, but live only: none of it is in the song (the Scene Code
+// cannot hold it). Set from MIDI (CC 7, the bend wheel, the effect CCs).
+// firmware/src/config/storage.cpp storageFactoryFx(), DEFAULT_VOLUME.
+const DEFAULT_VOLUME = 0.5;
+const FX_CUTOFF_OFF = 100, FX_FEEDBACK_MAX = 90;
+const factoryFx = () => ({ cutoff: FX_CUTOFF_OFF, resonance: 0, chorusRate: 30, chorusDepth: 50, chorusMix: 0,
+  delaySync: 1, delayFeedback: 30, delayMix: 0, roomSize: 50, damping: 50, reverbMix: 0 });
+const live = { volume: DEFAULT_VOLUME, bend: 0, fx: [factoryFx(), factoryFx()] };
+// Delay Sync times (layers.cpp SYNC_TIMES), as fractions of a beat.
+const SYNC_TIMES = [[1, 1], [1, 2], [3, 8], [1, 3], [1, 4], [1, 5], [1, 6], [3, 16], [1, 8], [1, 10], [1, 12], [1, 16], [1, 32]];
+const DELAY_MAX_MS = 2400;
+
 let ac = null, master = null, bus = null, noiseBuf = null, timer = null;
+// Per layer: its effects (Tone, Chorus, Delay, Reverb, as audio.cpp chains
+// them); fxIn is where its sound goes in. bendSrc drives every tone's detune,
+// so the bend wheel retunes notes already sounding, as on the table.
+let fxChain = null, bendSrc = null;
 let nextTime = 0, nextStep = 0, rev = 0;
 // The position: the step shown (the band) and its revolution, and where
 // Play starts from.
@@ -1785,49 +1989,152 @@ function ensureAudio() {
     ac = new (window.AudioContext || window.webkitAudioContext)();
     const comp = ac.createDynamicsCompressor();
     master = ac.createGain();
-    master.gain.value = 0.7;
     master.connect(comp);
     comp.connect(ac.destination);
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const data = noiseBuf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    bendSrc = ac.createConstantSource();
+    bendSrc.start();
+    fxChain = [0, 1].map(makeFxChain);
+    applyLive();
     newBus();
   }
   // iOS Safari reports "interrupted", not "suspended", after an app switch.
   if (ac.state !== "running") ac.resume();
 }
 
+// One layer's effects, each blended with its input by a dry/wet pair (Tone
+// picks one). Delay and Reverb keep running at Mix 0, as on the table.
+function makeFxChain() {
+  const g = () => ac.createGain();
+  const stage = (input, wetNode, wetOut = wetNode) => {
+    const dry = g(), wet = g(), out = g();
+    input.connect(dry); dry.connect(out);
+    input.connect(wetNode); wetOut.connect(wet); wet.connect(out);
+    return { dry, wet, out };
+  };
+  const fxIn = g();
+  const tone = ac.createBiquadFilter();
+  tone.type = "lowpass";
+  const toneMix = stage(fxIn, tone);
+  // Chorus: one copy delayed by a time a sine sweeps, from 10 ms up by the depth.
+  const chDelay = ac.createDelay(0.05), lfo = ac.createOscillator(), lfoAmt = g();
+  lfo.connect(lfoAmt); lfoAmt.connect(chDelay.delayTime); lfo.start();
+  const chorusMix = stage(toneMix.out, chDelay);
+  const dl = ac.createDelay(DELAY_MAX_MS / 1000 + 0.1), fb = g();
+  dl.connect(fb); fb.connect(dl);
+  const delayMix = stage(chorusMix.out, dl);
+  const verb = ac.createConvolver();
+  const reverbMix = stage(delayMix.out, verb);
+  reverbMix.out.connect(master);
+  return { fxIn, tone, toneMix, chDelay, lfo, lfoAmt, chorusMix, dl, fb, delayMix, verb, reverbMix, room: null };
+}
+
+// A reverb tail for Room Size and Damping: decaying noise, darker with more
+// damping. An approximation of the table's Freeverb.
+function reverbImpulse(room, damping) {
+  const sr = ac.sampleRate, len = Math.floor(sr * (0.4 + 3 * room / 100));
+  const buf = ac.createBuffer(2, len, sr), k = 0.05 + 0.9 * (1 - damping / 100);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    let lp = 0;
+    for (let i = 0; i < len; i++) {
+      lp += k * ((Math.random() * 2 - 1) - lp);
+      d[i] = lp * Math.pow(1 - i / len, 3);
+    }
+  }
+  return buf;
+}
+
+// The delay time a layer plays with: a Sync fraction of one beat at the BPM,
+// halved until it fits the buffer (layerDelayMs()).
+function delaySeconds(fx) {
+  const [num, den] = SYNC_TIMES[fx.delaySync] || SYNC_TIMES[0];
+  let ms = 60000 / state.bpm * num / den;
+  while (ms > DELAY_MAX_MS) ms *= 0.5;
+  return ms / 1000;
+}
+
+// Pushes volume, bend and both layers' effects to the audio (audioSetEffects()).
+function applyLive() {
+  if (!ac) return;
+  const now = ac.currentTime, set = (p, v) => p.setTargetAtTime(v, now, 0.01);
+  set(master.gain, 0.7 * live.volume / DEFAULT_VOLUME);   // the designer's level at the table's default volume
+  set(bendSrc.offset, live.bend * 100);
+  fxChain.forEach((c, l) => {
+    const fx = live.fx[l], mix = (st, pct) => { set(st.dry.gain, 1 - pct / 100); set(st.wet.gain, pct / 100); };
+    if (fx.cutoff >= FX_CUTOFF_OFF) mix(c.toneMix, 0);
+    else {
+      mix(c.toneMix, 100);
+      set(c.tone.frequency, Math.min(60 * Math.pow(16000 / 60, Math.min(fx.cutoff, 90) / 90), ac.sampleRate / 2 - 100));
+      c.tone.Q.value = 20 * Math.log10(0.707 + fx.resonance / 100 * 9);
+    }
+    c.lfo.frequency.value = 0.1 * Math.pow(5 / 0.1, fx.chorusRate / 100);
+    const depth = fx.chorusDepth / 100 * 0.005;
+    c.chDelay.delayTime.value = 0.010 + depth / 2;
+    c.lfoAmt.gain.value = depth / 2;
+    mix(c.chorusMix, fx.chorusMix);
+    set(c.dl.delayTime, delaySeconds(fx));
+    set(c.fb.gain, Math.min(fx.delayFeedback, FX_FEEDBACK_MAX) / 100);
+    mix(c.delayMix, fx.delayMix);
+    const room = `${fx.roomSize},${fx.damping}`;
+    if (c.room !== room) { c.verb.buffer = reverbImpulse(fx.roomSize, fx.damping); c.room = room; }
+    mix(c.reverbMix, fx.reverbMix);
+  });
+}
+
+// The layer whose effects the drums go through: the one playing them, or
+// Layer A's when both do (audioSetDrumLayer()).
+const drumLayer = () => (resolveLayer(state.scene, 0).kit ? 0 : 1);
+
 // Leaving the page pauses. iOS cuts the audio and can leave the context stuck
 // "interrupted", so it is closed and the next sound makes a fresh one.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden || !ac) return;
   if (timer) pause();
+  keysOff();
   ac.close();
-  ac = null; bus = null; hearBus = null;
+  ac = null; bus = null; hearBus = null; fxChain = null; bendSrc = null;
   periodicWaves.clear();
 });
 
-// Every sound goes through the bus. A new one fades the old out, which
-// silences notes already scheduled ahead (on Pause or a jump).
+// Every sound goes through the bus, one per layer (bus[l]) into that layer's
+// effects. A new one fades the old out, which silences notes already
+// scheduled ahead (on Pause or a jump).
 function newBus() {
   if (bus) {
-    const old = bus, now = ac.currentTime;
-    old.gain.setValueAtTime(old.gain.value, now);
-    old.gain.linearRampToValueAtTime(0, now + 0.02);
-    setTimeout(() => old.disconnect(), 100);
+    const now = ac.currentTime;
+    for (const old of bus) {
+      old.gain.setValueAtTime(old.gain.value, now);
+      old.gain.linearRampToValueAtTime(0, now + 0.02);
+      setTimeout(() => old.disconnect(), 100);
+    }
   }
-  bus = ac.createGain();
-  bus.connect(master);
+  bus = fxChain.map((c) => {
+    const b = ac.createGain();
+    b.connect(c.fxIn);
+    return b;
+  });
   gen++;
   sounding.clear();
+  midiOutFlush();
 }
 
-function playTone(note, voice, t, key, dest = bus, noteMs = null) {
-  const v = VOICE_SOUNDS[voice] || VOICE_SOUNDS[0];
-  const osc = ac.createOscillator(), env = ac.createGain(), cut = ac.createGain();
+// A tone's oscillator, its pitch following the bend wheel.
+function toneOsc(v, note) {
+  const osc = ac.createOscillator();
   if (v.h) osc.setPeriodicWave(periodicWave(v.h));
   else osc.type = v.wave;
   osc.frequency.value = 440 * Math.pow(2, (note - 69) / 12);
+  bendSrc.connect(osc.detune);
+  osc.onended = () => { try { bendSrc.disconnect(osc.detune); } catch (e) { /* context gone */ } };
+  return osc;
+}
+
+function playTone(note, voice, t, key, dest, noteMs = null) {
+  const v = VOICE_SOUNDS[voice] || VOICE_SOUNDS[0];
+  const osc = toneOsc(v, note), env = ac.createGain(), cut = ac.createGain();
   const a = v.a / 1000, d = v.d / 1000, s = v.s / 100, r = v.r / 1000, on = (noteMs ?? v.ms) / 1000;
   const dur = on + r, steps = Math.max(8, Math.ceil(dur * 400));
   let node = osc;
@@ -1860,7 +2167,7 @@ function playTone(note, voice, t, key, dest = bus, noteMs = null) {
   sounding.set(key, { cut, end });
 }
 
-function noiseHit(t, dur, type, freq, peak, dest = bus) {
+function noiseHit(t, dur, type, freq, peak, dest) {
   const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   src.buffer = noiseBuf;
   f.type = type; f.frequency.value = freq;
@@ -1870,7 +2177,7 @@ function noiseHit(t, dur, type, freq, peak, dest = bus) {
   src.start(t); src.stop(t + dur + 0.02);
 }
 
-function sweepHit(t, f0, f1, dur, peak, type = "sine", dest = bus) {
+function sweepHit(t, f0, f1, dur, peak, type, dest) {
   const o = ac.createOscillator(), g = ac.createGain();
   o.type = type;
   o.frequency.setValueAtTime(f0, t);
@@ -1882,7 +2189,7 @@ function sweepHit(t, f0, f1, dur, peak, type = "sine", dest = bus) {
 }
 
 // Approximate kit, one sound per slot (kit.h order).
-function playDrum(slot, t, dest = bus) {
+function playDrum(slot, t, dest) {
   switch (slot) {
     case 0: noiseHit(t, 1.2, "highpass", 5000, 0.25, dest); break;                       // Crash
     case 1: sweepHit(t, 130, 80, 0.35, 0.6, "sine", dest); break;                         // Low Tom
@@ -1915,7 +2222,7 @@ function hearLayer(l) {
     setTimeout(() => old.disconnect(), 100);
   }
   hearBus = ac.createGain();
-  hearBus.connect(master);
+  hearBus.connect(fxChain[l].fxIn);
   const r = resolveLayer(state.scene, l);
   if (r.silent) return;   // voice None: the table keeps time in silence
   const bpm = Math.min(Math.max(Math.trunc(state.bpm), 40), 200);
@@ -1927,7 +2234,7 @@ function hearLayer(l) {
     if (track === null) return;
     const t = t0 + i * step, d = r.degree(track);
     if (r.kit) playDrum(d, t, hearBus);
-    else playTone(scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave), r.voice, t, `hear:${i}`, hearBus, noteMs);
+    else playTone(scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave, r.eff.custom), r.voice, t, `hear:${i}`, hearBus, noteMs);
   });
 }
 
@@ -1935,16 +2242,18 @@ $("hearA").addEventListener("click", () => hearLayer(0));
 $("hearB").addEventListener("click", () => hearLayer(1));
 $("autoHear").addEventListener("change", (e) => { state.autoHear = e.target.checked; save(); });
 
-// One step, as sequencerUpdate() and noteOn() would play its magnets.
-function scheduleStep(step, revolution, t) {
+// One step, as sequencerUpdate() and noteOn() would play its magnets. With
+// `out`, the notes go to MIDI out too (playback, not a one-off listen).
+function scheduleStep(step, revolution, t, out = false) {
   for (let track = 0; track < NUM_TRACKS; track++) {
     const cell = state.cells[track][step];
     if (!cell) continue;
     for (const l of layersForPole(state.scene, cell - 1, revolution)) {
       const n = layerNoteFor(state.scene, l, track);
       if (!n) continue;
-      if (n.kit) playDrum(n.slot, t);
-      else playTone(n.note, n.voice, t, `${l}:${track}`);
+      if (n.kit) playDrum(n.slot, t, bus[drumLayer()]);
+      else playTone(n.note, n.voice, t, `${l}:${track}`, bus[l]);
+      if (out) midiOutNote(l, track, n, t);
     }
   }
 }
@@ -1963,12 +2272,15 @@ function tick() {
   if (nextStep >= N) nextStep = 0;
   const dur = 60 / (state.bpm * state.subdiv);
   while (nextTime < ac.currentTime + 0.12) {
-    scheduleStep(nextStep, rev, nextTime);
+    scheduleStep(nextStep, rev, nextTime, true);
     const s = nextStep, r = rev, g = gen;
     setTimeout(() => { if (g === gen) showPlayhead(s, r); }, Math.max(0, (nextTime - ac.currentTime) * 1000));
     nextTime += dur;
     [nextStep, rev] = stepAfter(nextStep, rev);
   }
+  // Beats/Rev changed while playing: the clock starts over, as on the table.
+  if (clock.rolling && clock.tpr !== PPQN * state.beats) { clockHalt(); clockStart(nextStep, nextTime); }
+  clockTick(ac.currentTime + 0.12);
 }
 
 // The band sits in the cursor's grid column: after the label column and any
@@ -2019,6 +2331,7 @@ function play() {
   newBus();
   nextStep = resumeStep; rev = resumeRev;
   nextTime = ac.currentTime + 0.05;
+  clockStart(nextStep, nextTime);
   timer = setInterval(tick, 25);
   showTransport();
   tick();
@@ -2028,6 +2341,7 @@ function play() {
 function pause() {
   clearInterval(timer); timer = null;
   newBus();
+  clockHalt();
   [resumeStep, resumeRev] = stepAfter(cursor, cursorRev);
   showTransport();
 }
@@ -2044,6 +2358,8 @@ function setCursor(s, r, listen) {
     newBus();
     nextStep = s; rev = r;
     nextTime = ac.currentTime + 0.05;
+    clockHalt();   // a jump the platter cannot make: the clock starts over
+    clockStart(nextStep, nextTime);
   } else if (listen) {
     ensureAudio();
     scheduleStep(s, r, ac.currentTime + 0.01);
@@ -2058,8 +2374,8 @@ function listenToMagnet(t, v) {
   for (const l of layersForPole(state.scene, v - 1)) {
     const n = layerNoteFor(state.scene, l, t);
     if (!n) continue;
-    if (n.kit) playDrum(n.slot, now);
-    else playTone(n.note, n.voice, now, `${l}:${t}`);
+    if (n.kit) playDrum(n.slot, now, bus[drumLayer()]);
+    else playTone(n.note, n.voice, now, `${l}:${t}`, bus[l]);
   }
 }
 
@@ -2075,6 +2391,8 @@ $("reverse").addEventListener("click", () => {
     newBus();
     [nextStep, rev] = stepAfter(cursor, cursorRev);
     nextTime = ac.currentTime + 0.05;
+    clockHalt();   // reversed: the clock starts over, as the table's does
+    clockStart(nextStep, nextTime);
   } else if (resumeStep !== cursor || resumeRev !== cursorRev) {
     [resumeStep, resumeRev] = stepAfter(cursor, cursorRev);
   }
@@ -2098,6 +2416,536 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     redo();
   }
+});
+
+// --- MIDI ---------------------------------------------------------------------------------------
+// The table's MIDI IN and OUT (firmware/src/midi), through the browser's Web
+// MIDI (Chrome, Edge; not Safari). Settings are kept per browser, like the
+// table's Play Setup, not in the song. MIDI In changes to the scene edit the
+// song, so Save keeps them and Revert drops them, as Save Scene does on the
+// table. Volume, bend and effects are live only (see `live`).
+const MIDI_KEY = "magnetrone-record-designer-midi";
+const MIDI_FN_NAMES = ["Off", "Pitch", "Set Scale", "Fingered", "One Finger", "Shift", "Play Along", "Scale Learn"];
+const FN_OFF = 0, FN_PITCH = 1, FN_SET_SCALE = 2, FN_FINGERED = 3, FN_ONE_FINGER = 4, FN_SHIFT = 5, FN_PLAY_ALONG = 6, FN_SCALE_LEARN = 7;
+const MIDI_DEFAULTS = { on: false, inId: "all", outId: "", chA: 1, chB: 2, fn: FN_OFF, cc: false };
+const midi = { ...MIDI_DEFAULTS };
+try { Object.assign(midi, JSON.parse(localStorage.getItem(MIDI_KEY) || "{}")); } catch (e) { /* defaults */ }
+const saveMidi = () => { try { localStorage.setItem(MIDI_KEY, JSON.stringify(midi)); } catch (e) { /* not kept */ } };
+let midiAccess = null, midiError = "";
+
+// config.h and voice.cpp: the CCs, the bend wheel's range, each voice's Auto
+// channel (by voice id), and kit.h's General MIDI drum notes (by slot).
+const CC_VOLUME = 7, CC_OCTAVE = 20, BEND_IN_RANGE = 2, BEND_OUT_RANGE = 2;
+const FX_CCS = { 74: ["cutoff", 100], 71: ["resonance", 100], 93: ["chorusMix", 100], 94: ["delayMix", 100],
+                 12: ["delayFeedback", FX_FEEDBACK_MAX], 91: ["reverbMix", 100] };
+const VOICE_CHANNEL = [1, 3, 4, 2, 10, 1, 5, 6, 7, 8, 9, 11];
+const KIT_GM_NOTE = [49, 45, 50, 39, 46, 38, 36, 42];
+const DRUM_NOTE_MS = 50;
+const CHORD_WINDOW_MS = 40, CHORD_MAX_KEYS = 4;
+
+const midiOutPort = () => (midiAccess && midi.on && midi.outId ? midiAccess.outputs.get(midi.outId) || null : null);
+
+// --- MIDI In: port of firmware/src/midi/midi_in.cpp ------------------------------------------
+// Which layers listen on channel `ch`: bit 0 = A, bit 1 = B. Layer B on Same
+// as A plays A's settings, so it is left out.
+function listeners(ch) {
+  let m = 0;
+  if (midi.chA === ch) m |= 1;
+  if (midi.chB === ch && state.scene.B.mode !== MODE_SAME_AS_A) m |= 2;
+  return m;
+}
+const eachLayer = (layers, fn) => { for (let l = 0; l < 2; l++) if (layers & (1 << l)) fn(l); };
+const layerCfg = (l) => (l ? state.scene.B : state.scene.A);
+let midiTouched = false;   // a scene change from MIDI, shown on the next frame
+
+// Pitch: the key becomes the layer's root and octave (G3: root G, octave 3).
+function keyPitch(layers, note) {
+  eachLayer(layers, (l) => {
+    layerCfg(l).root = note % 12;
+    layerCfg(l).octave = Math.min(Math.max(Math.floor(note / 12) - 1, 0), 7);
+  });
+  midiTouched = true;
+}
+
+// Shift: the key becomes the note of the layer's low track; a key outside
+// the scale snaps to the nearest scale note (the lower one on a tie).
+function keyShift(layers, note) {
+  const want = note % 12, s = state.scene;
+  eachLayer(layers, (l) => {
+    if (l === 1 && (s.B.mode === MODE_SAME_AS_A || s.B.shiftSameAsA)) return;   // plays A's shift
+    const r = resolveLayer(s, l);
+    if (r.kit) return;
+    let best = 0, bestDist = 12;
+    for (let d = 0; d < NUM_TRACKS; d++) {
+      const pc = scaleNote(r.eff.root, r.eff.scale, d, 0, r.eff.custom) % 12;
+      const k = (pc + 12 - want) % 12, dist = Math.min(k, 12 - k);
+      if (dist < bestDist) { bestDist = dist; best = d; }
+    }
+    layerCfg(l).shift = best;
+    midiTouched = true;
+  });
+}
+
+// The arm, track by track (Scale Learn, Fingered, One Finger). Track t counts
+// from the layer's Low Note end. Notes are semitones from the layer's root
+// and octave, so Root Note and Octave still transpose them.
+function trackDegree(l, t) {
+  const s = state.scene, own = layerCfg(l);
+  const lowSrc = l === 1 && (s.B.mode === MODE_SAME_AS_A || s.B.lowNoteSameAsA) ? s.A : own;
+  return resolveLayer(s, l).degree(lowSrc.lowNote ? NUM_TRACKS - 1 - t : t);
+}
+const layerBase = (c) => 12 + 12 * Math.min(Math.max(c.octave, 0), 9) + c.root;
+function foldStep(st) {
+  while (st > CUSTOM_STEP_MAX) st -= 12;
+  while (st < CUSTOM_STEP_MIN) st += 12;
+  return st;
+}
+const armStep = (l, t) => scaleStep(layerCfg(l).scale, trackDegree(l, t), layerCfg(l).custom);
+
+// Makes the layer's scale Custom with track t playing arm[t], at the current
+// Shift and Wrap; a degree past the last slot (No Wrap) plays it an octave up.
+function writeArm(l, arm) {
+  const c = layerCfg(l), next = new Array(CUSTOM_SLOTS).fill(0);
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const d = trackDegree(l, t);
+    next[d % CUSTOM_SLOTS] = foldStep(arm[t] - 12 * Math.floor(d / CUSTOM_SLOTS));
+  }
+  c.custom = next;
+  c.scale = SCALE_CUSTOM;
+}
+
+// Scale Learn: a key goes in at the far end of the arm and everything slides
+// one track toward the Low Note end. The root stays on its track: whatever
+// slides onto it is the new root, every slot moved the other way.
+function keyLearn(layers, note) {
+  eachLayer(layers, (l) => {
+    if (resolveLayer(state.scene, l).kit) return;
+    const c = layerCfg(l), arm = [];
+    for (let t = 0; t + 1 < NUM_TRACKS; t++) arm[t] = armStep(l, t + 1);
+    arm[NUM_TRACKS - 1] = note - layerBase(c);
+    writeArm(l, arm);
+    let up = ((c.custom[0] % 12) + 12) % 12;
+    if (up > 6) up -= 12;
+    const oldBase = layerBase(c), r = c.root + up;
+    c.root = (r + 12) % 12;
+    c.octave = Math.min(Math.max(c.octave + (r < 0 ? -1 : r > 11 ? 1 : 0), 0), 7);
+    const moved = layerBase(c) - oldBase;
+    c.custom = c.custom.map((st) => foldStep(st - moved));
+    midiTouched = true;
+  });
+}
+
+// Fingered (and One Finger): the keys are the scale, low to high from the
+// Low Note track, the lowest setting root and octave. Fewer than eight repeat
+// up by octaves to the top of the Custom range, then from the bottom again.
+function keysToArm(l, keys) {
+  if (!keys.length || resolveLayer(state.scene, l).kit) return;
+  const c = layerCfg(l), low = Math.min(...keys);
+  c.root = low % 12;
+  c.octave = Math.min(Math.max(Math.floor(low / 12) - 1, 0), 7);
+  const base = layerBase(c);
+  const st = keys.map((k) => foldStep(k - base)).sort((a, b) => a - b);
+  const arm = [];
+  for (let up = 0; arm.length < NUM_TRACKS; up++) {
+    let any = false;
+    for (const v0 of st) {
+      if (arm.length >= NUM_TRACKS) break;
+      const v = v0 + 12 * up;
+      if (v > CUSTOM_STEP_MAX) continue;
+      arm.push(v);
+      any = true;
+    }
+    if (!any) up = -1;   // past the top: back to the held keys
+  }
+  writeArm(l, arm);
+  midiTouched = true;
+}
+
+// Fingered: each layer's held keys, in the order pressed. Releases close
+// together count as one, and one that leaves nothing held keeps the chord.
+const held = [[], []], releaseTimer = [null, null];
+function fingeredOn(layers, note) {
+  eachLayer(layers, (l) => {
+    clearTimeout(releaseTimer[l]); releaseTimer[l] = null;   // a press shows at once
+    if (!held[l].includes(note) && held[l].length < NUM_TRACKS) held[l].push(note);
+    keysToArm(l, held[l]);
+  });
+}
+function fingeredOff(layers, note) {
+  eachLayer(layers, (l) => {
+    const i = held[l].indexOf(note);
+    if (i < 0) return;
+    held[l].splice(i, 1);
+    clearTimeout(releaseTimer[l]);
+    releaseTimer[l] = setTimeout(() => { releaseTimer[l] = null; keysToArm(l, held[l]); midiSceneChanged(); }, CHORD_WINDOW_MS);
+  });
+}
+
+// Set Scale and One Finger: single-finger chords. The highest key is the
+// root (and octave); a black key to its left makes it minor, a white key a
+// 7th, both a minor 7th. Set Scale sets the scale (Major, Minor, Mixolydian,
+// Dorian); One Finger puts the chord's notes on the arm, as Fingered would.
+let chordKeys = [], chordLayers = 0, chordTimer = null;
+function keyChord(layers, note) {
+  if (!chordKeys.length) {
+    chordLayers = 0;
+    chordTimer = setTimeout(() => { chordTimer = null; chordClose(); midiSceneChanged(); }, CHORD_WINDOW_MS);
+  }
+  chordLayers |= layers;
+  if (chordKeys.length < CHORD_MAX_KEYS) chordKeys.push(note);
+}
+const isBlack = (n) => [1, 3, 6, 8, 10].includes(n % 12);
+function chordClose() {
+  const root = Math.max(...chordKeys);
+  let black = false, white = false;
+  for (const k of chordKeys) if (k !== root) { if (isBlack(k)) black = true; else white = true; }
+  chordKeys = [];
+  if (midi.fn === FN_ONE_FINGER) {
+    const keys = [root, root + (black ? 3 : 4), root + 7, root + 10].slice(0, white ? 4 : 3).map((k) => (k > 127 ? k - 12 : k));
+    eachLayer(chordLayers, (l) => keysToArm(l, keys));
+    return;
+  }
+  const scale = black && white ? 6 : black ? 1 : white ? 7 : 0;   // Dorian, Minor, Mixolydian, Major
+  keyPitch(chordLayers, root);
+  eachLayer(chordLayers, (l) => { layerCfg(l).scale = scale; });
+}
+
+// Play Along: keys play the layer's voice as played (no Root, Octave or
+// scale; the bend wheel applies), velocity counting, as long as held. Both
+// layers on one channel: Layer A plays. A drum layer plays each drum on its
+// General MIDI key. Keys are not sent to MIDI out.
+const keyChannel = [new Map(), new Map()];   // note -> the channel it came in on
+const keyVoices = [new Map(), new Map()];    // note -> its sounding tone
+function playOn(layers, ch, note, velocity) {
+  const l = layers & 1 ? 0 : 1, r = resolveLayer(state.scene, l);
+  if (!r.active || r.silent) return;
+  ensureAudio();
+  if (r.kit) {
+    const slot = KIT_GM_NOTE.indexOf(note);
+    if (slot >= 0) playDrum(slot, ac.currentTime, fxChain[drumLayer()].fxIn);
+    return;
+  }
+  if (keyChannel[l].has(note)) keyOff(l, note);   // a repeat without an off
+  keyVoices[l].set(note, keyToneOn(l, note, velocity, r.voice));
+  keyChannel[l].set(note, ch);
+}
+function playOff(ch, note) {
+  for (let l = 0; l < 2; l++) if (keyChannel[l].get(note) === ch) keyOff(l, note);
+}
+function keyOff(l, note) {
+  const v = keyVoices[l].get(note);
+  if (v) keyToneOff(v);
+  keyVoices[l].delete(note);
+  keyChannel[l].delete(note);
+}
+function keysOff() {
+  for (let l = 0; l < 2; l++) for (const note of [...keyVoices[l].keys()]) keyOff(l, note);
+}
+
+// A held tone for a key: the voice's envelope up to Sustain, then Release on
+// key up (playTone() plays a magnet's fixed length instead).
+function keyToneOn(l, note, velocity, voice) {
+  const v = VOICE_SOUNDS[voice] || VOICE_SOUNDS[0], t = ac.currentTime + 0.005;
+  const osc = toneOsc(v, note), env = ac.createGain();
+  const peak = 0.22 * velocity / 127, a = v.a / 1000, d = v.d / 1000, s = v.s / 100;
+  let node = osc, lp = null, base = 0;
+  if (v.c < 100) {
+    const nyq = Math.min(ac.sampleRate / 2 - 100, FILTER_MAX_HZ);
+    lp = ac.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.Q.value = 20 * Math.log10(filterQ(v.q || 0));
+    base = Math.min(nyq, cutoffHz(v.c));
+    lp.frequency.setValueAtTime(base, t);
+    if (v.m) {
+      const oct = 7 * v.m / 100, top = Math.min(nyq, base * Math.pow(2, oct)), sus = Math.min(nyq, base * Math.pow(2, oct * v.fs / 100));
+      lp.frequency.linearRampToValueAtTime(top, t + Math.max(v.fa / 1000, 0.001));
+      lp.frequency.linearRampToValueAtTime(sus, t + v.fa / 1000 + Math.max(v.fd / 1000, 0.001));
+    }
+    osc.connect(lp); node = lp;
+  }
+  node.connect(env); env.connect(fxChain[l].fxIn);
+  env.gain.setValueAtTime(0, t);
+  env.gain.linearRampToValueAtTime(peak, t + Math.max(a, 0.002));
+  env.gain.linearRampToValueAtTime(peak * s, t + Math.max(a, 0.002) + Math.max(d, 0.001));
+  osc.start(t);
+  return { osc, env, lp, base, v };
+}
+function keyToneOff(k) {
+  if (!ac) return;
+  const t = ac.currentTime, r = Math.max(k.v.r / 1000, 0.01);
+  const hold = (p) => { if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); } };
+  hold(k.env.gain);
+  k.env.gain.linearRampToValueAtTime(0, t + r);
+  if (k.lp && k.v.m) { hold(k.lp.frequency); k.lp.frequency.linearRampToValueAtTime(k.base, t + Math.max(k.v.fr / 1000, 0.01)); }
+  k.osc.stop(t + r + 0.05);
+}
+
+// An effects CC, on each listening layer (fxCc()).
+function fxCc(layers, cc, value) {
+  const f = FX_CCS[cc];
+  if (!f) return false;
+  const pct = Math.floor((value * f[1] + 63) / 127);
+  eachLayer(layers, (l) => { live.fx[l][f[0]] = pct; });
+  applyLive();
+  return true;
+}
+
+function midiInReset() {
+  chordKeys = []; clearTimeout(chordTimer); chordTimer = null;
+  for (let l = 0; l < 2; l++) { held[l] = []; clearTimeout(releaseTimer[l]); releaseTimer[l] = null; }
+  keysOff();
+}
+
+function midiMessage(data) {
+  const [st, d0 = 0, d1 = 0] = data;
+  if (st >= 0xF0) return;   // system messages: nothing to do
+  const type = st & 0xF0, ch = (st & 0x0F) + 1;
+  flashMidi();
+  const off = type === 0x80 || (type === 0x90 && d1 === 0);
+  if (off) playOff(ch, d0);
+  const layers = listeners(ch);
+  if (!layers) return;
+  if (type === 0x80 || type === 0x90) {
+    if (off) { if (midi.fn === FN_FINGERED) fingeredOff(layers, d0); }
+    else switch (midi.fn) {
+      case FN_PITCH: keyPitch(layers, d0); break;
+      case FN_SHIFT: keyShift(layers, d0); break;
+      case FN_SCALE_LEARN: keyLearn(layers, d0); break;
+      case FN_SET_SCALE: case FN_ONE_FINGER: keyChord(layers, d0); break;
+      case FN_FINGERED: fingeredOn(layers, d0); break;
+      case FN_PLAY_ALONG: playOn(layers, ch, d0, d1); break;
+    }
+  } else if (type === 0xB0) {
+    if (d0 === CC_VOLUME) { live.volume = d1 / 127; applyLive(); renderMidiLive(); }
+    else if (d0 === CC_OCTAVE) { eachLayer(layers, (l) => { layerCfg(l).octave = Math.floor(d1 * 8 / 128); }); midiTouched = true; }
+    else if (midi.cc && fxCc(layers, d0, d1)) renderMidiLive();
+  } else if (type === 0xE0) {
+    // 14-bit, centre 8192: a temporary offset that springs back.
+    live.bend = (((d1 << 7) | d0) - 8192) / 8192 * BEND_IN_RANGE;
+    applyLive();
+    midiOutBend();
+  }
+  midiSceneChanged();
+}
+
+// MIDI In edits to the scene: drawn once per frame, however many keys arrive.
+let midiFrame = 0;
+function midiSceneChanged() {
+  if (!midiTouched || midiFrame) return;
+  midiFrame = requestAnimationFrame(() => {
+    midiFrame = 0;
+    midiTouched = false;
+    $("codeMsg").textContent = "";
+    changed();
+  });
+}
+
+// --- MIDI Out: notes, bend, clock (midi.cpp, sequencer.cpp, transport.cpp) ---------------------
+// Each layer plays on its voice's Auto channel at velocity 127 (Level 100%,
+// A/B Balance centred), for the voice's note length (drums 50 ms). A
+// sensor's next note ends the one before. Note Ons go out timestamped with
+// the audio; Note Offs from a timer, so a retrigger can still cancel them.
+const outNotes = new Map();   // "layer:track" -> { ch, note, at, timer }
+const msAt = (t) => performance.now() + Math.max(0, t - ac.currentTime) * 1000;
+
+function midiOutNote(l, track, n, t) {
+  const out = midiOutPort();
+  if (!out) return;
+  const ch = VOICE_CHANNEL[n.voice] || 1, note = n.kit ? KIT_GM_NOTE[n.slot] : n.note;
+  const key = `${l}:${track}`, prev = outNotes.get(key);
+  if (prev) {
+    clearTimeout(prev.timer);
+    out.send([0x80 | (prev.ch - 1), prev.note, 0], msAt(Math.min(prev.at, t)));
+  }
+  if (!n.kit) midiOutUseChannel(out, ch);
+  out.send([0x90 | (ch - 1), note, 127], msAt(t));
+  const len = n.kit ? DRUM_NOTE_MS : VOICE_SOUNDS[n.voice].ms;
+  const at = t + len / 1000;
+  const entry = { ch, note, at };
+  entry.timer = setTimeout(() => {
+    if (outNotes.get(key) !== entry) return;
+    outNotes.delete(key);
+    const o = midiOutPort();
+    if (o) o.send([0x80 | (ch - 1), note, 0]);
+  }, Math.max(0, (at - ac.currentTime) * 1000));
+  outNotes.set(key, entry);
+}
+
+// Pause or a jump: what was queued ahead is dropped and every note ends.
+function midiOutFlush() {
+  const out = midiOutPort();
+  if (out && out.clear) out.clear();
+  for (const e of outNotes.values()) {
+    clearTimeout(e.timer);
+    if (out) out.send([0x80 | (e.ch - 1), e.note, 0]);
+  }
+  outNotes.clear();
+}
+
+// The bend wheel goes out on the melodic channels in use, each told the bend
+// range first (RPN 0), as the table does.
+const bendChannels = new Set();
+function midiOutUseChannel(out, ch) {
+  if (bendChannels.has(ch)) return;
+  bendChannels.add(ch);
+  for (const [c, v] of [[101, 0], [100, 0], [6, BEND_OUT_RANGE], [38, 0], [101, 127], [100, 127]]) out.send([0xB0 | (ch - 1), c, v]);
+  sendBend(out, ch);
+}
+function sendBend(out, ch) {
+  const v = Math.min(Math.max(8192 + Math.round(Math.max(-1, Math.min(1, live.bend / BEND_OUT_RANGE)) * 8191), 0), 16383);
+  out.send([0xE0 | (ch - 1), v & 0x7F, (v >> 7) & 0x7F]);
+}
+function midiOutBend() {
+  const out = midiOutPort();
+  if (out) for (const ch of bendChannels) sendBend(out, ch);
+}
+
+// Clock: 24 a beat while playing, always forward in time, whichever way the
+// grid plays. Each start sends the Song Position of the next sixteenth (never
+// behind the last, as the table's song position only grows) and Continue,
+// then clocks from that sixteenth (transport.cpp start()).
+const PPQN = 24, TICKS_PER_16TH = 6, SPP_LIMIT = 16384;
+const clock = { rolling: false, songTick: 0, next: 0, tpr: 0 };
+function clockStart(step, t) {
+  const out = midiOutPort();
+  if (!out) return;
+  const N = steps(), tpr = PPQN * state.beats;
+  const p = state.reverse ? (N - step) % N : step;
+  const t0 = p * tpr / N;                                 // the start, in ticks into the bar
+  let w = (Math.floor(t0 / TICKS_PER_16TH) + 1) * TICKS_PER_16TH, bars = Math.floor(clock.songTick / tpr);
+  if (w >= tpr) { w -= tpr; bars++; }
+  let target = bars * tpr + w;
+  if (target < clock.songTick) target += tpr;
+  if (target / TICKS_PER_16TH >= SPP_LIMIT) target = w;
+  const spp = target / TICKS_PER_16TH;
+  out.send([0xF2, spp & 0x7F, (spp >> 7) & 0x7F], msAt(t));
+  out.send([0xFB], msAt(t));
+  const tickDur = 60 / state.bpm / PPQN;
+  clock.songTick = target;
+  clock.next = t + ((w > t0 ? w : w + tpr) - t0) * tickDur;
+  clock.tpr = tpr;
+  clock.rolling = true;
+}
+function clockHalt() {
+  if (!clock.rolling) return;
+  clock.rolling = false;
+  const out = midiOutPort();
+  if (out) out.send([0xFC]);
+}
+// Clocks due before `until`, from the playback scheduler.
+function clockTick(until) {
+  const out = midiOutPort();
+  if (!clock.rolling || !out) return;
+  while (clock.next < until) {
+    out.send([0xF8], msAt(clock.next));
+    clock.songTick++;
+    clock.next += 60 / state.bpm / PPQN;
+  }
+}
+
+// --- MIDI panel ------------------------------------------------------------------------------------
+function flashMidi() {
+  const b = $("midiBtn");
+  b.classList.add("rx");
+  clearTimeout(flashMidi.t);
+  flashMidi.t = setTimeout(() => b.classList.remove("rx"), 150);
+}
+
+function bindMidiPorts() {
+  if (!midiAccess) return;
+  for (const input of midiAccess.inputs.values()) {
+    input.onmidimessage = midi.on && (midi.inId === "all" || midi.inId === input.id) ? (e) => midiMessage(e.data) : null;
+  }
+}
+
+async function midiEnable() {
+  if (!midi.on) { bindMidiPorts(); renderMidi(); return; }
+  if (!midiAccess) {
+    if (!navigator.requestMIDIAccess) { midiError = "This browser has no Web MIDI. Use Chrome or Edge."; renderMidi(); return; }
+    try {
+      midiAccess = await navigator.requestMIDIAccess();
+      midiAccess.onstatechange = () => { bindMidiPorts(); renderMidi(); };
+      midiError = "";
+    } catch (e) {
+      midiError = "MIDI access was refused. Allow it in the browser's site settings.";
+      renderMidi();
+      return;
+    }
+  }
+  bindMidiPorts();
+  renderMidi();
+}
+
+const chOptions = (v) => `<option value="0"${v ? "" : " selected"}>Off</option>` +
+  Array.from({ length: 16 }, (_, i) => `<option value="${i + 1}"${v === i + 1 ? " selected" : ""}>${i + 1}</option>`).join("");
+
+function renderMidi() {
+  $("midiOn").checked = midi.on;
+  $("midiStatus").textContent = midiError || (!midi.on ? "Off." : !midiAccess ? "Asking for MIDI access..." :
+    `${midiAccess.inputs.size} input${midiAccess.inputs.size === 1 ? "" : "s"}, ${midiAccess.outputs.size} output${midiAccess.outputs.size === 1 ? "" : "s"} found.`);
+  const ports = (map) => (midiAccess ? [...map.values()] : []);
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  $("midiIn").innerHTML = `<option value="all">All inputs</option><option value="">None</option>` +
+    ports(midiAccess && midiAccess.inputs).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  $("midiIn").value = midi.inId;
+  $("midiOut").innerHTML = `<option value="">None</option>` +
+    ports(midiAccess && midiAccess.outputs).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  $("midiOut").value = midi.outId;
+  if ($("midiOut").value !== midi.outId) $("midiOut").value = "";   // not connected now
+  $("midiChA").innerHTML = chOptions(midi.chA);
+  $("midiChB").innerHTML = chOptions(midi.chB);
+  $("midiFn").innerHTML = MIDI_FN_NAMES.map((n, i) => `<option value="${i}"${i === midi.fn ? " selected" : ""}>${n}</option>`).join("");
+  $("midiCc").checked = midi.cc;
+  for (const id of ["midiIn", "midiOut", "midiChA", "midiChB", "midiFn", "midiCc"]) $(id).disabled = !midi.on || !midiAccess;
+  $("midiBtn").classList.toggle("on", midi.on && !!midiAccess);
+  renderMidiLive();
+}
+
+function renderMidiLive() {
+  const fxText = (fx) => `Tone ${fx.cutoff >= FX_CUTOFF_OFF ? "Off" : fx.cutoff + "%"}${fx.cutoff < FX_CUTOFF_OFF ? `, Res ${fx.resonance}%` : ""}` +
+    `, Chorus ${fx.chorusMix}%, Delay ${fx.delayMix}% (Fb ${fx.delayFeedback}%), Reverb ${fx.reverbMix}%`;
+  $("midiLive").innerHTML = `Volume ${Math.round(live.volume * 100)}%, Bend ${live.bend >= 0 ? "+" : ""}${live.bend.toFixed(2)}<br>` +
+    `<span class="dot a"></span>${fxText(live.fx[0])}<br><span class="dot b"></span>${fxText(live.fx[1])}`;
+}
+
+$("midiBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const open = $("midiPanel").hidden;
+  $("midiPanel").hidden = !open;
+  $("midiBtn").setAttribute("aria-expanded", open);
+  if (open) renderMidi();
+});
+document.addEventListener("click", (e) => {
+  if (!$("midiPanel").hidden && !e.target.closest("#midiPanel")) {
+    $("midiPanel").hidden = true;
+    $("midiBtn").setAttribute("aria-expanded", false);
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("midiPanel").hidden) { $("midiPanel").hidden = true; $("midiBtn").setAttribute("aria-expanded", false); }
+});
+$("midiOn").addEventListener("change", (e) => {
+  midi.on = e.target.checked;
+  saveMidi();
+  if (!midi.on) { midiInReset(); if (ac) midiOutFlush(); clockHalt(); }
+  midiEnable();
+});
+$("midiIn").addEventListener("change", (e) => { midi.inId = e.target.value; saveMidi(); midiInReset(); bindMidiPorts(); });
+$("midiOut").addEventListener("change", (e) => {
+  if (ac) midiOutFlush();
+  clockHalt();
+  midi.outId = e.target.value;
+  saveMidi();
+  bendChannels.clear();
+  if (timer) clockStart(nextStep, nextTime);
+});
+$("midiChA").addEventListener("change", (e) => { midi.chA = +e.target.value; saveMidi(); });
+$("midiChB").addEventListener("change", (e) => { midi.chB = +e.target.value; saveMidi(); });
+$("midiFn").addEventListener("change", (e) => { midi.fn = +e.target.value; saveMidi(); midiInReset(); });   // releases all keys
+$("midiCc").addEventListener("change", (e) => { midi.cc = e.target.checked; saveMidi(); });
+$("fxReset").addEventListener("click", () => {
+  live.volume = DEFAULT_VOLUME; live.bend = 0; live.fx = [factoryFx(), factoryFx()];
+  applyLive(); midiOutBend(); renderMidiLive();
 });
 
 // --- Wiring -------------------------------------------------------------------------------------
@@ -2127,6 +2975,7 @@ function changed() {
   renderScene();
   renderTemplate();
   renderSongs();
+  applyLive();   // the delay's Sync time follows the BPM
   save();
 }
 
@@ -2168,6 +3017,8 @@ showView();
 showTransport();
 changed();
 loadFromLink();
+renderMidi();
+midiEnable();
 </script>
 </body>
 </html>
