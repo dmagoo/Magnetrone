@@ -24,7 +24,8 @@ saves over the other's current work.
 
 - **Top bar**: to start, play, backwards, BPM, the record's name and the
   menu. A dot after the name means unsaved edits.
-- **Grid**: fills the screen, cells as large as fit. On a tall screen it
+- **Grid**: fills the screen up to 1200 px wide, cells as large as fit.
+  The top bar, scene bar and pages line up with the grid's edges. On a tall screen it
   turns: steps run down, track 1 is on the left. The A / B buttons at its
   bottom right pick the layer a click places, with Undo and Redo.
 - **Scene bar** (under the grid): pick one scene setting, then A, B or
