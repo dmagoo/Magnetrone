@@ -191,10 +191,6 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .groups .escale label.slot { display: flex; align-items: center; gap: 2px; margin: 0; font-size: 11px; }
 .escale select { padding: 2px 2px; font-size: 12px; }
 .escale button { padding: 2px 8px; font-size: 12px; }
-/* Edit Scale and Edit Turns fold to a summary line per layer. */
-.groups th .fold { border: 0; padding: 0 4px 0 0; color: var(--muted); font-size: 10px; }
-.foldsum { display: block; width: 100%; border: 0; padding: 2px 0; text-align: left; font-size: 12px; }
-.foldsum span.dim { opacity: .4; }
 .legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 8px; }
 </style>
 </head>
@@ -1505,9 +1501,6 @@ function unlinkB(key) {
   B[f] = 0;
 }
 
-// Edit Scale and Edit Turns rows: folded to a summary until opened.
-const openRows = { scale: false, turns: false };
-
 function renderScene() {
   const s = state.scene, dims = sceneDims(s);
   const range = (n) => Array.from({ length: n }, (_, i) => String(i));
@@ -1568,36 +1561,13 @@ function renderScene() {
     return html + "</div>";
   };
   const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
-  // A foldable row: its full controls when open, else one summary line per layer.
-  const foldRow = (key, label, full, sum) => {
-    const open = openRows[key];
-    const btn = `<button class="fold" data-fold="${key}" aria-expanded="${open}" aria-label="${open ? "Hide" : "Show"} ${label}">${open ? "▾" : "▸"}</button>`;
-    const body = open ? full(0) + full(1)
-      : `<button class="foldsum" data-fold="${key}" title="Show ${label}">${sum(0)}<br>${sum(1)}</button>`;
-    return `<tr><th>${btn}${term(label)}</th><td colspan="2">${body}</td></tr>`;
-  };
-  const sumLine = (l, text, custom, why) =>
-    `<span${why ? ` class="dim" title="${why}"` : ""}><span class="dot ${l ? "b" : "a"}"></span>${text}${custom ? ' <span class="muted">(custom)</span>' : ""}</span>`;
-  // Edit Scale's summary: the note each slot plays, from the same notes as its strip.
-  const scaleSum = (l) => {
-    const k = l ? "B" : "A", c = shownFrom(s, k, "scale");
-    const st = scaleToCustom(c.scale, c.custom);
-    const names = st.map((_, i) => noteName(scaleNote(shownFrom(s, k, "root").root, SCALE_CUSTOM, i, shownFrom(s, k, "octave").octave, st)));
-    return sumLine(l, names.join(" "), c.scale === SCALE_CUSTOM, dims[k].editScale);
-  };
-  // Edit Turns' summary: the turns as the strip shows them.
-  const turnSum = (l) => {
-    const { len, mask } = turnPattern(s, l);
-    const t = Array.from({ length: Math.min(len + 1, TURN_MAX) }, (_, i) => i < len ? (mask & (1 << i) ? String(i + 1) : "-") : "|");
-    return sumLine(l, t.join(" "), s.B.turns === TURNS_CUSTOM, "");
-  };
 
   $("gSound").innerHTML = head + "<tbody>" +
     row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), selWith("B", "voice", VOICE_NAMES, "voiceSameAsA", VOICE_MENU_ORDER)) +
     row("Root", sel("A", "root", ROOT_NAMES), selWith("B", "root", ROOT_NAMES, "rootSameAsA")) +
     row("Octave", num("A", "octave", 0, 7), numWith("octave", 0, 7, "octaveSameAsA")) +
     row("Scale", sel("A", "scale", SCALE_NAMES, SCALE_ORDER), selWith("B", "scale", SCALE_NAMES, "scaleSameAsA", SCALE_ORDER)) +
-    foldRow("scale", "Edit Scale", scaleStrip, scaleSum) + "</tbody>";
+    `<tr><th>${term("Edit Scale")}</th><td colspan="2">${scaleStrip(0)}${scaleStrip(1)}</td></tr>` + "</tbody>";
   const customs = customInPlay(s);
   $("customWarn").hidden = !customs.length;
   $("customWarn").textContent = customs.length
@@ -1611,7 +1581,7 @@ function renderScene() {
   $("gLayers").innerHTML = head + "<tbody>" +
     row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
     row("Layer Turns", "<td></td>", sel("B", "turns", TURNS_NAMES)) +
-    foldRow("turns", "Edit Turns", turnStrip, turnSum) + "</tbody>";
+    `<tr><th>${term("Edit Turns")}</th><td colspan="2">${turnStrip(0)}${turnStrip(1)}</td></tr>` + "</tbody>";
   $("code").textContent = sceneCodeEncode(s);
   markTurns();
 }
@@ -1709,14 +1679,6 @@ function turnClick(l, t) {
   else c.turnMask |= bit;                                             // turn 1 cannot end the cycle
   $("codeMsg").textContent = "";
   changed();
-}
-for (const id of ["gSound", "gLayers"]) {
-  $(id).addEventListener("click", (e) => {
-    const f = e.target.closest("button[data-fold]");
-    if (!f) return;
-    openRows[f.dataset.fold] = !openRows[f.dataset.fold];
-    renderScene();
-  });
 }
 $("gLayers").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-turn]");

@@ -67,9 +67,7 @@ Drums); Low Note's options say which track is low (Inner, track 1; Outer,
 track 8). Octave is a number box, 0 to 7.
 
 **Scale** includes **Custom**: one note per track, as on the table. The
-**Edit Scale** row (folded until opened with the arrow or a click on its
-summary, which lists the notes each layer's slots play, marked "(custom)"
-on a Custom scale) lists each layer's eight slots as the table's Edit Scale
+**Edit Scale** row lists each layer's eight slots as the table's Edit Scale
 does ("C+0" is the C in the layer's Octave, "C+1" the one above; slot 1 is
 the low track at Shift 0), the Custom notes or, until the layer plays a
 Custom scale, its scale's first eight notes. Changing a slot makes the scale
@@ -94,8 +92,7 @@ two layers share: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the
 turn patterns. Mode, Layer B's Same as A boxes and Layer Turns stay as they
 are.
 
-**Edit Turns** (folded like Edit Scale; its summary is each layer's
-pattern, marked "(custom)" while Layer Turns is Custom) shows each layer's turns as the table does: a turn's number
+**Edit Turns** shows each layer's turns as the table does: a turn's number
 if the layer's magnets are heard on that revolution, - if not, | where the
 cycle ends (8 turns without one). Click a turn to change it: on, off, the
 end of the cycle (not turn 1), on again. Clicking the | or past it makes the
