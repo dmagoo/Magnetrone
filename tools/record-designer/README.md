@@ -13,6 +13,36 @@ and **Template** (preview and export). The buttons left of them open the
 [MIDI](#midi) panel and pick the theme: Auto (follows your system), Light or
 Dark.
 
+## v2 layout (trial)
+
+`v2.html` (online at https://dmagoo.github.io/Magnetrone/tools/record-designer/v2.html)
+is the same designer with a layout for phones and for changing the sound
+while the grid plays. It shares this page's local storage, so records saved
+in one show up in the other (served from the same place: both online, or
+both from the same folder). Keep only one of the two open at a time: each
+saves over the other's current work.
+
+- **Top bar**: to start, play, backwards, BPM, the record's name and the
+  menu. A dot after the name means unsaved edits.
+- **Grid**: fills the screen, cells as large as fit. On a tall screen it
+  turns: steps run down, track 1 is on the left. The A / B buttons at its
+  bottom right pick the layer a click places, with Undo and Redo.
+- **Scene bar** (under the grid): pick one scene setting, then A, B or
+  Both, then change it. Both changes each layer; Layer B is left alone
+  where it follows Layer A (Same as A). Edit Scale and Edit Turns with Both
+  show Layer A's and apply each change to both. Layer Turns is Layer B's
+  only. **Show all** (first in the list) opens the Scene page with every
+  setting, the Scene Code, Hear, Swap, A to B and Reset Scene.
+- **Records** (click the name): the saved records, the same list as the
+  song chips here. + New record starts one (Empty here); click a record to
+  load it, double-click to rename. x deletes at once, with Undo for 5
+  seconds. Save, Save as new and Revert are at the bottom. Switching with
+  unsaved edits asks first: Switch anyway, Save then switch, or Cancel.
+- **Menu**: Grid setup (Beats/Rev, Subdivisions, Block collisions, Clear),
+  MIDI, Template and export, Copy a link to this record, and the theme.
+  Each page covers the grid with a back arrow (or Esc); the top bar stays,
+  so play goes on.
+
 ## Grid
 
 - One row per track, track 1 (inner) at the bottom, track 8 at the top.

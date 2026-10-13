@@ -1,0 +1,3408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnetrone Record Designer</title>
+<style>
+/* Layout: the top bar (transport, record, menu), the grid filling the rest
+   of the screen, and one scene bar under it. Show all, Grid setup, MIDI and
+   Template are pages that cover the grid; the top bar stays. */
+:root {
+  --bg: #f5f5f2; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc;
+  --slot: #e4e4de; --blocked: #c4c4bc; --warn: #d22;
+  --a: #89CFF0; --a-text: #1d1d1b;   /* Layer A magnet */
+  --b: #1D1D1B; --b-text: #ffffff;   /* Layer B magnet */
+  --b-ring: transparent;             /* Layer B outline (dark themes) */
+  --cs: 48px;                        /* grid cell size, set to fit the screen */
+  --g: 8px;                          /* grid gap */
+  color-scheme: light;
+}
+/* Dark: from the system unless the theme button picks Light, or picked. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
+    --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
+    --b: #0b0b0a; --b-text: #ececE8; --b-ring: #8a8a84;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+    --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
+    --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
+    --b: #0b0b0a; --b-text: #ececE8; --b-ring: #8a8a84;
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+h2 { font-size: 15px; margin: 0; font-weight: 650; }
+h3 { font-size: 12px; margin: 0 0 6px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+.warn { color: var(--warn); font-size: 12px; margin: 0; }
+
+input, select, button { font: inherit; color: inherit; }
+input, select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+input[type=number] { width: 4.5em; }
+input[type=checkbox] { accent-color: var(--text); }
+button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .4; cursor: default; }
+button.primary { background: var(--text); color: var(--panel); border-color: var(--text); }
+button.icon { padding: 5px; line-height: 0; }
+button.icon svg { width: 18px; height: 18px; }
+svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.card { background: var(--panel); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
+.app > * { grid-column: 1; }
+
+/* Top bar */
+.top { grid-row: 1; position: relative; z-index: 10; display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
+.play { width: 40px; height: 40px; border-radius: 50%; padding: 0; background: var(--text); border: 0; color: var(--panel);
+  display: flex; align-items: center; justify-content: center; flex: none; }
+.play svg { width: 18px; height: 18px; fill: currentColor; }
+.tostart { width: 34px; height: 34px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; flex: none; }
+.tostart svg { width: 14px; height: 14px; fill: currentColor; }
+#reverse[aria-pressed=true] { background: var(--text); color: var(--panel); border-color: var(--text); }
+.tempo { display: flex; align-items: baseline; gap: 5px; flex: none; margin-left: 4px; }
+.tempo label { font-size: 12px; font-weight: 600; }
+.tempo input { font-size: 16px; width: 4em; }
+#turn { margin-left: auto; white-space: nowrap; }
+#turn:empty { display: none; }
+@media (max-width: 600px) { #rpm { display: none; } }
+.recbtn { margin-left: auto; min-width: 3em; display: flex; align-items: center; gap: 6px; border: 0; padding: 6px 8px; font-weight: 650; }
+.recbtn #recName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recbtn .edot { width: 8px; height: 8px; border-radius: 50%; background: var(--text); flex: none; }
+.recbtn svg { width: 14px; height: 14px; flex: none; }
+#menuBtn { position: relative; flex: none; }
+#menuBtn.rx::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--a); }
+
+/* Pop-ups under the top bar: the Records list and the menu. */
+.pop { position: absolute; top: calc(100% + 6px); right: 8px; z-index: 30; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.2); }
+.menu { display: grid; padding: 6px; min-width: 230px; }
+.menu button { text-align: left; border: 0; padding: 9px 12px; display: flex; align-items: center; gap: 10px; line-height: 1.3; }
+.menu button svg { width: 18px; height: 18px; flex: none; }
+.menu .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+#menuMidi.on::after { content: "On"; margin-left: auto; font-size: 11px; color: var(--muted); }
+.recs { width: min(340px, calc(100vw - 16px)); overflow: hidden; }
+.recs h3 { margin: 0; padding: 10px 12px 6px; }
+.recs ul { list-style: none; margin: 0; padding: 0 6px; max-height: 50vh; overflow-y: auto; }
+.recs li { display: flex; align-items: center; border-radius: 8px; }
+.recs li.cur { background: var(--slot); }
+.recs li > button.go { flex: 1; min-width: 0; text-align: left; border: 0; padding: 10px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recs li.cur > button.go { font-weight: 650; }
+.recs li.new > button.go { color: var(--muted); }
+.recs .ed { font-style: italic; font-weight: 400; color: var(--muted); }
+.recs li .x { border: 0; padding: 8px 12px; color: var(--muted); font-size: 16px; line-height: 1; }
+.recs li input { flex: 1; margin: 4px; min-width: 0; }
+.recs .ask { margin: 6px; padding: 10px; border-radius: 8px; background: var(--slot); display: grid; gap: 8px; font-size: 13px; }
+.recs .ask .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.recs .ask input { flex: 1; min-width: 0; }
+.recs .foot { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); margin-top: 6px; flex-wrap: wrap; }
+.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 40; background: var(--text); color: var(--panel);
+  border-radius: 10px; padding: 8px 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+.toast button { border-color: transparent; color: var(--panel); font-weight: 650; padding: 2px 6px; }
+#copyMsg:empty { display: none; }
+
+/* Grid: sized to fit the stage. Portrait (.tp) turns it: steps run down,
+   track 1 on the left. */
+.stage { grid-row: 2; position: relative; min-height: 0; background: var(--panel); }
+#gridWrap { position: absolute; inset: 0; overflow: auto; display: flex; padding: 8px 8px 60px; }
+#grid { display: grid; gap: var(--g); user-select: none; -webkit-user-select: none; width: max-content; margin: auto; position: relative; }
+#grid > * { position: relative; }
+/* Playhead: a soft band behind the step being played. */
+#grid > .band { position: absolute; inset: -4px; border-radius: calc(var(--cs) / 2 + 4px);
+  background: color-mix(in srgb, var(--text) 8%, transparent); pointer-events: none; }
+#grid .lbl { font-size: 11px; white-space: nowrap; padding-right: 10px; display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
+#grid .lbl b { font-size: 12px; font-weight: 600; }
+/* Labels stay put when the grid scrolls; the shadow covers the gaps around them. */
+#grid .lbl, #grid .corner { position: sticky; left: 0; z-index: 2; background: var(--panel); box-shadow: 0 0 0 4px var(--panel); }
+#grid .hdr { font-size: 10px; color: var(--muted); text-align: center; align-self: end; border-radius: 4px; }
+#grid .hdr.beat { color: var(--text); font-weight: 650; font-size: 11px; }
+#grid .hdr[data-hs] { cursor: pointer; }
+#grid .hdr[data-hs]:hover { color: var(--text); text-decoration: underline; }
+#grid.tp .lbl { position: sticky; top: 0; left: auto; padding: 0 0 4px; align-items: center; text-align: center; font-size: 10px; white-space: normal; }
+#grid.tp .lbl b { font-size: 11px; }
+#grid.tp .corner { top: 0; z-index: 3; }
+#grid.tp .hdr { position: sticky; left: 0; z-index: 2; align-self: center; text-align: right; padding-right: 6px; background: var(--panel); box-shadow: 0 0 0 4px var(--panel); }
+#grid .c { width: var(--cs); height: var(--cs); border-radius: 50%; border: 0; padding: 0; background: var(--slot);
+  font-size: clamp(9px, calc(var(--cs) * .25), 13px); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+#grid .c.a { background: var(--a); color: var(--a-text); }
+#grid .c[data-ghost]:not(.blocked):hover::before { content: attr(data-ghost); color: var(--muted); font-size: 10px; font-weight: 600; }
+#grid .c.multi { font-size: clamp(8px, calc(var(--cs) * .21), 11px); }
+#grid .c.b { background: var(--b); color: var(--b-text); box-shadow: inset 0 0 0 1.5px var(--b-ring); }
+/* The layer's letter, small above the note (left out on small cells). */
+#grid .c.a::after, #grid .c.b::after { content: attr(data-l); position: absolute; top: 4px; font-size: 8px; font-weight: 600; opacity: .7; }
+#grid.small .c.a::after, #grid.small .c.b::after { display: none; }
+#grid .c.blocked { background: repeating-linear-gradient(45deg, var(--slot), var(--slot) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
+#grid .c.overlap { box-shadow: 0 0 0 2px var(--warn); }
+#grid .c.b.overlap { box-shadow: inset 0 0 0 1.5px var(--b-ring), 0 0 0 2px var(--warn); }
+.fab { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 4px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+.fab button { border: 0; border-radius: 8px; }
+.fab .layerbtn { padding: 6px 10px; font-weight: 600; font-size: 13px; }
+.fab .layerbtn[aria-pressed=true] { background: var(--text); color: var(--panel); }
+.fab .sep { width: 1px; background: var(--line); margin: 2px; }
+#drumKey { position: absolute; left: 10px; bottom: 12px; right: 190px; margin: 0; z-index: 4; }
+
+/* The scene bar: a setting, the layers it applies to, its control. */
+.bar { grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 12px;
+  background: var(--panel); border-top: 1px solid var(--line); }
+#pick { font-weight: 650; padding: 6px 8px; }
+.seg { display: inline-flex; background: var(--slot); border-radius: 9px; padding: 3px; gap: 2px; flex: none; }
+.seg button { border: 0; border-radius: 7px; padding: 4px 10px; color: var(--muted); display: flex; align-items: center; }
+.seg button.sel { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ctl > select { font-weight: 600; padding: 6px 8px; max-width: 100%; }
+.ctl .same { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 16px; }
+.stepper .v { min-width: 2.5ch; text-align: center; font-weight: 650; font-size: 16px; font-variant-numeric: tabular-nums; }
+.ctl .eslots { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.ctl .slot { display: flex; align-items: center; gap: 2px; font-size: 11px; }
+.ctl .slot select { padding: 3px 2px; font-size: 12px; }
+.ctl .turns button { width: 30px; height: 30px; font-size: 13px; }
+.ctl .why { font-size: 12px; color: var(--muted); }
+
+/* Pages: cover the grid and the scene bar. */
+.page { grid-row: 2 / 4; grid-column: 1; z-index: 8; background: var(--bg); display: flex; flex-direction: column; min-height: 0; }
+.pagehead { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.pagebody { flex: 1; overflow: auto; padding: 16px; }
+.pagebody > .inner { max-width: 1100px; margin: 0 auto; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > span { font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+
+/* Scene (Show all) */
+.scenehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 14px; }
+.load { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.code { font: 700 24px/1 ui-monospace, Consolas, monospace; letter-spacing: 2px; }
+.load #copyCode { margin-right: 10px; }
+.headleft { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.hear { display: flex; align-items: center; gap: 6px; }
+.hear button:not(.icon) { padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.hear label { margin-left: 4px; }
+.load input { width: 11em; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; }
+.groups table { border-collapse: collapse; width: 100%; }
+.groups th, .groups td { text-align: left; padding: 3px 4px; vertical-align: top; }
+.groups thead th { font-size: 12px; font-weight: 600; }
+.groups tbody th { font-weight: 500; white-space: nowrap; padding-top: 7px; }
+.groups td select { width: 100%; }
+.groups label { font-size: 12px; display: block; margin-top: 3px; }
+.turns { display: flex; align-items: center; gap: 2px; margin: 2px 0; }
+.turns button { width: 22px; height: 22px; padding: 0; font: 600 12px ui-monospace, Consolas, monospace; }
+/* The playhead's turn in each layer's cycle, like the band on the grid. */
+.turns button.now { background: color-mix(in srgb, var(--text) 16%, transparent); border-color: var(--muted); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+.dot.a { background: var(--a); }
+.dot.b { background: var(--b); box-shadow: inset 0 0 0 1px var(--b-ring); }
+.dim { opacity: .4; }
+.term { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+
+/* Template */
+.tpl { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .tpl { grid-template-columns: 1fr; } }
+.tpl .card { margin-bottom: 0; }
+#preview { width: 100%; max-width: 640px; aspect-ratio: 1; margin: 0 auto; }
+#preview svg { width: 100%; height: 100%; display: block; background: #fff; border-radius: 50%; }
+.tplside { display: flex; flex-direction: column; gap: 14px; }
+.exports { display: flex; gap: 8px; }
+.exports button { flex: 1; padding: 8px 12px; }
+.legend { list-style: none; margin: 0; padding: 0; font-size: 12px; display: grid; gap: 4px; }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 8px; }
+/* MIDI */
+.midipanel { max-width: 480px; display: flex; flex-direction: column; gap: 10px; }
+.midipanel p, .midipanel h3 { margin: 0; }
+.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.mgrid label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 600; min-width: 0; }
+.mgrid label.check { flex-direction: row; align-items: center; gap: 6px; align-self: end; padding-bottom: 6px; }
+.mgrid select { width: 100%; font-weight: 400; }
+#fxReset { align-self: start; }
+/* Edit Scale */
+.escale { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 2px 0 8px; }
+.eslots { display: grid; grid-template-columns: repeat(4, max-content); gap: 3px 6px; }
+.groups .escale label.slot { display: flex; align-items: center; gap: 2px; margin: 0; font-size: 11px; }
+.escale select { padding: 2px 2px; font-size: 12px; }
+.escale button { padding: 2px 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <button id="toStart" class="tostart" title="To start (Home)" aria-label="To start"></button>
+  <button id="play" class="play" title="Play (Space)" aria-label="Play"></button>
+  <button id="reverse" class="tostart" title="Play backwards, as the table does with Speed turned below zero" aria-label="Play backwards" aria-pressed="false"></button>
+  <div class="tempo">
+    <label for="bpm">BPM</label>
+    <input type="number" id="bpm" min="1" step="1">
+    <span id="rpm" class="muted small"></span>
+  </div>
+  <button id="recBtn" class="recbtn" title="Records" aria-haspopup="true" aria-expanded="false">
+    <span id="recName"></span><i id="recDot" class="edot" title="Edited, not saved" hidden></i>
+    <svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+  <button id="menuBtn" class="icon" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+    <svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+
+  <div id="recPop" class="pop recs" hidden role="dialog" aria-label="Records"></div>
+  <div id="menuPop" class="pop menu" hidden role="menu">
+    <button data-page="grid"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Grid setup</button>
+    <button data-page="midi" id="menuMidi"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="7.5" cy="12" r=".6"/><circle cx="16.5" cy="12" r=".6"/><circle cx="9" cy="8" r=".6"/><circle cx="15" cy="8" r=".6"/><circle cx="12" cy="7" r=".6"/><path d="M10.5 19h3"/></svg>MIDI</button>
+    <button data-page="template"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="12" r="5"/></svg>Template and export</button>
+    <div class="sep"></div>
+    <button id="copyLink"><svg class="i" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Copy a link to this record</button>
+    <button id="theme"></button>
+  </div>
+</header>
+
+<div class="stage">
+  <div id="gridWrap"><div id="grid"></div></div>
+  <p id="drumKey" class="hint" hidden></p>
+  <div class="fab layerpick" role="group" aria-label="Layer to place"
+       title="The layer a click places. Hold Shift while clicking for the other layer.">
+    <button class="layerbtn" data-layer="1"><span class="dot a"></span>A</button>
+    <button class="layerbtn" data-layer="2"><span class="dot b"></span>B</button>
+    <span class="sep"></span>
+    <button id="undo" class="icon" title="Undo (Ctrl+Z)" aria-label="Undo">
+      <svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
+    </button>
+    <button id="redo" class="icon" title="Redo (Ctrl+Y)" aria-label="Redo">
+      <svg class="i" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="bar" id="bar">
+  <select id="pick" aria-label="Scene setting"></select>
+  <span class="seg" id="seg" role="group" aria-label="Apply to"></span>
+  <span class="ctl" id="ctl"></span>
+  <span id="turn" class="muted small" title="The layers heard on the playhead's turn"></span>
+</div>
+
+<section class="page" id="page-scene" hidden aria-label="Scene">
+  <div class="pagehead"><button class="icon" data-back aria-label="Back to the grid" title="Back to the grid (Esc)"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Scene</h2></div>
+  <div class="pagebody"><div class="inner card">
+    <div class="scenehead">
+      <div class="headleft">
+        <div class="hear">
+          <span class="muted small">Hear:</span>
+          <button id="hearA" title="Hear Layer A: tracks 1 to 8 up and back down, as the table plays its welcome tune at power-up"><span class="dot a"></span>A</button>
+          <button id="hearB" title="Hear Layer B: tracks 1 to 8 up and back down, with Layer B's settings"><span class="dot b"></span>B</button>
+          <label class="small" title="When a scene setting changes, hear that layer's run (not while the grid plays)"><input type="checkbox" id="autoHear"> Auto</label>
+        </div>
+        <div class="hear">
+          <button id="swapAB" class="icon" title="Swap Layers A and B: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the turns" aria-label="Swap Layers A and B">
+            <svg class="i" viewBox="0 0 24 24"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
+          </button>
+          <button id="copyAB" title="Copy Layer A to Layer B: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the turns">A&rarr;B</button>
+        </div>
+      </div>
+      <div class="load">
+        <span class="muted small term" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">Scene Code</span>
+        <span class="code" id="code"></span>
+        <button id="copyCode" class="icon" title="Copy the code" aria-label="Copy the code">
+          <svg class="i" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>
+        </button>
+        <input id="codeIn" placeholder="Scene Code" maxlength="14" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
+        <button id="codeLoad">Load</button>
+        <button id="resetScene" title="Every scene setting to the factory values, as with nothing saved. The grid, BPM and template settings stay.">Reset Scene</button>
+        <span id="codeMsg" class="muted small"></span>
+      </div>
+    </div>
+    <div class="groups">
+      <div><h3>Sound</h3><table id="gSound"></table></div>
+      <div><h3>Arrangement</h3><table id="gArrange"></table></div>
+      <div><h3>Layers</h3><table id="gLayers"></table></div>
+    </div>
+    <p id="customWarn" class="warn" style="margin-top:12px" hidden></p>
+  </div></div>
+</section>
+
+<section class="page" id="page-grid" hidden aria-label="Grid setup">
+  <div class="pagehead"><button class="icon" data-back aria-label="Back to the grid" title="Back to the grid (Esc)"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Grid setup</h2></div>
+  <div class="pagebody"><div class="inner card" style="max-width:640px">
+    <div class="row">
+      <label for="beats">Beats/Rev</label><input type="number" id="beats" min="1" max="32">
+      <span class="muted">x</span>
+      <label for="subdiv">Subdivisions</label><input type="number" id="subdiv" min="1" max="8">
+      <span id="stepsInfo" class="muted small"></span>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <label><input type="checkbox" id="block"> Block collisions</label>
+      <span id="magnetCount" class="small"></span>
+      <button id="clear">Clear</button>
+    </div>
+    <p class="hint">Click a slot to place a magnet on the layer picked at the bottom right of the grid (A, normal pole, or B, reversed pole); Shift-click for the other layer.
+      Clicking a magnet of that layer removes it; one of the other layer switches over. Right click removes.
+      Track 1 is the inner track. Step 1 is the start mark. Striped slots would overlap a placed magnet.
+      On a tall screen the grid turns: steps run down and track 1 is on the left.</p>
+  </div></div>
+</section>
+
+<section class="page" id="page-midi" hidden aria-label="MIDI">
+  <div class="pagehead"><button class="icon" data-back aria-label="Back to the grid" title="Back to the grid (Esc)"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>MIDI</h2></div>
+  <div class="pagebody"><div class="inner card midipanel">
+    <label class="small"><input type="checkbox" id="midiOn"> Use MIDI (Chrome or Edge)</label>
+    <p id="midiStatus" class="muted small"></p>
+    <div class="mgrid">
+      <label>MIDI In<select id="midiIn"></select></label>
+      <label>MIDI Out<select id="midiOut"></select></label>
+      <label title="The MIDI channel Layer A listens on, or Off (Sound Defaults > Layer A > MIDI In on the table)"><span><span class="dot a"></span>A In channel</span><select id="midiChA"></select></label>
+      <label title="The MIDI channel Layer B listens on, or Off. Layer B on Same as A does not listen."><span><span class="dot b"></span>B In channel</span><select id="midiChB"></select></label>
+      <label title="What keys on a MIDI keyboard do, as Play Setup > MIDI Fn on the table">MIDI Fn<select id="midiFn"></select></label>
+      <label class="check" title="On: CCs 74, 71, 93, 94, 12 and 91 change the effects (Play Setup > MIDI CC)"><input type="checkbox" id="midiCc"> MIDI CC</label>
+    </div>
+    <p class="muted small">In: keys drive the MIDI Fn, the bend wheel bends, CC 7 sets the volume and CC 20 the octave. Scene changes edit the record (Save keeps them).
+      Out: each layer's notes on its voice's Auto channel, the bend, and clock with Start and Stop while the grid plays.</p>
+    <h3>Live, not saved</h3>
+    <div id="midiLive" class="small"></div>
+    <button id="fxReset" class="small">Reset volume, bend and effects</button>
+  </div></div>
+</section>
+
+<section class="page" id="page-template" hidden aria-label="Template">
+  <div class="pagehead"><button class="icon" data-back aria-label="Back to the grid" title="Back to the grid (Esc)"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><h2>Template</h2></div>
+  <div class="pagebody"><div class="inner tpl">
+    <section class="card"><div id="preview"></div></section>
+    <aside class="card tplside">
+      <p class="muted small" style="margin:0">A 200 mm record, full size, for laser cutting or printing.</p>
+      <p id="codeWarn" class="warn" hidden>No track has room for a readable Scene Code, so it is only 1.5 mm tall at the edge.
+        Leave a few steps in a row free on one track (outer tracks need the fewest).</p>
+      <p id="nameWarn" class="warn" hidden></p>
+      <p id="customTplWarn" class="warn" hidden></p>
+      <label class="field"><span>Paper</span>
+        <select id="paper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
+      <label class="field"><span>Magnet hole (mm)</span>
+        <input type="number" id="hole" min="5" max="20" step="0.1"></label>
+      <label class="field"><span>Platter forward, seen from above</span>
+        <select id="forward"><option value="cw">Clockwise</option><option value="ccw">Counterclockwise</option></select>
+        <span class="muted small">Check this on the table: steps are placed in the order they pass the sensor arm.</span></label>
+      <label class="field"><span>Platter marks</span>
+        <select id="marks"><option value="0">Off</option><option value="10">10</option><option value="12">12</option><option value="16">16</option></select>
+        <span class="muted small">Ticks across every ring, evenly spaced from the start mark, as on a platter cover. They ignore the record's steps.</span></label>
+      <label class="field"><span><input type="checkbox" id="labels"> Labels below the record</span>
+        <span class="muted small">The black text and 100 mm bar. Off, the export has only the record's lines.</span></label>
+      <div class="exports">
+        <button id="exportPdf" class="primary">Export PDF</button>
+        <button id="exportSvg">Export SVG</button>
+      </div>
+      <p class="hint" style="margin:0">If printing, print at 100% (actual size, not fit to page) and check the 100 mm bar.</p>
+      <div>
+        <h3>Line colors</h3>
+        <ul class="legend">
+          <li><i style="background:#FF0000"></i>Cut: outline and center hole</li>
+          <li><i style="background:#00FF00"></i>Layer A magnet holes</li>
+          <li><i style="background:#FF00FF"></i>Layer B magnet holes</li>
+          <li><i style="background:#0000FF"></i>Score: rings, start mark, marks, code</li>
+          <li><i style="background:#000"></i>Labels, not part of the record (optional)</li>
+        </ul>
+      </div>
+    </aside>
+  </div></div>
+</section>
+</div>
+<div id="toast" class="toast" hidden role="status"></div>
+<div id="copyMsg" class="toast" role="status"></div>
+
+<script>
+"use strict";
+// CORE-BEGIN (pure functions, no DOM; the test harness loads this part)
+
+// --- Dimensions (mm) -----------------------------------------------------------
+// From firmware/include/config.h (TRACK_RADIUS_MM, MAGNET_DIAMETER_MM), which
+// match the platter CAD. Track 1 (index 0) is innermost.
+const TRACK_RADIUS_MM = [12.5, 23.9, 35.3, 46.7, 58.1, 69.5, 80.9, 92.3];
+const MAGNET_DIAMETER_MM = 10.0;
+const NUM_TRACKS = 8;
+// From hardware/cad/platter/dxf/Platter - Disc.dxf.
+const TEMPLATE_DIAMETER_MM = 200;
+const CENTER_HOLE_DIAMETER_MM = 14;
+
+const PAGES = { letter: { w: 215.9, h: 279.4, name: "Letter" }, a4: { w: 210, h: 297, name: "A4" } };
+const COLOR_CUT = "#FF0000", COLOR_HOLE_A = "#00FF00", COLOR_HOLE_B = "#FF00FF", COLOR_SCORE = "#0000FF", COLOR_LABEL = "#000000";
+
+// --- Scene names (firmware order) ------------------------------------------------
+const ROOT_NAMES  = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+// Learned (8) is the table's old Scale Learn result; the designer never makes
+// it, so the lists leave it out (SCALE_ORDER).
+const SCALE_NAMES = ["Major", "Minor", "Pent. Major", "Pent. Minor", "Blues", "Chromatic", "Dorian", "Mixolydian",
+                     "Learned", "Custom"];
+const SCALE_CUSTOM = 9;
+const SCALE_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, SCALE_CUSTOM];
+// firmware/src/sequencer/scale.h: a Custom scale is one note per track, each
+// slot semitones from the root.
+const CUSTOM_SLOTS = 8, CUSTOM_STEP_MIN = -12, CUSTOM_STEP_MAX = 35;
+// Stored order (firmware VoiceId), and the order the lists show them (VOICE_MENU_ORDER).
+const VOICE_NAMES = ["Piano", "Strings", "Synth", "Bass", "Drums", "None",
+                     "E. Piano", "Organ", "Brass", "Mallets", "Reed", "Guitar"];
+const VOICE_MENU_ORDER = [0, 6, 7, 2, 3, 1, 8, 9, 10, 11, 4, 5];
+const V1_VOICES = 6;   // Piano to None: what Scene Code versions 1 and 2 hold
+const VOICE_DRUMS = 4, VOICE_NONE = 5;
+const MODE_ON = 0, MODE_OFF = 1, MODE_SAME_AS_A = 2, MODE_STACK = 3;
+const MODE_NAMES  = ["On", "Off", "Same as A", "Stack"];
+const TURNS_TOGETHER = 0, TURNS_ALTERNATE = 1, TURNS_CUSTOM = 2;
+const TURNS_NAMES = ["Together", "Alternate", "Custom"];
+const TURN_MAX = 8;
+
+// firmware/src/sequencer/scale.cpp
+const SCALE_INTERVALS = [
+  [0, 2, 4, 5, 7, 9, 11],
+  [0, 2, 3, 5, 7, 8, 10],
+  [0, 2, 4, 7, 9],
+  [0, 3, 5, 7, 10],
+  [0, 3, 5, 6, 7, 10],
+  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  [0, 2, 3, 5, 7, 9, 10],
+  [0, 2, 4, 5, 7, 9, 10],
+];
+// firmware/src/audio/kit.h: slot 0 = hall 1 (innermost).
+const KIT_NAMES = ["Crash", "Low Tom", "High Tom", "Clap", "Open Hat", "Snare", "Kick", "Closed Hat"];
+
+// Factory scene, as Scene Code version 1 pins it (defaults of V1_FIELDS).
+// turnLen and turnMask are each layer's turn pattern (version 2). custom is
+// the layer's Custom scale (CUSTOM_SLOTS steps), null until one is set; the
+// Scene Code does not hold it.
+function factoryScene() {
+  return {
+    A: { root: 0, octave: 4, scale: 0, voice: 0, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
+         turnLen: TURN_MAX, turnMask: 0xFF, custom: null },
+    B: { root: 0, octave: 3, scale: 0, voice: VOICE_DRUMS, shift: 0, lowNote: 0, wrap: 0, mode: MODE_ON,
+         shiftSameAsA: 0, lowNoteSameAsA: 0, rootSameAsA: 1, scaleSameAsA: 1, voiceSameAsA: 0, octaveSameAsA: 1,
+         turns: TURNS_TOGETHER, turnLen: TURN_MAX, turnMask: 0xFF, custom: null },
+  };
+}
+
+// --- Layer Turns: port of turnPattern() in firmware/src/config/storage.h --------
+// The pattern a layer plays: a cycle of `len` revolutions, heard on turn i+1
+// if bit i of `mask` is set. Layer B's turns picks it.
+function turnPattern(s, l) {
+  const c = l === 0 ? s.A : s.B;
+  if (s.B.turns === TURNS_CUSTOM) {
+    return { len: c.turnLen >= 1 && c.turnLen <= TURN_MAX ? c.turnLen : TURN_MAX, mask: c.turnMask & 0xFF };
+  }
+  if (s.B.turns === TURNS_ALTERNATE) return { len: TURN_MAX, mask: l === 0 ? 0x55 : 0xAA };
+  return { len: TURN_MAX, mask: 0xFF };
+}
+
+// Whether layer `l` is heard on revolution `rev` (0 = turn 1).
+function turnHeard(s, l, rev) {
+  const { len, mask } = turnPattern(s, l);
+  return !!(mask & (1 << (((rev % len) + len) % len)));
+}
+
+// --- Scene Code: port of firmware/src/sequencer/scene_code.cpp ------------------
+const SCENE_CODE_ALPHABET = "AHJLMTWXY347CEFKNPR96DQGUVB8S5Z2";
+const SCENE_CODE_MAX = 14;
+const VERSION_BITS = 4, CHAR_BITS = 5, CODE_BITS = SCENE_CODE_MAX * CHAR_BITS;
+
+// Version 1, pinned: layer, field, bits, number of values, default (stored as 0).
+const V1_FIELDS = [
+  ["A", "root", 4, 12, 0], ["B", "root", 4, 12, 0],
+  ["A", "octave", 3, 8, 4], ["B", "octave", 3, 8, 3],
+  ["A", "scale", 3, 8, 0], ["B", "scale", 3, 8, 0],
+  ["A", "voice", 3, 6, 0], ["B", "voice", 3, 6, 4],
+  ["A", "shift", 3, 8, 0], ["B", "shift", 3, 8, 0],
+  ["A", "lowNote", 1, 2, 0], ["B", "lowNote", 1, 2, 0],
+  ["A", "wrap", 1, 2, 0], ["B", "wrap", 1, 2, 0],
+  ["B", "shiftSameAsA", 1, 2, 0],
+  ["B", "lowNoteSameAsA", 1, 2, 0],
+  ["A", "mode", 1, 2, 0],   // On, Off
+  ["B", "mode", 2, 4, 0],   // On, Off, Same as A, Stack
+  ["B", "turns", 1, 2, 0],  // Together, Alternate
+].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
+
+// Version 2, pinned, written when Layer Turns is Custom: version 1 without
+// turns, then each layer's turn pattern.
+const V2_FIELDS = [
+  ...V1_FIELDS.filter((f) => f.key !== "turns").map((f) => [f.layer, f.key, f.bits, f.count, f.def]),
+  ["A", "turnLen", 3, 8, 7], ["A", "turnMask", 8, 256, 255],
+  ["B", "turnLen", 3, 8, 7], ["B", "turnMask", 8, 256, 255],
+].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
+
+// Version 3, pinned, written when a layer plays a voice added after version 2
+// (E. Piano on): version 1 with 4-bit voices, then the turn patterns. Layer
+// Turns stays one bit; Custom is implied by a pattern other than every turn.
+const V3_FIELDS = [
+  ...V1_FIELDS.map((f) => [f.layer, f.key, f.key === "voice" ? 4 : f.bits, f.key === "voice" ? 12 : f.count, f.def]),
+  ["A", "turnLen", 3, 8, 7], ["A", "turnMask", 8, 256, 255],
+  ["B", "turnLen", 3, 8, 7], ["B", "turnMask", 8, 256, 255],
+].map(([layer, key, bits, count, def]) => ({ layer, key, bits, count, def }));
+
+const atMost = (v, max) => (v > max ? max : v);
+
+// The value each field holds in the code, as sceneCodeEncode() takes it from the config.
+function codeFieldValue(s, f) {
+  const c = s[f.layer];
+  switch (f.key) {
+    case "root":   return ((f.layer === "B" ? bKey(s).root : c.root) | 0) % 12;
+    case "octave": return atMost((f.layer === "B" ? bKey(s).octave : c.octave) | 0, 7);
+    case "scale": { const sc = (f.layer === "B" ? bKey(s).scale : c.scale) | 0; return sc < 8 ? sc : 0; }
+    case "voice": { const v = (f.layer === "B" ? bKey(s).voice : c.voice) | 0; return v < VOICE_NAMES.length ? v : 0; }
+    case "shift":  return atMost(c.shift | 0, NUM_TRACKS - 1);
+    case "mode":   return f.layer === "A" ? (c.mode === MODE_OFF ? 1 : 0) : atMost(c.mode | 0, 3);
+    case "turns":  return c.turns === TURNS_ALTERNATE ? 1 : 0;
+    case "turnLen":  return turnPattern(s, f.layer === "A" ? 0 : 1).len - 1;
+    case "turnMask": return turnPattern(s, f.layer === "A" ? 0 : 1).mask;
+    default:       return c[f.key] ? 1 : 0;   // lowNote, wrap, Same as A flags
+  }
+}
+
+function sceneCodeEncode(s) {
+  let acc = 0n, pos = 0;
+  const put = (value, bits) => {
+    acc |= BigInt(value) << BigInt(CODE_BITS - pos - bits);
+    pos += bits;
+  };
+  const custom = s.B.turns === TURNS_CUSTOM;
+  const version = (codeFieldValue(s, { layer: "A", key: "voice" }) >= V1_VOICES ||
+                   codeFieldValue(s, { layer: "B", key: "voice" }) >= V1_VOICES) ? 3 : custom ? 2 : 1;
+  put(version, VERSION_BITS);
+  for (const f of version === 3 ? V3_FIELDS : version === 2 ? V2_FIELDS : V1_FIELDS) {
+    // Version 3 holds patterns only for Custom: every turn otherwise.
+    const plain = version === 3 && !custom && (f.key === "turnLen" || f.key === "turnMask");
+    const v = plain ? f.def : codeFieldValue(s, f);
+    put((v + f.count - f.def) % f.count, f.bits);
+  }
+
+  let out = "", len = 0;
+  for (let i = 0; i < SCENE_CODE_MAX; i++) {
+    const c = Number((acc >> BigInt(CODE_BITS - CHAR_BITS * (i + 1))) & 31n);
+    out += SCENE_CODE_ALPHABET[c];
+    if (c) len = i + 1;   // trailing zero characters are dropped
+  }
+  return out.slice(0, len);
+}
+
+// Layer B's voice, octave, root and scale as it plays them: A's where B
+// follows them (firmware layerEffective()). Following A's scale takes its
+// Custom notes too.
+function bKey(s) {
+  const A = s.A, B = s.B;
+  return { voice: B.voiceSameAsA ? A.voice : B.voice, octave: B.octaveSameAsA ? A.octave : B.octave,
+           root: B.rootSameAsA ? A.root : B.root, scale: B.scaleSameAsA ? A.scale : B.scale,
+           custom: B.scaleSameAsA ? A.custom : B.custom };
+}
+
+// The scene a code holds, or null if it is not a valid code.
+function sceneCodeDecode(code) {
+  const n = code.length;
+  if (n === 0 || n > SCENE_CODE_MAX) return null;
+  let acc = 0n;
+  for (let i = 0; i < n; i++) {
+    const p = SCENE_CODE_ALPHABET.indexOf(code[i]);
+    if (p < 0) return null;
+    acc |= BigInt(p) << BigInt(CODE_BITS - CHAR_BITS * (i + 1));
+  }
+  let pos = 0;
+  const get = (bits) => {
+    const v = Number((acc >> BigInt(CODE_BITS - pos - bits)) & ((1n << BigInt(bits)) - 1n));
+    pos += bits;
+    return v;
+  };
+  const version = get(VERSION_BITS);
+  if (version < 1 || version > 3) return null;
+  const s = factoryScene();
+  s.B.rootSameAsA = 0;   // every version holds B's own voice, octave, root and scale
+  s.B.scaleSameAsA = 0;
+  s.B.voiceSameAsA = 0;
+  s.B.octaveSameAsA = 0;
+  for (const f of version === 3 ? V3_FIELDS : version === 2 ? V2_FIELDS : V1_FIELDS) {
+    const e = get(f.bits);
+    if (e >= f.count) return null;
+    s[f.layer][f.key] = (e + f.def) % f.count;
+  }
+  if (version >= 2) {
+    s.A.turnLen++; s.B.turnLen++;
+    const patterned = [s.A, s.B].some((c) => c.turnLen !== TURN_MAX || c.turnMask !== 0xFF);
+    if (version === 2 || patterned) s.B.turns = TURNS_CUSTOM;
+  }
+  if (pos < CODE_BITS && (acc & ((1n << BigInt(CODE_BITS - pos)) - 1n))) return null;   // padding
+  return s;
+}
+
+// --- Note mapping: port of layers.cpp and sequencer.cpp --------------------------
+// How a layer plays: what layerActive(), layerEffective(), layerVoice(),
+// layerShiftSource(), layerLowNoteSource(), layerWraps() and layerDegree() resolve to.
+function resolveLayer(s, l) {
+  const A = s.A, B = s.B, own = l === 0 ? A : B;
+  const sameAsA = l === 1 && B.mode === MODE_SAME_AS_A;
+  const eff = sameAsA ? A : l === 1 ? { ...B, ...bKey(s) } : own;
+  let mode = own.mode;
+  if (sameAsA) mode = A.mode;
+  const active = mode === MODE_ON || mode === MODE_STACK;
+  const voice = eff.voice;
+  const shiftSrc = l === 1 && (sameAsA || B.shiftSameAsA) ? A : own;
+  const lowSrc   = l === 1 && (sameAsA || B.lowNoteSameAsA) ? A : own;
+  const kit = voice === VOICE_DRUMS;
+  const wraps = kit || !!shiftSrc.wrap;
+  const degree = (sensor) => {
+    const base = lowSrc.lowNote ? NUM_TRACKS - 1 - sensor : sensor;
+    let d = base + (shiftSrc.shift % NUM_TRACKS);
+    if (wraps) d %= NUM_TRACKS;
+    return d;
+  };
+  return { active, voice, kit, silent: voice === VOICE_NONE, degree, eff };
+}
+
+// Semitones from the root of a scale degree. Custom with none set plays as
+// Major, as on the table.
+function scaleStep(scale, degree, custom = null) {
+  if (scale === SCALE_CUSTOM && custom) {
+    return custom[degree % CUSTOM_SLOTS] + 12 * Math.floor(degree / CUSTOM_SLOTS);
+  }
+  const iv = SCALE_INTERVALS[scale < SCALE_INTERVALS.length ? scale : 0];
+  return iv[degree % iv.length] + 12 * Math.floor(degree / iv.length);
+}
+
+// scaleToCustom(): the scale's first eight degrees as a Custom scale, so a
+// layer switched to Custom plays the same until it is edited.
+function scaleToCustom(scale, custom) {
+  return Array.from({ length: CUSTOM_SLOTS }, (_, d) =>
+    Math.min(Math.max(scaleStep(scale, d, custom), CUSTOM_STEP_MIN), CUSTOM_STEP_MAX));
+}
+
+// A Custom step as Edit Scale shows it: the note in the layer's key with its
+// octave from the layer's Octave, "E+0", "C+1", "B-1" (scaleStepName()).
+function customStepName(root, step) {
+  const n = root + step, oct = Math.floor(n / 12);
+  return ROOT_NAMES[n - oct * 12] + (oct < 0 ? "" : "+") + oct;
+}
+
+// scaleNote(): MIDI note, C4 = 60.
+function scaleNote(root, scale, degree, octave, custom = null) {
+  const n = 12 + Math.min(Math.max(octave, 0), 9) * 12 + root + scaleStep(scale, degree, custom);
+  return n < 0 ? 0 : n > 127 ? 127 : n;
+}
+
+// What one layer plays for a track: { kit, slot } or { note }, or null if silent.
+function layerNoteFor(s, l, track) {
+  const r = resolveLayer(s, l);
+  if (!r.active || r.silent) return null;
+  const d = r.degree(track);
+  if (r.kit) return { kit: true, slot: d, voice: r.voice };
+  return { kit: false, note: scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave, r.eff.custom), voice: r.voice };
+}
+
+// The layers whose Custom scale is heard and is their own (B following A's
+// scale plays A's), as { l, name, custom, root }: what the Scene Code leaves out.
+function customInPlay(s) {
+  const out = [];
+  if (s.A.scale === SCALE_CUSTOM && s.A.custom && s.A.voice !== VOICE_DRUMS) out.push({ l: 0, name: "A", custom: s.A.custom, root: s.A.root });
+  const b = bKey(s);
+  if (s.B.mode !== MODE_SAME_AS_A && !s.B.scaleSameAsA && b.scale === SCALE_CUSTOM && b.custom && b.voice !== VOICE_DRUMS) {
+    out.push({ l: 1, name: "B", custom: b.custom, root: b.root });
+  }
+  return out;
+}
+
+// Which layers a magnet of this pole plays (0 = A, normal; 1 = B, reversed),
+// and whether it is heard on revolution `rev` (Layer Turns, by the pole's layer).
+function layersForPole(s, pole, rev) {
+  const stack = s.B.mode === MODE_STACK;
+  if (rev !== undefined && !turnHeard(s, pole, rev)) return [];
+  return [0, 1].filter((l) => stack || l === pole);
+}
+
+function noteName(n) {
+  return ROOT_NAMES[n % 12] + (Math.floor(n / 12) - 1);
+}
+
+// --- Magnet collisions -------------------------------------------------------------
+function clearanceMm(holeDiameter) {
+  return Math.max(MAGNET_DIAMETER_MM, holeDiameter);
+}
+
+function stepsCollide(track, s1, s2, steps, clearance) {
+  let d = Math.abs(s1 - s2);
+  d = Math.min(d, steps - d);
+  if (d === 0) return false;
+  const chord = 2 * TRACK_RADIUS_MM[track] * Math.sin(Math.PI * d / steps);
+  return chord < clearance - 1e-9;   // touching edge to edge fits
+}
+
+function cellOverlaps(cells, track, step, steps, clearance) {
+  const row = cells[track];
+  for (let s = 0; s < steps; s++) {
+    if (s !== step && row[s] && stepsCollide(track, step, s, steps, clearance)) return true;
+  }
+  return false;
+}
+
+// --- Single-stroke font ----------------------------------------------------------
+// Glyphs on a 4 x 6 grid (y up, baseline 0), advance 6. Polylines only.
+const O_SHAPE = [[1, 0], [0, 1], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0]];
+const P_SHAPE = [[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]];
+const FONT = {
+  A: [[[0, 0], [0, 4], [2, 6], [4, 4], [4, 0]], [[0, 3], [4, 3]]],
+  B: [[[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]], [[3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
+  C: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1]]],
+  D: [[[0, 0], [0, 6], [2, 6], [4, 4], [4, 2], [2, 0], [0, 0]]],
+  E: [[[4, 6], [0, 6], [0, 0], [4, 0]], [[0, 3], [3, 3]]],
+  F: [[[4, 6], [0, 6], [0, 0]], [[0, 3], [3, 3]]],
+  G: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 3], [2, 3]]],
+  H: [[[0, 0], [0, 6]], [[4, 0], [4, 6]], [[0, 3], [4, 3]]],
+  I: [[[1, 6], [3, 6]], [[2, 6], [2, 0]], [[1, 0], [3, 0]]],
+  J: [[[4, 6], [4, 1], [3, 0], [1, 0], [0, 1]]],
+  K: [[[0, 0], [0, 6]], [[4, 6], [0, 2]], [[1, 3], [4, 0]]],
+  L: [[[0, 6], [0, 0], [4, 0]]],
+  M: [[[0, 0], [0, 6], [2, 3], [4, 6], [4, 0]]],
+  N: [[[0, 0], [0, 6], [4, 0], [4, 6]]],
+  O: [O_SHAPE],
+  P: [P_SHAPE],
+  Q: [O_SHAPE, [[2, 2], [4, 0]]],
+  R: [P_SHAPE, [[2, 3], [4, 0]]],
+  S: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]]],
+  T: [[[0, 6], [4, 6]], [[2, 6], [2, 0]]],
+  U: [[[0, 6], [0, 1], [1, 0], [3, 0], [4, 1], [4, 6]]],
+  V: [[[0, 6], [2, 0], [4, 6]]],
+  W: [[[0, 6], [1, 0], [2, 4], [3, 0], [4, 6]]],
+  X: [[[0, 0], [4, 6]], [[0, 6], [4, 0]]],
+  Y: [[[0, 6], [2, 3], [4, 6]], [[2, 3], [2, 0]]],
+  Z: [[[0, 6], [4, 6], [0, 0], [4, 0]]],
+  0: [O_SHAPE, [[0, 1], [4, 5]]],
+  1: [[[1, 5], [2, 6], [2, 0]], [[1, 0], [3, 0]]],
+  2: [[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [0, 0], [4, 0]]],
+  3: [[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]], [[1, 3], [3, 3]]],
+  4: [[[3, 0], [3, 6], [0, 2], [4, 2]]],
+  5: [[[4, 6], [0, 6], [0, 3], [3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
+  6: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3], [0, 3]]],
+  7: [[[0, 6], [4, 6], [1, 0]]],
+  8: [[[1, 3], [0, 4], [0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [1, 3], [0, 2], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3]]],
+  9: [[[0, 1], [1, 0], [3, 0], [4, 1], [4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [4, 3]]],
+  "/": [[[0, 0], [4, 6]]],
+  ".": [[[2, 0], [2, 0.5]]],
+  ",": [[[2, 0.5], [1.5, -0.8]]],
+  ":": [[[2, 1], [2, 1.5]], [[2, 4], [2, 4.5]]],
+  "-": [[[1, 3], [3, 3]]],
+  "+": [[[0.5, 3], [3.5, 3]], [[2, 1.5], [2, 4.5]]],
+  "(": [[[3, 6], [2, 5], [2, 1], [3, 0]]],
+  ")": [[[1, 6], [2, 5], [2, 1], [1, 0]]],
+  "=": [[[1, 2], [3, 2]], [[1, 4], [3, 4]]],
+  "#": [[[1, 0], [1, 6]], [[3, 0], [3, 6]], [[0, 2], [4, 2]], [[0, 4], [4, 4]]],
+};
+
+function textWidth(str, h) {
+  return str.length ? (str.length * 6 - 2) * h / 6 : 0;
+}
+
+// Polylines for `str`, `h` mm tall; map(u, v) takes mm along the text (u)
+// and up from the baseline (v) to page coordinates.
+function textPaths(str, h, map) {
+  const k = h / 6, out = [];
+  [...str.toUpperCase()].forEach((ch, i) => {
+    for (const line of FONT[ch] || []) {
+      out.push(line.map(([x, y]) => map((i * 6 + x) * k, y * k)));
+    }
+  });
+  return out;
+}
+
+// --- Template geometry -------------------------------------------------------------
+// Page coordinates in mm, y down. Items: { kind: "circle", cx, cy, r, color },
+// { kind: "arc", cx, cy, r, a0, a1, color } (clockwise on the page from a0 to
+// a1, a1 > a0) or { kind: "path", pts, closed, color }.
+const TAU = 2 * Math.PI;
+
+// The parts of a circle left once `blocked` angle ranges ([a, b], b > a) are
+// taken out, as [a0, a1] ranges; null if nothing is blocked (a whole circle).
+function freeArcs(blocked) {
+  if (!blocked.length) return null;
+  const iv = blocked.map(([a, b]) => { const s0 = ((a % TAU) + TAU) % TAU; return [s0, s0 + (b - a)]; })
+    .sort((x, y) => x[0] - y[0]);
+  const m = [];
+  for (const [a, b] of iv) {
+    if (m.length && a <= m[m.length - 1][1]) m[m.length - 1][1] = Math.max(m[m.length - 1][1], b);
+    else m.push([a, b]);
+  }
+  while (m.length > 1 && m[m.length - 1][1] >= m[0][0] + TAU) {   // the last runs round into the first
+    const last = m.pop();
+    m[0] = [last[0] - TAU, Math.max(m[0][1], last[1] - TAU)];
+  }
+  if (m[0][1] - m[0][0] >= TAU) return [];
+  return m.map(([, b], i) => [b, i + 1 < m.length ? m[i + 1][0] : m[0][0] + TAU]);
+}
+
+// Gap in a ring around a magnet hole: this much wider than the hole.
+const RING_GAP_MM = 1;
+// Clearance kept around a hole (and its A/B mark) by the code text on a ring.
+const TEXT_CLEAR_MM = 3.2;
+// The least room after a hole that takes its A/B mark; less, and the mark
+// goes before the hole.
+const MARK_ROOM_MM = 1.2;
+// Length of a platter mark tick, across its ring.
+const PLATTER_MARK_MM = 5;
+// Code text heights to try on a ring, largest first, before the edge band.
+const CODE_TEXT_MM = [5, 3];
+function stepAngle(step, steps, forward) {
+  // A platter turning clockwise (seen from above) carries the template past a
+  // fixed arm in counterclockwise order, and the other way round. Step 1 is at
+  // the top. Screen angles: y down, so clockwise is increasing.
+  const dir = forward === "cw" ? -1 : 1;
+  return -Math.PI / 2 + dir * 2 * Math.PI * step / steps;
+}
+
+function templateModel(d) {
+  const page = PAGES[d.paper] || PAGES.letter;
+  const steps = d.beats * d.subdiv;
+  const R = TEMPLATE_DIAMETER_MM / 2;
+  const cx = page.w / 2, cy = 12 + R;
+  const items = [];
+  const circle = (r, color, x = cx, y = cy) => items.push({ kind: "circle", cx: x, cy: y, r, color });
+  const path = (pts, color, closed = false) => items.push({ kind: "path", pts, closed, color });
+  const polar = (a, r) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+
+  // Through cuts.
+  circle(R, COLOR_CUT);
+  circle(CENTER_HOLE_DIAMETER_MM / 2, COLOR_CUT);
+
+  // Magnet holes and pole marks.
+  const hole = d.hole, holeR = hole / 2;
+  const dirSign = d.forward === "cw" ? -1 : 1;
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const r = TRACK_RADIUS_MM[t];
+    for (let s = 0; s < steps; s++) {
+      const cell = d.cells[t][s];
+      if (!cell) continue;
+      const a = stepAngle(s, steps, d.forward);
+      const [x, y] = polar(a, r);
+      circle(holeR, cell === 1 ? COLOR_HOLE_A : COLOR_HOLE_B, x, y);
+      // The mark sits just after its hole, in step order, upright facing out,
+      // sized to the room before the next magnet on this track. With no room
+      // there (a magnet packed right after), it goes just before the hole;
+      // with no room either side, it is left off.
+      const room = (dir) => {   // gap to the nearest magnet that way, mm
+        let k = 1;
+        while (k < steps && !d.cells[t][(s + dir * k + steps * k) % steps]) k++;
+        if (k >= steps) return 10;
+        // Straight across to that hole while it is the near one, round the ring past half a turn.
+        const span = 2 * k <= steps ? 2 * r * Math.sin(Math.PI * k / steps) : r * TAU * k / steps;
+        return Math.max(span - hole, 0);
+      };
+      const after = room(1), before = room(-1);
+      if (after < MARK_ROOM_MM && before < MARK_ROOM_MM) continue;
+      const side = after >= MARK_ROOM_MM ? 1 : -1;
+      const gap = side === 1 ? after : before;
+      const w = Math.min(Math.max(gap * 0.7, 0.8), 2.0), h = w * 1.5;
+      // Hole center to mark center, straight. On a tight ring the mark is
+      // turned against that line, so its inner corner needs more room.
+      let dist = holeR + 0.6 + w / 2;
+      for (let i = 0; i < 3; i++) {
+        const tilt = Math.asin(Math.min(1, dist / (2 * r)));
+        dist = holeR + 0.4 + (w / 2) * Math.cos(tilt) + (h / 2) * Math.sin(tilt);
+      }
+      dist = Math.min(dist, holeR + gap / 2);
+      const am = a + side * dirSign * 2 * Math.asin(Math.min(1, dist / (2 * r)));
+      const [mx, my] = polar(am, r);
+      const up = [Math.cos(am), Math.sin(am)], right = [-up[1], up[0]];
+      const map = (u, v) => [mx + (u - w / 2) * right[0] + (v - h / 2) * up[0],
+                             my + (u - w / 2) * right[1] + (v - h / 2) * up[1]];
+      for (const p of textPaths(cell === 1 ? "A" : "B", h, map)) path(p, COLOR_SCORE);
+    }
+  }
+
+  // The band outside the outer ring of holes holds the start mark (top).
+  const bandIn = TRACK_RADIUS_MM[NUM_TRACKS - 1] + clearanceMm(hole) / 2 + 0.3;
+  const bandOut = R - 0.4;
+  const top = -Math.PI / 2, half = 1.5 / R;
+  path([polar(top, bandIn), polar(top - half, R), polar(top + half, R)], COLOR_SCORE, true);
+
+  // Hole angles per track, for the ring gaps and the code text.
+  const holeAngles = Array.from({ length: NUM_TRACKS }, (_, t) =>
+    d.cells[t].map((c, s) => (c ? stepAngle(s, steps, d.forward) : null)).filter((a) => a !== null)
+      .map((a) => ((a % TAU) + TAU) % TAU).sort((x, y) => x - y));
+
+  // Text along a ring, in the longest stretch clear of magnets and of text
+  // already placed, outer tracks first, 5 mm tall, else 3 mm. On a ring the
+  // text is centered on it and the ring is broken under it.
+  const onRing = [];   // { t, center, half } for each text placed on a ring
+  const ringSpot = (text) => {
+    for (const th of CODE_TEXT_MM) {
+      const need = textWidth(text, th) + 2;
+      for (let t = NUM_TRACKS - 1; t >= 0; t--) {
+        const r = TRACK_RADIUS_MM[t];
+        const ex = (holeR + TEXT_CLEAR_MM) / r;
+        const blocked = holeAngles[t].map((a) => [a - ex, a + ex]);
+        for (const o of onRing) if (o.t === t) blocked.push([o.center - o.half - ex, o.center + o.half + ex]);
+        const arcs = freeArcs(blocked);
+        let best = arcs ? null : { len: TAU * r, center: Math.PI / 2 };
+        for (const [a0, a1] of arcs || []) {
+          if (!best || (a1 - a0) * r > best.len) best = { len: (a1 - a0) * r, center: (a0 + a1) / 2 };
+        }
+        if (best && best.len >= need) {
+          const spot = { t, th, center: best.center, half: need / 2 / r };
+          onRing.push(spot);
+          return spot;
+        }
+      }
+    }
+    return null;
+  };
+  const scoreOnRing = (text, spot) => {
+    const r = TRACK_RADIUS_MM[spot.t], th = spot.th, tw = textWidth(text, th);
+    // Upright: tops toward the center on the lower half, outward on the upper.
+    const lower = Math.sin(spot.center) > 0;
+    const map = lower
+      ? (u, v) => polar(spot.center - (u - tw / 2) / r, r + th / 2 - v)
+      : (u, v) => polar(spot.center + (u - tw / 2) / r, r - th / 2 + v);
+    for (const p of textPaths(text, th, map)) path(p, COLOR_SCORE);
+  };
+  // The outer band's fallback text, 1.5 mm or so, centered at the bottom.
+  const scoreOnEdge = (text) => {
+    const th = Math.min(2.5, Math.max(bandOut - bandIn, 0.8));
+    const tw = textWidth(text, th);
+    for (const p of textPaths(text, th, (u, v) => polar(Math.PI / 2 - (u - tw / 2) / bandOut, bandOut - v))) {
+      path(p, COLOR_SCORE);
+    }
+  };
+
+  // The code and Beats/Rev first, so it gets the best spot; else the edge.
+  const codeText = `${d.code}  ${d.beats} BEATS/REV`;
+  const codeOn = ringSpot(codeText);
+  const codeFit = !codeOn ? "edge" : codeOn.th === CODE_TEXT_MM[0] ? "ring" : "small";
+  if (codeOn) scoreOnRing(codeText, codeOn);
+  else scoreOnEdge(codeText);
+
+  // The saved song's name, the same way, after the code. The edge takes it
+  // only if the code is not there; else it is left off.
+  const nameText = recordName(d.name);
+  let nameFit = "none";
+  if (nameText) {
+    const nameOn = ringSpot(nameText);
+    if (nameOn) { scoreOnRing(nameText, nameOn); nameFit = "ring"; }
+    else if (codeOn) { scoreOnEdge(nameText); nameFit = "edge"; }
+    else nameFit = "off";
+  }
+
+  // Rings, broken around every hole (and under the text), so they never
+  // cross a hole. A ring with nothing on it stays a whole circle.
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const r = TRACK_RADIUS_MM[t];
+    const gapHalf = 2 * Math.asin(Math.min(1, (hole + RING_GAP_MM) / 2 / (2 * r)));
+    const blocked = holeAngles[t].map((a) => [a - gapHalf, a + gapHalf]);
+    for (const o of onRing) if (o.t === t) blocked.push([o.center - o.half, o.center + o.half]);
+    const arcs = freeArcs(blocked);
+    if (!arcs) circle(r, COLOR_SCORE);
+    else for (const [a0, a1] of arcs) items.push({ kind: "arc", cx, cy, r, a0, a1, color: COLOR_SCORE });
+  }
+
+  // Platter marks: ticks across every ring, evenly spaced from the start
+  // mark, as on a platter cover, whatever the song's steps. A tick near a
+  // hole (and its A/B mark) or across text on its ring is left out.
+  const marks = d.marks || 0;
+  for (let k = 0; k < marks; k++) {
+    const a = -Math.PI / 2 + k * TAU / marks;
+    for (let t = 0; t < NUM_TRACKS; t++) {
+      const r = TRACK_RADIUS_MM[t];
+      const near = (b) => Math.abs((((a - b) % TAU) + TAU + Math.PI) % TAU - Math.PI);   // angle apart
+      if (holeAngles[t].some((h) => 2 * r * Math.sin(near(h) / 2) < holeR + TEXT_CLEAR_MM)) continue;
+      if (onRing.some((o) => o.t === t && near(o.center) <= o.half)) continue;
+      path([polar(a, r - PLATTER_MARK_MM / 2), polar(a, r + PLATTER_MARK_MM / 2)], COLOR_SCORE);
+    }
+  }
+
+  // Labels below the disc: not part of the record.
+  let y = cy + R + 10;
+  const label = (str, h) => {
+    const x0 = cx - textWidth(str, h) / 2;
+    for (const p of textPaths(str, h, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
+    y += h + 3.5;
+  };
+  if (nameText) label(nameText, 3);
+  label(`MAGNETRONE RECORD   SCENE CODE ${d.code}   BEATS/REV ${d.beats}   ${steps} STEPS`, 3);
+  label(`IF PRINTING: 100 PERCENT (ACTUAL SIZE). THE BAR BELOW IS 100 MM.`, 2.5);
+  label(`RED: CUT   GREEN: A HOLES   MAGENTA: B HOLES, ${+hole.toFixed(2)} MM   BLUE: SCORE`, 2.5);
+  label(`BLACK: LABELS, NOT PART OF THE RECORD`, 2.5);
+  // Custom scales are not in the Scene Code: their notes, as the table's
+  // Edit Scale lists them, to set there by hand.
+  // At most 83 characters, so smaller text keeps it on a Letter page.
+  for (const c of d.customs || []) {
+    label(`${c.name} EDIT SCALE (NOT IN CODE): ` +
+          c.custom.map((st, i) => `${i + 1}:${customStepName(c.root, st)}`).join(" "), 2.2);
+  }
+  y += 2;
+  path([[cx - 50, y], [cx + 50, y]], COLOR_LABEL);
+  for (let i = 0; i <= 10; i++) {
+    const x = cx - 50 + i * 10, tick = i % 5 === 0 ? 3 : 1.5;
+    path([[x, y - tick], [x, y]], COLOR_LABEL);
+  }
+  y += 6;
+  for (const [x, str] of [[cx - 50, "0"], [cx, "50"], [cx + 50, "100 MM"]]) {
+    const x0 = x - textWidth(str[0] === "1" ? "100" : str, 2.5) / 2;
+    for (const p of textPaths(str, 2.5, (u, v) => [x0 + u, y - v])) path(p, COLOR_LABEL);
+  }
+  return { w: page.w, h: page.h, items, codeFit, nameFit };
+}
+
+// A song name as the template's font can score it: upper case, letters the
+// font lacks dropped, spaces collapsed.
+function recordName(name) {
+  return [...(name || "").toUpperCase()].filter((ch) => ch === " " || FONT[ch]).join("")
+    .replace(/\s+/g, " ").trim();
+}
+
+// --- SVG -------------------------------------------------------------------------
+const HAIRLINE_MM = 0.0254;   // 0.001 in
+const fmt = (n) => (Math.round(n * 1000) / 1000).toString();
+
+function svgString(model, previewStroke) {
+  const groups = [[COLOR_CUT, "cut"], [COLOR_HOLE_A, "holes-a"], [COLOR_HOLE_B, "holes-b"], [COLOR_SCORE, "score"], [COLOR_LABEL, "labels"]];
+  const sw = previewStroke || HAIRLINE_MM;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${model.w}mm" height="${model.h}mm" viewBox="0 0 ${model.w} ${model.h}">\n`;
+  for (const [color, id] of groups) {
+    out += `<g id="${id}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">\n`;
+    for (const it of model.items) {
+      if (it.color !== color) continue;
+      if (it.kind === "circle") {
+        out += `<circle cx="${fmt(it.cx)}" cy="${fmt(it.cy)}" r="${fmt(it.r)}"/>\n`;
+      } else if (it.kind === "arc") {
+        const p = (a) => `${fmt(it.cx + it.r * Math.cos(a))} ${fmt(it.cy + it.r * Math.sin(a))}`;
+        out += `<path d="M${p(it.a0)} A${fmt(it.r)} ${fmt(it.r)} 0 ${it.a1 - it.a0 > Math.PI ? 1 : 0} 1 ${p(it.a1)}"/>\n`;
+      } else {
+        const d = it.pts.map(([x, y], i) => `${i ? "L" : "M"}${fmt(x)} ${fmt(y)}`).join(" ");
+        out += `<path d="${d}${it.closed ? " Z" : ""}"/>\n`;
+      }
+    }
+    out += `</g>\n`;
+  }
+  return out + `</svg>\n`;
+}
+
+// --- PDF (written by hand: one page, vector paths only) ----------------------------
+function pdfString(model) {
+  const k = 72 / 25.4;
+  const X = (x) => fmt(x * k), Y = (y) => fmt((model.h - y) * k);
+  const rgb = (hex) => [1, 3, 5].map((i) => fmt(parseInt(hex.substr(i, 2), 16) / 255)).join(" ");
+  const KAPPA = 0.5522847498;
+  let c = `${fmt(HAIRLINE_MM * k)} w 1 J 1 j\n`;
+  let current = null;
+  for (const it of model.items) {
+    if (it.color !== current) { c += `${rgb(it.color)} RG\n`; current = it.color; }
+    if (it.kind === "circle") {
+      const { cx, cy, r } = it, q = r * KAPPA;
+      c += `${X(cx + r)} ${Y(cy)} m\n`;
+      c += `${X(cx + r)} ${Y(cy + q)} ${X(cx + q)} ${Y(cy + r)} ${X(cx)} ${Y(cy + r)} c\n`;
+      c += `${X(cx - q)} ${Y(cy + r)} ${X(cx - r)} ${Y(cy + q)} ${X(cx - r)} ${Y(cy)} c\n`;
+      c += `${X(cx - r)} ${Y(cy - q)} ${X(cx - q)} ${Y(cy - r)} ${X(cx)} ${Y(cy - r)} c\n`;
+      c += `${X(cx + q)} ${Y(cy - r)} ${X(cx + r)} ${Y(cy - q)} ${X(cx + r)} ${Y(cy)} c\nh S\n`;
+    } else if (it.kind === "arc") {
+      // Bezier pieces of at most 90 degrees.
+      const { cx, cy, r, a0, a1 } = it;
+      const n = Math.max(1, Math.ceil((a1 - a0) / (Math.PI / 2))), step = (a1 - a0) / n;
+      const kk = 4 / 3 * Math.tan(step / 4) * r;
+      const pt = (a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+      c += `${X(pt(a0)[0])} ${Y(pt(a0)[1])} m\n`;
+      for (let i = 0; i < n; i++) {
+        const a = a0 + i * step, b = a + step, [x0, y0] = pt(a), [x3, y3] = pt(b);
+        const x1 = x0 - kk * Math.sin(a), y1 = y0 + kk * Math.cos(a);
+        const x2 = x3 + kk * Math.sin(b), y2 = y3 - kk * Math.cos(b);
+        c += `${X(x1)} ${Y(y1)} ${X(x2)} ${Y(y2)} ${X(x3)} ${Y(y3)} c\n`;
+      }
+      c += "S\n";
+    } else {
+      it.pts.forEach(([x, y], i) => { c += `${X(x)} ${Y(y)} ${i ? "l" : "m"}\n`; });
+      c += it.closed ? "h S\n" : "S\n";
+    }
+  }
+  const objs = [
+    `<< /Type /Catalog /Pages 2 0 R >>`,
+    `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${X(model.w)} ${fmt(model.h * k)}] /Resources << >> /Contents 4 0 R >>`,
+    `<< /Length ${c.length} >>\nstream\n${c}endstream`,
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets = [];
+  objs.forEach((o, i) => { offsets.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) out += `${String(off).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return out;
+}
+// --- Song links ------------------------------------------------------------------
+// The whole song as text for the end of a link, after "#":
+//   r1~<Scene Code>~<beats>~<subdiv>~<bpm>~<cells>~<paper>~<hole>~<cw|ccw>~<block 1|0>[~<name>]
+// Cells: track 1 to 8, each step 1 to N, 2 bits each (0 empty, 1 A, 2 B),
+// three to a base64url character. "r1" is this format's version. The song's
+// name is optional and last (URL-encoded in a link), so links without one
+// still read.
+// "r2", written only when a layer plays its own Custom scale (which the Scene
+// Code does not hold), adds a field after <block>: Layer A's Custom steps,
+// ".", Layer B's, each 8 base64url characters (step - CUSTOM_STEP_MIN), or
+// empty for a layer whose scale is not Custom. Layer B's is the scale it
+// plays, A's when it follows A's.
+const B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+function customField(s) {
+  const one = (c) => (c.scale === SCALE_CUSTOM && c.custom ? c.custom.map((st) => B64URL[st - CUSTOM_STEP_MIN]).join("") : "");
+  const f = one(s.A) + "." + one(bKey(s));   // B as it plays, as the code holds it
+  return f === "." ? null : f;
+}
+
+function songEncode(d) {
+  const flat = d.cells.flat();
+  let cells = "";
+  for (let i = 0; i < flat.length; i += 3) {
+    cells += B64URL[(flat[i] << 4) | ((flat[i + 1] || 0) << 2) | (flat[i + 2] || 0)];
+  }
+  const custom = customField(d.scene);
+  return [custom ? "r2" : "r1", sceneCodeEncode(d.scene), d.beats, d.subdiv, +d.bpm, cells,
+          d.paper, +d.hole, d.forward, d.block ? 1 : 0, ...(custom ? [custom] : [])].join("~");
+}
+
+// The song with its name, for the end of a link.
+function songLink(d) {
+  return songEncode(d) + (d.name ? "~" + encodeURIComponent(d.name) : "");
+}
+
+// The song a link holds, or null if it is not a valid one. `str` is the
+// link text already URL-decoded; everything after the tenth field is the name.
+function songDecode(str) {
+  const f = str.split("~");
+  const r2 = f[0] === "r2";
+  if (f.length < (r2 ? 11 : 10) || (f[0] !== "r1" && !r2)) return null;
+  const name = f.slice(r2 ? 11 : 10).join("~");
+  const scene = sceneCodeDecode(f[1]);
+  if (scene && r2) {
+    // The code holds a Custom scale as Major: put Custom and its steps back.
+    const parts = f[10].split(".");
+    if (parts.length !== 2) return null;
+    for (const [k, p] of [["A", parts[0]], ["B", parts[1]]]) {
+      if (!p) continue;
+      const steps = [...p].map((ch) => B64URL.indexOf(ch) + CUSTOM_STEP_MIN);
+      if (steps.length !== CUSTOM_SLOTS || steps.some((st) => st < CUSTOM_STEP_MIN || st > CUSTOM_STEP_MAX)) return null;
+      scene[k].scale = SCALE_CUSTOM;
+      scene[k].custom = steps;
+    }
+  }
+  const beats = Number(f[2]), subdiv = Number(f[3]), bpm = Number(f[4]), hole = Number(f[7]);
+  if (!scene || !Number.isInteger(beats) || beats < 1 || beats > 32 ||
+      !Number.isInteger(subdiv) || subdiv < 1 || subdiv > 8 || !(bpm > 0) ||
+      !PAGES[f[6]] || !(hole >= 5 && hole <= 20) || !["cw", "ccw"].includes(f[8]) || !["0", "1"].includes(f[9])) return null;
+  const n = NUM_TRACKS * beats * subdiv;
+  if (f[5].length !== Math.ceil(n / 3)) return null;
+  const flat = [];
+  for (const ch of f[5]) {
+    const v = B64URL.indexOf(ch);
+    if (v < 0) return null;
+    flat.push(v >> 4, (v >> 2) & 3, v & 3);
+  }
+  if (flat.some((v) => v > 2) || flat.slice(n).some(Boolean)) return null;
+  const steps = beats * subdiv;
+  const cells = Array.from({ length: NUM_TRACKS }, (_, t) => flat.slice(t * steps, (t + 1) * steps));
+  return { scene, beats, subdiv, bpm, cells, paper: f[6], hole, forward: f[8], block: f[9] === "1", name };
+}
+// CORE-END
+
+// --- State ---------------------------------------------------------------------------
+const STORE_KEY = "magnetrone-record-designer-v1";
+const DEFAULTS = {
+  view: "sequence",
+  beats: 4, subdiv: 4, block: true,
+  layer: 1,       // the layer a click places (1 A, 2 B); Shift-click places the other
+  reverse: false, // play backwards, as the table does with Speed below zero
+  autoHear: false, // hear a layer's run when a scene setting changes
+  name: "",        // the current song's name
+  songs: [],       // saved songs (chips): { id, name, song: songEncode() text }
+  songId: null,    // the chip the current song came from
+  bpm: 120,   // the table's default, 120 BPM (DEFAULT_RPM 15 in config.h at 8 beats/rev)
+  paper: "letter", hole: 11, forward: "cw",
+};
+
+function emptyCells(steps) {
+  return Array.from({ length: NUM_TRACKS }, () => new Array(steps).fill(0));
+}
+
+function loadState() {
+  const st = { ...DEFAULTS, scene: factoryScene() };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    if (saved) {
+      Object.assign(st, saved);
+      st.scene = { A: { ...factoryScene().A, ...(saved.scene || {}).A }, B: { ...factoryScene().B, ...(saved.scene || {}).B } };
+      // Saved before Root and Scale Same as A: B kept its own key.
+      const sb = (saved.scene || {}).B || {};
+      if (sb.rootSameAsA === undefined) st.scene.B.rootSameAsA = 0;
+      if (sb.scaleSameAsA === undefined) st.scene.B.scaleSameAsA = 0;
+      if (sb.voiceSameAsA === undefined) st.scene.B.voiceSameAsA = 0;
+      if (sb.octaveSameAsA === undefined) st.scene.B.octaveSameAsA = 0;
+      for (const c of [st.scene.A, st.scene.B]) {
+        if (!Array.isArray(c.custom) || c.custom.length !== CUSTOM_SLOTS) c.custom = null;
+        if (c.scale >= SCALE_INTERVALS.length && c.scale !== SCALE_CUSTOM) c.scale = 0;
+      }
+    }
+  } catch (e) { /* no storage: start fresh */ }
+  if (st.lastLayer !== undefined) { st.layer = st.lastLayer; delete st.lastLayer; }   // saved before the Layer buttons
+  st.songs = Array.isArray(st.songs) ? st.songs.filter((c) => c && c.id && typeof c.song === "string") : [];
+  if (st.rpm !== undefined) {   // saved before BPM replaced RPM
+    if (!st.bpm || st.bpm === DEFAULTS.bpm) st.bpm = st.rpm * st.beats;
+    delete st.rpm;
+  }
+  const steps = st.beats * st.subdiv;
+  if (!Array.isArray(st.cells) || st.cells.length !== NUM_TRACKS || st.cells.some((r) => !Array.isArray(r) || r.length !== steps)) {
+    st.cells = emptyCells(steps);
+  }
+  return st;
+}
+
+const state = loadState();
+const steps = () => state.beats * state.subdiv;
+
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+}
+
+const $ = (id) => document.getElementById(id);
+
+// --- This page's own settings ------------------------------------------------------------------
+// The scene bar's setting and layers, kept per browser apart from the
+// record (index.html leaves this key alone).
+const UI_KEY = "magnetrone-record-designer-v2";
+const ui = { pick: "voice", target: "A" };
+try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_KEY) || "{}")); } catch (e) { /* defaults */ }
+if (!["A", "B", "Both"].includes(ui.target)) ui.target = "A";
+const saveUi = () => { try { localStorage.setItem(UI_KEY, JSON.stringify({ pick: ui.pick, target: ui.target })); } catch (e) { /* not kept */ } };
+
+// --- Pages and pop-ups ------------------------------------------------------------------------
+// A page (Scene, Grid setup, MIDI, Template) covers the grid and the scene
+// bar; the top bar stays, so play goes on. One pop-up at a time under the
+// top bar: the Records list or the menu.
+function openPage(name) {
+  closePops();
+  for (const p of document.querySelectorAll(".page")) p.hidden = p.id !== "page-" + name;
+  if (name === "midi") renderMidi();
+}
+function closePage() {
+  for (const p of document.querySelectorAll(".page")) p.hidden = true;
+}
+const pageOpen = () => [...document.querySelectorAll(".page")].some((p) => !p.hidden);
+
+function openPop(id) {
+  const was = !$(id).hidden;
+  closePops();
+  if (was) return;
+  $(id).hidden = false;
+  $(id === "recPop" ? "recBtn" : "menuBtn").setAttribute("aria-expanded", true);
+  if (id === "recPop") { recUi = null; renderRecords(); }
+}
+function closePops() {
+  for (const id of ["recPop", "menuPop"]) $(id).hidden = true;
+  $("recBtn").setAttribute("aria-expanded", false);
+  $("menuBtn").setAttribute("aria-expanded", false);
+}
+
+$("recBtn").addEventListener("click", (e) => { e.stopPropagation(); openPop("recPop"); });
+$("menuBtn").addEventListener("click", (e) => { e.stopPropagation(); openPop("menuPop"); });
+$("menuPop").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-page]");
+  if (b) openPage(b.dataset.page);
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-back]");
+  if (b) { closePage(); return; }
+  // The Records list redraws itself on a click, so the path is checked as it
+  // was when clicked.
+  if (!e.composedPath().some((n) => n.classList && (n.classList.contains("pop") || n.classList.contains("toast")))) closePops();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!$("recPop").hidden || !$("menuPop").hidden) closePops();
+  else if (pageOpen()) closePage();
+});
+
+// --- Undo (grid edits) -----------------------------------------------------------------------
+const undoStack = [], redoStack = [];
+const gridSnapshot = () => JSON.stringify({ beats: state.beats, subdiv: state.subdiv, cells: state.cells });
+
+// Call before any change to the grid.
+function recordGrid() {
+  undoStack.push(gridSnapshot());
+  redoStack.length = 0;
+}
+
+function restoreGrid(from, to) {
+  if (!from.length) return;
+  to.push(gridSnapshot());
+  Object.assign(state, JSON.parse(from.pop()));
+  changed();
+}
+
+const undo = () => restoreGrid(undoStack, redoStack);
+const redo = () => restoreGrid(redoStack, undoStack);
+$("undo").addEventListener("click", undo);
+$("redo").addEventListener("click", redo);
+
+// --- Grid ------------------------------------------------------------------------------
+
+// "1", "1.2", "1.3", "1.4", "2", ... with Subdivisions 4.
+function stepName(s) {
+  const beat = Math.floor(s / state.subdiv) + 1, sub = s % state.subdiv;
+  return sub ? `${beat}.${sub + 1}` : `${beat}`;
+}
+
+// What a magnet of this pole on this track plays: short (in the slot: "C3",
+// or the drum letter Track Notes uses) and long (for the tooltip). Stack
+// plays both layers; a silent layer plays nothing.
+const DRUM_LETTERS = ["X", "t", "T", "C", "O", "S", "K", "H"];   // firmware/src/menu/menu.cpp
+$("drumKey").textContent = "Drums: " + DRUM_LETTERS.map((d, i) => `${d} ${KIT_NAMES[i]}`).join(", ");
+
+function poleNotes(track, pole) {
+  const notes = layersForPole(state.scene, pole).map((l) => layerNoteFor(state.scene, l, track)).filter(Boolean);
+  if (!notes.length) return { short: "-", long: "silent" };
+  return {
+    short: notes.map((n) => (n.kit ? DRUM_LETTERS[n.slot] : noteName(n.note))).join("/"),
+    long: notes.map((n) => (n.kit ? KIT_NAMES[n.slot] : noteName(n.note))).join(" + "),
+    multi: notes.length > 1,
+    kit: notes.some((n) => n.kit),
+  };
+}
+
+// Steps on the same track holding a magnet this cell would overlap.
+function overlapsWith(t, s) {
+  const N = steps(), clr = clearanceMm(state.hole), out = [];
+  for (let o = 0; o < N; o++) {
+    if (o !== s && state.cells[t][o] && stepsCollide(t, s, o, N, clr)) out.push(stepName(o));
+  }
+  return out;
+}
+
+// The grid fills the stage: cells as large as fit (within limits; past
+// them it scrolls). On a tall stage it turns, steps down and tracks across.
+let turned = false;
+const BEAT_GAP = 4;
+function fitGrid() {
+  const wrap = $("gridWrap"), W = wrap.clientWidth - 16, H = wrap.clientHeight - 68;
+  const N = steps(), nGaps = state.subdiv > 1 ? state.beats - 1 : 0;
+  turned = H > W * 1.1;
+  const across = turned ? NUM_TRACKS : N, down = turned ? N : NUM_TRACKS;
+  const labelW = turned ? 34 : 72, headH = turned ? 34 : 18;
+  const gapsW = turned ? 0 : nGaps * BEAT_GAP, gapsH = turned ? nGaps * BEAT_GAP : 0;
+  const cs = Math.floor(Math.min((W - labelW - gapsW) / (across * 1.15), (H - headH - gapsH) / (down * 1.15)));
+  const size = Math.min(Math.max(cs, 24), 64);
+  const root = document.documentElement.style;
+  root.setProperty("--cs", size + "px");
+  root.setProperty("--g", Math.min(Math.max(Math.round(size * 0.15), 3), 8) + "px");
+  $("grid").classList.toggle("tp", turned);
+  $("grid").classList.toggle("small", size < 34);
+}
+
+function renderGrid() {
+  fitGrid();
+  const N = steps(), g = $("grid");
+  const gapBefore = (s) => state.subdiv > 1 && s > 0 && s % state.subdiv === 0;
+  let lines = "max-content";
+  for (let s = 0; s < N; s++) lines += (gapBefore(s) ? ` ${BEAT_GAP}px` : "") + " var(--cs)";
+  const tracks = `repeat(${NUM_TRACKS}, var(--cs))`;
+  g.style.gridTemplateColumns = turned ? `max-content ${tracks}` : lines;
+  g.style.gridTemplateRows = turned ? lines : `auto ${tracks}`;
+
+  const notes = [];
+  let kit = false;
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const noteA = poleNotes(t, 0), noteB = poleNotes(t, 1);
+    kit ||= !!(noteA.kit || noteB.kit);
+    // What an A and a B magnet play here, once if they match.
+    notes[t] = { noteA, noteB, both: noteA.short === noteB.short ? noteA.short : `${noteA.short}/${noteB.short}` };
+  }
+  const hdr = (s) => `<div class="hdr${s % state.subdiv === 0 ? " beat" : ""}" data-hs="${s}" title="Go to step ${stepName(s)}">${stepName(s)}</div>`;
+  const lbl = (t) => `<div class="lbl"><b>${turned ? t + 1 : `Track ${t + 1}`}</b><span class="muted">${notes[t].both}</span></div>`;
+  const cell = (t, s) => {
+    const { noteA, noteB, both } = notes[t];
+    const v = state.cells[t][s];
+    const over = overlapsWith(t, s);
+    const cls = ["c"];
+    if (v === 1) cls.push("a");
+    if (v === 2) cls.push("b");
+    if (!v && over.length && state.block) cls.push("blocked");
+    if (v && over.length) cls.push("overlap");
+    const n = v === 1 ? noteA : v === 2 ? noteB : null;
+    if (n && n.multi) cls.push("multi");
+    const where = `Track ${t + 1}, step ${stepName(s)}`;
+    const what = n ? `Layer ${v === 1 ? "A" : "B"} magnet: ${n.long}` : `empty. A plays ${noteA.long}, B plays ${noteB.long}`;
+    const title = !v && over.length && state.block ? "Magnets would collide"
+      : over.length ? `Overlaps the magnet at step ${over.join(", ")}` : `${where}, ${what}`;
+    const ghost = v ? ` data-l="${v === 1 ? "A" : "B"}"` : ` data-ghost="${both}"`;
+    return `<button class="${cls.join(" ")}" data-t="${t}" data-s="${s}"${ghost} title="${title}" aria-label="${where}, ${what}">${n ? n.short : ""}</button>`;
+  };
+
+  let html = `<div class="band" id="band" hidden></div><div class="corner"></div>`;
+  if (!turned) {
+    for (let s = 0; s < N; s++) html += (gapBefore(s) ? `<div></div>` : "") + hdr(s);
+    for (let t = NUM_TRACKS - 1; t >= 0; t--) {
+      html += lbl(t);
+      for (let s = 0; s < N; s++) html += (gapBefore(s) ? `<div></div>` : "") + cell(t, s);
+    }
+  } else {
+    for (let t = 0; t < NUM_TRACKS; t++) html += lbl(t);
+    for (let s = 0; s < N; s++) {
+      if (gapBefore(s)) html += `<div style="grid-column: 1 / -1"></div>`;
+      html += hdr(s);
+      for (let t = 0; t < NUM_TRACKS; t++) html += cell(t, s);
+    }
+  }
+  g.innerHTML = html;
+  placeBand();
+  renderLayerPick();
+  $("drumKey").hidden = !kit;
+  $("stepsInfo").textContent = `= ${N} steps`;
+  const flat = state.cells.flat(), nA = flat.filter((v) => v === 1).length, nB = flat.filter((v) => v === 2).length;
+  $("magnetCount").innerHTML = `<b>${nA + nB}</b> magnet${nA + nB === 1 ? "" : "s"} <span class="muted">(${nA} A, ${nB} B)</span>`;
+  $("undo").disabled = !undoStack.length;
+  $("redo").disabled = !redoStack.length;
+}
+
+// Clicking a slot puts a magnet of the chosen layer there (Shift: the other
+// layer); if one of that layer is already there, it goes.
+// Right click removes a magnet.
+$("grid").addEventListener("contextmenu", (e) => {
+  const c = e.target.closest(".c");
+  if (!c) return;
+  e.preventDefault();
+  const t = +c.dataset.t, s = +c.dataset.s;
+  if (!state.cells[t][s]) return;
+  recordGrid();
+  state.cells[t][s] = 0;
+  changed();
+});
+
+$("grid").addEventListener("click", (e) => {
+  const h = e.target.closest(".hdr[data-hs]");
+  if (h) { setCursor(+h.dataset.hs, cursorRev, true); return; }
+  const c = e.target.closest(".c");
+  if (!c) return;
+  const t = +c.dataset.t, s = +c.dataset.s;
+  const v = state.cells[t][s];
+  if (!v && state.block && overlapsWith(t, s).length) return;
+  const want = e.shiftKey ? 3 - state.layer : state.layer;
+  recordGrid();
+  state.cells[t][s] = v === want ? 0 : want;
+  changed();
+  listenToMagnet(t, state.cells[t][s]);
+});
+
+// The Layer buttons; while Shift is held they show the layer a click places.
+let shiftHeld = false;
+function renderLayerPick() {
+  const on = shiftHeld ? 3 - state.layer : state.layer;
+  for (const b of document.querySelectorAll(".layerpick [data-layer]")) b.setAttribute("aria-pressed", +b.dataset.layer === on);
+}
+// A turned or resized screen fits the grid again (the size only changes
+// when the stage does).
+let fitShown = "";
+new ResizeObserver(() => {
+  const w = $("gridWrap"), key = `${w.clientWidth}x${w.clientHeight}`;
+  if (key !== fitShown) { fitShown = key; renderGrid(); }
+}).observe($("gridWrap"));
+document.querySelector(".layerpick").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-layer]");
+  if (!b) return;
+  state.layer = +b.dataset.layer;
+  changed();
+});
+const setShift = (on) => { if (on !== shiftHeld) { shiftHeld = on; renderLayerPick(); } };
+document.addEventListener("keydown", (e) => { if (e.key === "Shift") setShift(true); });
+document.addEventListener("keyup", (e) => { if (e.key === "Shift") setShift(false); });
+window.addEventListener("blur", () => setShift(false));
+
+// Steps per revolution changed: keep every magnet that lands on a step of the new grid.
+function resizeSteps(beats, subdiv) {
+  if (beats === state.beats && subdiv === state.subdiv) return true;
+  const oldN = steps(), newN = beats * subdiv;
+  const cells = emptyCells(newN);
+  let dropped = 0;
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    for (let s = 0; s < oldN; s++) {
+      if (!state.cells[t][s]) continue;
+      const ns = s * newN / oldN;
+      if (Number.isInteger(ns)) cells[t][ns] = state.cells[t][s];
+      else dropped++;
+    }
+  }
+  if (dropped && !confirm(`${dropped} magnet(s) do not land on a step of the new grid and will be removed. Continue?`)) return false;
+  recordGrid();
+  state.beats = beats; state.subdiv = subdiv; state.cells = cells;
+  return true;
+}
+
+function bindSteps() {
+  const b = $("beats"), d = $("subdiv");
+  const apply = () => {
+    const beats = Math.min(Math.max(parseInt(b.value, 10) || 1, 1), 32);
+    const subdiv = Math.min(Math.max(parseInt(d.value, 10) || 1, 1), 8);
+    if (!resizeSteps(beats, subdiv)) { b.value = state.beats; d.value = state.subdiv; return; }
+    changed();
+  };
+  b.addEventListener("change", apply);
+  d.addEventListener("change", apply);
+}
+
+// --- Scene panel -------------------------------------------------------------------------
+function options(names, value, order = null) {
+  return (order || names.map((_, i) => i))
+    .map((i) => `<option value="${i}"${i === value ? " selected" : ""}>${names[i]}</option>`).join("");
+}
+
+// Settings that have no effect right now, with why. They stay editable: the
+// code still holds them.
+function sceneDims(s) {
+  const dims = { A: {}, B: {} };
+  const dim = (l, keys, why) => { for (const k of keys) if (!dims[l][k]) dims[l][k] = why; };
+  const all = ["voice", "root", "octave", "scale", "shift", "lowNote", "wrap"];
+  if (s.A.mode === MODE_OFF) dim("A", [...all, "editScale"], "Layer A is Off");
+  if (s.B.mode === MODE_OFF) dim("B", [...all, "editScale"], "Layer B is Off");
+  if (s.B.mode === MODE_SAME_AS_A) {
+    dim("B", [...all, "editScale", "shiftSameAsA", "lowNoteSameAsA", "rootSameAsA", "scaleSameAsA", "voiceSameAsA", "octaveSameAsA"],
+        "Layer B is Same as A: it plays Layer A's settings");
+  }
+  if (s.B.voiceSameAsA) dim("B", ["voice"], "Follows Layer A's Voice");
+  if (s.B.octaveSameAsA) dim("B", ["octave"], "Follows Layer A's Octave");
+  if (s.B.rootSameAsA) dim("B", ["root"], "Follows Layer A's Root");
+  if (s.B.scaleSameAsA) dim("B", ["scale", "editScale"], "Follows Layer A's Scale");
+  if (s.B.shiftSameAsA) dim("B", ["shift", "wrap"], "Follows Layer A's Shift and Wrap");
+  if (s.B.lowNoteSameAsA) dim("B", ["lowNote"], "Follows Layer A's Low Note");
+  for (const l of ["A", "B"]) {
+    const voice = l === "B" ? bKey(s).voice : s.A.voice;   // as it plays
+    if (voice === VOICE_DRUMS) {
+      dim(l, ["root", "octave", "scale", "editScale"], "Drums ignore root, octave and scale");
+      dim(l, ["wrap"], "Drums always wrap");
+    }
+    if (voice === VOICE_NONE) dim(l, ["root", "octave", "scale", "editScale", "shift", "lowNote", "wrap"], "Voice None is silent");
+  }
+  return dims;
+}
+
+// Tooltips for the setting names, worded from the Performance Functions
+// table in docs/user-guide.md. Keep them in step with it.
+const TERMS = {
+  "Voice": "Piano, E. Piano, Organ, Synth, Bass, Strings, Brass, Mallets, Reed, Guitar, Drums or None. None silences the layer.",
+  "Root": "Key of the scale. Drums ignore it.",
+  "Octave": "0 to 7. Drums ignore it.",
+  "Scale": "The scale the tracks climb through, one scale step per track. Custom: one note per track, set with Edit Scale (or played in from MIDI). Drums ignore it.",
+  "Edit Scale": "Each slot's note, one per track (slot 1 is the low track at Shift 0), in the layer's key: E+0 is the E in the layer's Octave, C+1 the C above. Changing one makes the scale Custom, starting from the scale it was playing. Reset goes back to the record as saved. The Scene Code does not hold a Custom scale: it reads as Major on the table, so set the notes there with Edit Scale (the template lists them).",
+  "Shift": "Moves the run up by scale degrees, 0 to 7, staying in the key. Each option shows the note the low track then plays (track 1, or track 8 with Low Note Outer). On Drums it moves each drum to another track; each option shows the drum on the low track.",
+  "Low Note": "Which end of the arm plays the lowest note: Inner or Outer. On Drums it flips the kit end to end.",
+  "Wrap": "With Wrap, shifted notes past the top drop back to the bottom, so the run rotates across the arm. With No Wrap, the whole run moves up. Drums always wrap.",
+  "Mode": "On or Off. Layer B also has Same as A: it plays exactly like Layer A. And Stack: every magnet plays both layers, whichever way up it sits.",
+  "Layer Turns": "Together: both layers play every revolution. Alternate: they take turns, one revolution each, so a magnet is only heard on its layer's turn. Custom: each layer plays its own pattern from Edit Turns.",
+  "Edit Turns": "Each layer's turns, up to 8 revolutions, then it repeats. A number: the layer's magnets are heard on that turn. -: not heard. |: the cycle ends there, so it can be any length; the layers can differ. Click a turn: on, off, end of the cycle (not turn 1). Click the end or past it for 8 turns again. Changing a turn makes Layer Turns Custom, starting from what it was playing.",
+  "shiftSameAsA": "Layer B follows Layer A's Shift, and with it A's Wrap.",
+  "rootSameAsA": "Layer B follows Layer A's Root. On in the factory sound.",
+  "voiceSameAsA": "Layer B follows Layer A's Voice.",
+  "octaveSameAsA": "Layer B follows Layer A's Octave. On in the factory sound (drums ignore it).",
+  "scaleSameAsA": "Layer B follows Layer A's Scale. On in the factory sound.",
+  "lowNoteSameAsA": "Layer B follows Layer A's Low Note.",
+};
+const term = (name, key = name) => `<span class="term" title="${TERMS[key]}">${name}</span>`;
+
+// Layer B's Same as A boxes: the settings each one links to Layer A's.
+const LINKS = { voiceSameAsA: ["voice"], rootSameAsA: ["root"], octaveSameAsA: ["octave"],
+                scaleSameAsA: ["scale", "custom"], shiftSameAsA: ["shift", "wrap"], lowNoteSameAsA: ["lowNote"] };
+const LINK_OF = Object.fromEntries(Object.entries(LINKS).flatMap(([f, ks]) => ks.map((k) => [k, f])));
+// Where Layer B's `key` is shown from: Layer A's while B follows it.
+const bFollows = (s, key) => s.B.mode === MODE_SAME_AS_A || !!(LINK_OF[key] && s.B[LINK_OF[key]]);
+const shownFrom = (s, l, key) => (l === "B" && bFollows(s, key) ? s.A : s[l]);
+// Layer B on Same as A plays Layer A: its settings are locked (Mode and Layer Turns stay).
+const bLocked = (s, l, key) => l === "B" && s.B.mode === MODE_SAME_AS_A && key !== "mode" && key !== "turns";
+// Editing a Layer B setting that follows A unlinks it, first taking A's
+// values for everything that box links, so it starts from what was shown.
+function unlinkB(key) {
+  const f = LINK_OF[key], A = state.scene.A, B = state.scene.B;
+  if (!f || !B[f]) return;
+  for (const k of LINKS[f]) B[k] = Array.isArray(A[k]) ? [...A[k]] : A[k];
+  B[f] = 0;
+}
+
+const range = (n) => Array.from({ length: n }, (_, i) => String(i));
+const LOW_NOTE_NAMES = ["Inner (track 1)", "Outer (track 8)"];
+// Shift options: the number and what the low track then plays, from the
+// layer's own settings. The low track plays degree `shift` either way
+// round (Low Note flips first), so only the number changes the note.
+function shiftNamesFor(s, l) {
+  const c = l === "B" && s.B.mode !== MODE_SAME_AS_A ? { ...s.B, ...bKey(s) } : s.A;
+  if (c.voice === VOICE_NONE) return range(8);
+  return range(8).map((k) => `${k}  ${c.voice === VOICE_DRUMS ? KIT_NAMES[+k] : noteName(scaleNote(c.root, c.scale, +k, c.octave, c.custom))}`);
+}
+
+function renderScene() {
+  const s = state.scene, dims = sceneDims(s);
+  const cell = (l, key, html) => {
+    const why = dims[l][key];
+    return `<td${why ? ` class="dim" title="${why}"` : ""}>${html}</td>`;
+  };
+  const lock = (l, key) => (bLocked(s, l, key) ? " disabled" : "");
+  const val = (l, key) => shownFrom(s, l, key)[key];
+  const sel = (l, key, names, order = null) => cell(l, key, `<select data-l="${l}" data-k="${key}"${lock(l, key)}>${options(names, val(l, key), order)}</select>`);
+  // A Layer B control with its Same as A box below.
+  const linkCell = (key, control, flag) => {
+    const why = dims.B[key];
+    return `<td><div${why ? ` class="dim" title="${why}"` : ""}>${control}</div>` +
+      `<label${dims.B[flag] ? ` class="dim" title="${dims.B[flag]}"` : ""}><input type="checkbox" data-l="B" data-k="${flag}"${s.B[flag] ? " checked" : ""}${lock("B", flag)}> ${term("Same as A", flag)}</label></td>`;
+  };
+  const selWith = (l, key, names, flag, order = null) =>
+    linkCell(key, `<select data-l="${l}" data-k="${key}"${lock(l, key)}>${options(names, val(l, key), order)}</select>`, flag);
+  const numWith = (key, min, max, flag) =>
+    linkCell(key, `<input type="number" data-l="B" data-k="${key}" min="${min}" max="${max}" value="${val("B", key)}"${lock("B", key)}>`, flag);
+  const shiftNames = (l) => shiftNamesFor(s, l);
+  // Edit Scale, as the table lists it: each slot's note in the layer's key
+  // ("1: C+0"), the Custom scale or, until it plays one, the scale's first
+  // eight notes. A select per slot, then Reset.
+  const STEP_RANGE = Array.from({ length: CUSTOM_STEP_MAX - CUSTOM_STEP_MIN + 1 }, (_, i) => i + CUSTOM_STEP_MIN);
+  const scaleStrip = (l) => {
+    const k = l ? "B" : "A", c = shownFrom(s, k, "scale"), root = shownFrom(s, k, "root").root;
+    const steps = scaleToCustom(c.scale, c.custom);
+    const why = dims[k].editScale, off = lock(k, "scale");
+    let html = `<div class="escale${why ? " dim" : ""}"${why ? ` title="${why}"` : ""}><span class="dot ${l ? "b" : "a"}"></span><div class="eslots">`;
+    steps.forEach((st, i) => {
+      html += `<label class="slot"><span class="muted">${i + 1}</span><select data-es="${l}" data-slot="${i}" aria-label="Layer ${k} Edit Scale slot ${i + 1}"${off}>` +
+        STEP_RANGE.map((v) => `<option value="${v}"${v === st ? " selected" : ""}>${customStepName(root, v)}</option>`).join("") +
+        `</select></label>`;
+    });
+    return html + `</div><button class="small" data-esreset="${l}" title="Layer ${k}'s Scale and Custom notes back to the record as saved"${off}>Reset</button></div>`;
+  };
+  const num = (l, key, min, max) => cell(l, key, `<input type="number" data-l="${l}" data-k="${key}" min="${min}" max="${max}" value="${s[l][key]}">`);
+  const head = `<thead><tr><th></th><th><span class="dot a"></span>Layer A</th><th><span class="dot b"></span>Layer B</th></tr></thead>`;
+  // Edit Turns, as the table shows it: each turn's number, - if silent, |
+  // where the cycle ends, blank after; each a button.
+  const turnStrip = (l) => {
+    const { len, mask } = turnPattern(s, l);
+    let html = `<div class="turns"><span class="dot ${l ? "b" : "a"}"></span>`;
+    for (let i = 0; i < TURN_MAX; i++) {
+      const ch = i < len ? (mask & (1 << i) ? String(i + 1) : "-") : i === len ? "|" : "";
+      html += `<button data-turn="${i}" data-tl="${l}" aria-label="Layer ${l ? "B" : "A"} turn ${i + 1}">${ch}</button>`;
+    }
+    return html + "</div>";
+  };
+  const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
+
+  $("gSound").innerHTML = head + "<tbody>" +
+    row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), selWith("B", "voice", VOICE_NAMES, "voiceSameAsA", VOICE_MENU_ORDER)) +
+    row("Root", sel("A", "root", ROOT_NAMES), selWith("B", "root", ROOT_NAMES, "rootSameAsA")) +
+    row("Octave", num("A", "octave", 0, 7), numWith("octave", 0, 7, "octaveSameAsA")) +
+    row("Scale", sel("A", "scale", SCALE_NAMES, SCALE_ORDER), selWith("B", "scale", SCALE_NAMES, "scaleSameAsA", SCALE_ORDER)) +
+    `<tr><th>${term("Edit Scale")}</th><td colspan="2">${scaleStrip(0)}${scaleStrip(1)}</td></tr>` + "</tbody>";
+  const customs = customInPlay(s);
+  $("customWarn").hidden = !customs.length;
+  $("customWarn").textContent = customs.length
+    ? `Layer ${customs.map((c) => c.name).join(" and ")} play${customs.length === 1 ? "s" : ""} a Custom scale, which the Scene Code does not hold: ` +
+      `on the table the code loads it as Major. Set the notes there with Edit Scale; the template's labels list them.`
+    : "";
+  $("gArrange").innerHTML = head + "<tbody>" +
+    row("Shift", sel("A", "shift", shiftNames("A")), selWith("B", "shift", shiftNames("B"), "shiftSameAsA")) +
+    row("Low Note", sel("A", "lowNote", LOW_NOTE_NAMES), selWith("B", "lowNote", LOW_NOTE_NAMES, "lowNoteSameAsA")) +
+    row("Wrap", sel("A", "wrap", ["No Wrap", "Wrap"]), sel("B", "wrap", ["No Wrap", "Wrap"])) + "</tbody>";
+  $("gLayers").innerHTML = head + "<tbody>" +
+    row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
+    row("Layer Turns", "<td></td>", sel("B", "turns", TURNS_NAMES)) +
+    `<tr><th>${term("Edit Turns")}</th><td colspan="2">${turnStrip(0)}${turnStrip(1)}</td></tr>` + "</tbody>";
+  $("code").textContent = sceneCodeEncode(s);
+  markTurns();
+}
+
+for (const id of ["gSound", "gArrange", "gLayers"]) {
+  $(id).addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset.es !== undefined) { editScaleSlot(+el.dataset.es, +el.dataset.slot, parseInt(el.value, 10)); return; }
+    const l = el.dataset.l, k = el.dataset.k;
+    if (!l) return;
+    let v = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
+    if (el.type === "number") v = Math.min(Math.max(Number.isNaN(v) ? state.scene[l][k] : v, +el.min), +el.max);
+    setSetting(l, k, v);
+    $("codeMsg").textContent = "";
+    changed();
+    if (state.autoHear && !timer) hearLayer(l === "A" ? 0 : 1);
+  });
+}
+
+// Layer l's setting k (or a Same as A box) to v.
+function setSetting(l, k, v) {
+  if (l === "B") unlinkB(k);
+  // Custom with none set starts from the scale it was playing.
+  if (k === "scale" && v === SCALE_CUSTOM && !state.scene[l].custom) {
+    state.scene[l].custom = scaleToCustom(state.scene[l].scale, null);
+  }
+  state.scene[l][k] = v;
+}
+
+// Edit Scale: slot i of layer l plays `step`. The first edit makes the scale
+// Custom, starting from the notes it was playing (the table's Edit Scale).
+// Custom arrays are replaced, never changed in place, so a copied one (Copy
+// A to B) stays apart.
+function editScaleSlot(l, i, step) {
+  if (l) unlinkB("scale");
+  const c = l ? state.scene.B : state.scene.A;
+  const next = scaleToCustom(c.scale, c.custom);
+  next[i] = step;
+  c.custom = next;
+  c.scale = SCALE_CUSTOM;
+  $("codeMsg").textContent = "";
+  changed();
+  if (state.autoHear && !timer) hearLayer(l);
+}
+
+// Reset: the layer's Scale and Custom notes back to the song as saved (the
+// chip it came from), or the factory scene for a song not saved yet.
+function editScaleReset(l) {
+  const k = l ? "B" : "A";
+  const chip = chipById(state.songId), song = chip && songDecode(chip.song);
+  const from = song ? song.scene[k] : factoryScene()[k];
+  state.scene[k].scale = from.scale;
+  state.scene[k].custom = from.custom;
+}
+$("gSound").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-esreset]");
+  if (!b) return;
+  editScaleReset(+b.dataset.esreset);
+  $("codeMsg").textContent = "";
+  changed();
+});
+
+function loadCode() {
+  const code = $("codeIn").value.trim().toUpperCase();
+  const s = sceneCodeDecode(code);
+  if (!s) { $("codeMsg").textContent = "Invalid Code"; return; }
+  state.scene = s;
+  $("codeMsg").textContent = `Loaded ${code}`;
+  changed();
+}
+$("codeLoad").addEventListener("click", loadCode);
+$("codeIn").addEventListener("keydown", (e) => { if (e.key === "Enter") loadCode(); });
+
+function copyText(text, msg, out = "copyMsg") {
+  const done = () => { $(out).textContent = msg; setTimeout(() => { $(out).textContent = ""; }, 1500); };
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { /* nothing to copy with */ }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+}
+
+$("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied", "codeMsg"));
+
+// Edit Turns: a click on turn t of layer l, as the table's Edit Turns does it.
+function turnClick(l, t) {
+  const s = state.scene;
+  if (s.B.turns !== TURNS_CUSTOM) {
+    [s.A, s.B].forEach((c, k) => {
+      const p = turnPattern(s, k);
+      c.turnLen = p.len;
+      c.turnMask = p.mask;
+    });
+    s.B.turns = TURNS_CUSTOM;
+  }
+  const c = l === 0 ? s.A : s.B, bit = 1 << t;
+  if (t >= c.turnLen) { c.turnMask |= bit; c.turnLen = TURN_MAX; }   // the end, or past it
+  else if (c.turnMask & bit) c.turnMask &= ~bit;                      // on: off
+  else if (t > 0) c.turnLen = t;                                      // off: the end
+  else c.turnMask |= bit;                                             // turn 1 cannot end the cycle
+  $("codeMsg").textContent = "";
+  changed();
+}
+$("gLayers").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-turn]");
+  if (b) turnClick(+b.dataset.tl, +b.dataset.turn);
+});
+
+// --- The scene bar ------------------------------------------------------------------------------
+// One setting at a time, applied to Layer A, Layer B or both. "Show all"
+// opens the Scene page with every setting.
+const BAR_SETTINGS = [
+  { k: "voice", name: "Voice", flag: "voiceSameAsA" },
+  { k: "root", name: "Root", flag: "rootSameAsA" },
+  { k: "octave", name: "Octave", flag: "octaveSameAsA" },
+  { k: "scale", name: "Scale", flag: "scaleSameAsA" },
+  { k: "editScale", name: "Edit Scale" },
+  { k: "shift", name: "Shift", flag: "shiftSameAsA" },
+  { k: "lowNote", name: "Low Note", flag: "lowNoteSameAsA" },
+  { k: "wrap", name: "Wrap" },
+  { k: "mode", name: "Mode" },
+  { k: "turns", name: "Layer Turns", bOnly: true },
+  { k: "editTurns", name: "Edit Turns" },
+];
+const barSetting = () => BAR_SETTINGS.find((b) => b.k === ui.pick) || BAR_SETTINGS[0];
+
+// The options a list setting offers on layer l ("Both": what both have).
+function barNames(k, l) {
+  const s = state.scene;
+  switch (k) {
+    case "voice": return { names: VOICE_NAMES, order: VOICE_MENU_ORDER };
+    case "root": return { names: ROOT_NAMES };
+    case "scale": return { names: SCALE_NAMES, order: SCALE_ORDER };
+    case "shift": return { names: l === "Both" ? range(8) : shiftNamesFor(s, l) };
+    case "lowNote": return { names: LOW_NOTE_NAMES };
+    case "wrap": return { names: ["No Wrap", "Wrap"] };
+    case "mode": return { names: l === "B" ? MODE_NAMES : MODE_NAMES.slice(0, 2) };
+    case "turns": return { names: TURNS_NAMES };
+  }
+  return null;
+}
+
+// The layers a bar change goes to. With Both, Layer B is left out where it
+// follows Layer A (Same as A, or its Mode Same as A): A's change is B's.
+function barLayers(k) {
+  const s = state.scene;
+  if (ui.target !== "Both") return [ui.target];
+  const key = k === "editScale" ? "scale" : k === "editTurns" ? "turns" : k;
+  const follows = bLocked(s, "B", key) || (LINK_OF[key] && s.B[LINK_OF[key]]);
+  return follows ? ["A"] : ["A", "B"];
+}
+
+function renderBar() {
+  const s = state.scene, set = barSetting(), dims = sceneDims(s);
+  if (set.bOnly) ui.target = "B";
+  $("pick").innerHTML = `<option value="all">Show all</option>` +
+    BAR_SETTINGS.map((b) => `<option value="${b.k}"${b.k === set.k ? " selected" : ""}>${b.name}</option>`).join("");
+  $("seg").innerHTML = ["A", "B", "Both"].map((t) =>
+    `<button data-tgt="${t}" class="${ui.target === t ? "sel" : ""}"${set.bOnly && t !== "B" ? " disabled" : ""} aria-pressed="${ui.target === t}">` +
+    (t === "Both" ? "" : `<span class="dot ${t.toLowerCase()}"></span>`) + `${t}</button>`).join("");
+  $("seg").title = set.bOnly ? "Layer Turns is Layer B's setting" : "The layers the setting changes";
+
+  const T = ui.target, show = T === "Both" ? "A" : T;
+  const key = set.k === "editScale" ? "scale" : set.k === "editTurns" ? "turns" : set.k;
+  const locked = T === "B" && bLocked(s, "B", key);
+  const off = locked ? " disabled" : "";
+  const why = [...new Set((T === "Both" ? ["A", "B"] : [T]).map((l) => dims[l][set.k === "editScale" ? "editScale" : set.k]).filter(Boolean))];
+  let html = "";
+  const list = barNames(set.k, T);
+  if (list) {
+    const vA = shownFrom(s, "A", set.k)[set.k], vB = shownFrom(s, "B", set.k)[set.k];
+    const mixed = T === "Both" && vA !== vB;
+    const v = T === "B" ? vB : vA;
+    html = `<select data-bk="${set.k}" aria-label="${set.name}"${off}>${mixed ? `<option value="" selected disabled>A and B differ</option>` : ""}` +
+      (list.order || list.names.map((_, i) => i)).map((i) => `<option value="${i}"${!mixed && i === v ? " selected" : ""}>${list.names[i]}</option>`).join("") + `</select>`;
+  } else if (set.k === "octave") {
+    const vA = shownFrom(s, "A", "octave").octave, vB = shownFrom(s, "B", "octave").octave;
+    const v = T === "Both" ? (vA === vB ? vA : `${vA}/${vB}`) : T === "B" ? vB : vA;
+    html = `<span class="stepper"><button data-oct="-1" aria-label="Octave down"${off}>&minus;</button><span class="v">${v}</span>` +
+      `<button data-oct="1" aria-label="Octave up"${off}>+</button></span>`;
+  } else if (set.k === "editScale") {
+    const c = shownFrom(s, show, "scale"), root = shownFrom(s, show, "root").root;
+    const STEP_RANGE = Array.from({ length: CUSTOM_STEP_MAX - CUSTOM_STEP_MIN + 1 }, (_, i) => i + CUSTOM_STEP_MIN);
+    html = `<span class="eslots">` + scaleToCustom(c.scale, c.custom).map((st, i) =>
+      `<label class="slot"><span class="muted">${i + 1}</span><select data-bes="${i}" aria-label="Edit Scale slot ${i + 1}"${off}>` +
+      STEP_RANGE.map((v) => `<option value="${v}"${v === st ? " selected" : ""}>${customStepName(root, v)}</option>`).join("") +
+      `</select></label>`).join("") + `</span><button class="small" data-besreset title="The Scale and Custom notes back to the record as saved"${off}>Reset</button>`;
+    if (T === "Both") html += `<span class="why">Showing Layer A</span>`;
+  } else if (set.k === "editTurns") {
+    const l = show === "B" ? 1 : 0, { len, mask } = turnPattern(s, l);
+    html = `<span class="turns">`;
+    for (let i = 0; i < TURN_MAX; i++) {
+      const ch = i < len ? (mask & (1 << i) ? String(i + 1) : "-") : i === len ? "|" : "";
+      html += `<button data-bturn="${i}" data-tl="${l}" aria-label="Turn ${i + 1}">${ch}</button>`;
+    }
+    html += `</span>`;
+    if (T === "Both") html += `<span class="why">Showing Layer A</span>`;
+  }
+  // Layer B's Same as A box.
+  if (T === "B" && set.flag) {
+    html += `<label class="same" title="${TERMS[set.flag]}"><input type="checkbox" data-bflag="${set.flag}"${s.B[set.flag] ? " checked" : ""}${bLocked(s, "B", set.flag) ? " disabled" : ""}> Same as A</label>`;
+  }
+  if (locked) html += `<span class="why">Layer B is Same as A</span>`;
+  else if (why.length) html += `<span class="why">${why.join(". ")}</span>`;
+  $("ctl").innerHTML = html;
+}
+
+function barChanged(layers) {
+  $("codeMsg").textContent = "";
+  changed();
+  if (state.autoHear && !timer && layers.length === 1) hearLayer(layers[0] === "A" ? 0 : 1);
+}
+
+$("pick").addEventListener("change", (e) => {
+  if (e.target.value === "all") { openPage("scene"); renderBar(); return; }
+  ui.pick = e.target.value;
+  saveUi();
+  renderBar();
+});
+$("seg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-tgt]");
+  if (!b || b.disabled) return;
+  ui.target = b.dataset.tgt;
+  saveUi();
+  renderBar();
+});
+$("ctl").addEventListener("change", (e) => {
+  const el = e.target, set = barSetting();
+  if (el.dataset.bk) {
+    const layers = barLayers(set.k);
+    for (const l of layers) setSetting(l, set.k, parseInt(el.value, 10));
+    barChanged(layers);
+  } else if (el.dataset.bflag) {
+    setSetting("B", el.dataset.bflag, el.checked ? 1 : 0);
+    barChanged(["B"]);
+  } else if (el.dataset.bes !== undefined) {
+    const layers = barLayers("editScale");
+    // Both: each layer's slot gets the note shown (Layer A's).
+    for (const l of layers) editScaleSlot(l === "A" ? 0 : 1, +el.dataset.bes, parseInt(el.value, 10));
+  }
+});
+$("ctl").addEventListener("click", (e) => {
+  const set = barSetting();
+  const oct = e.target.closest("[data-oct]");
+  if (oct) {
+    const layers = barLayers("octave");
+    for (const l of layers) {
+      const v = shownFrom(state.scene, l, "octave").octave;
+      setSetting(l, "octave", Math.min(Math.max(v + +oct.dataset.oct, 0), 7));
+    }
+    barChanged(layers);
+    return;
+  }
+  if (e.target.closest("[data-besreset]")) {
+    for (const l of barLayers("editScale")) editScaleReset(l === "A" ? 0 : 1);
+    barChanged([]);
+    return;
+  }
+  const t = e.target.closest("[data-bturn]");
+  if (t) for (const l of barLayers(set.k)) turnClick(l === "A" ? 0 : 1, +t.dataset.bturn);
+});
+
+// Reset Scene: every scene setting to the factory values, as with nothing
+// saved. The grid, BPM and template stay.
+$("resetScene").addEventListener("click", () => {
+  if (!confirm("Reset every scene setting to the factory values? The grid, BPM and template settings stay.")) return;
+  state.scene = factoryScene();
+  $("codeMsg").textContent = "";
+  changed();
+});
+
+// Swap A/B and Copy A to B: the settings both layers have, the turn
+// patterns included. Mode, Layer B's Same as A flags and Layer Turns stay as
+// they are.
+const SHARED_KEYS = ["voice", "root", "octave", "scale", "custom", "shift", "lowNote", "wrap", "turnLen", "turnMask"];
+$("swapAB").addEventListener("click", () => {
+  const { A, B } = state.scene;
+  for (const k of SHARED_KEYS) [A[k], B[k]] = [B[k], A[k]];
+  $("codeMsg").textContent = "";
+  changed();
+});
+$("copyAB").addEventListener("click", () => {
+  const { A, B } = state.scene;
+  for (const k of SHARED_KEYS) B[k] = A[k];
+  $("codeMsg").textContent = "";
+  changed();
+});
+// --- Records ------------------------------------------------------------------------------------
+// Saved records, kept in local storage (the same list as index.html, where
+// they are the song chips). A record is a snapshot: editing after picking one
+// changes only the current record, until it is saved again. "New record" is
+// always there, the factory scene on an empty grid.
+const EMPTY_ID = "empty";
+const EMPTY_SONG = songEncode({ ...DEFAULTS, scene: factoryScene(), cells: emptyCells(DEFAULTS.beats * DEFAULTS.subdiv) });
+const emptyChip = { id: EMPTY_ID, name: "New record", song: EMPTY_SONG };
+
+const newSongId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const chipById = (id) => (id === EMPTY_ID ? emptyChip : state.songs.find((c) => c.id === id));
+const defaultName = (d) => `${sceneCodeEncode(d.scene)} · ${d.cells.flat().filter(Boolean).length}`;
+
+// Changes not kept in a record: the current one differs from the record it
+// came from (an untouched new grid has nothing to lose).
+function songEdited() {
+  const cur = songEncode(state);
+  if (cur === EMPTY_SONG) return false;
+  const chip = chipById(state.songId);
+  return !chip || chip.song !== cur;
+}
+
+function askName(fallback) {
+  const n = prompt("Name this record:", state.name || fallback);
+  return n === null ? null : n.trim() || fallback;
+}
+
+// Loads record `id`, dropping any edits.
+function switchRecord(id) {
+  const chip = chipById(id);
+  if (!chip) return;
+  const song = songDecode(chip.song);
+  recordGrid();
+  Object.assign(state, song);
+  state.name = id === EMPTY_ID ? "" : chip.name;
+  state.songId = id;
+  recUi = null;
+  changed();   // playing carries on, into the new record
+}
+
+// From a link: asks first if the current record has unsaved changes.
+function selectSong(id) {
+  const chip = chipById(id);
+  if (!chip) return;
+  if (id === state.songId && !songEdited()) return;
+  if (songEdited() && !confirm("This record has changes that are not saved. Switch anyway? (Save keeps them.)")) return;
+  switchRecord(id);
+}
+
+// The record being edited, if it is a saved one (not New record).
+const savedChip = () => { const c = chipById(state.songId); return c && c.id !== EMPTY_ID ? c : null; };
+
+// Save as new pre-fills the name with a copy number, "Name (2)", counting up
+// from a trailing "(n)" so a title that ends in a number is left alone.
+function copyName(name) {
+  const m = name.match(/^(.*) \((\d+)\)$/);
+  const base = m ? m[1] : name;
+  let k = m ? +m[2] + 1 : 2;
+  while (state.songs.some((c) => c.name === `${base} (${k})`)) k++;
+  return `${base} (${k})`;
+}
+
+function addChip(name) {
+  const c = { id: newSongId(), name, song: songEncode(state) };
+  state.songs.push(c);
+  state.songId = c.id;
+  state.name = name;
+}
+
+// The Records list. recUi is a question shown in it: { ask: "switch", id },
+// { ask: "name" | "copy", value, then } (naming a save; `then`: the record to
+// switch to after), or { ask: "rename", id }.
+let recUi = null;
+const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+
+function renderRecords() {
+  const edited = songEdited(), chip = savedChip();
+  $("recName").textContent = chip ? chip.name : state.name || "New record";
+  $("recDot").hidden = !edited;
+  if ($("recPop").hidden) return;
+  const a = recUi || {}, edTag = ' <span class="ed">(edited)</span>';
+  const row = (c) => {
+    const on = c.id === state.songId;
+    if (a.ask === "rename" && a.id === c.id) {
+      return `<li class="cur"><input id="recNameIn" value="${esc(c.name)}" aria-label="Record name"><button class="x" data-recok="rename" aria-label="Done" title="Done">&#10003;</button></li>`;
+    }
+    return `<li class="${on ? "cur" : ""}"><button class="go" data-rec="${c.id}" title="${on && edited ? "Edited. Revert drops the edits." : "Load this record. Double-click to rename."}">` +
+      `${esc(c.name)}${on && edited ? edTag : ""}</button>` +
+      `<button class="x" data-recdel="${c.id}" title="Delete" aria-label="Delete ${esc(c.name)}">&times;</button></li>`;
+  };
+  let ask = "";
+  if (a.ask === "switch") {
+    ask = `<div class="ask">This record has changes that are not saved.<div class="row">` +
+      `<button data-recok="switch">Switch anyway</button><button data-recok="savefirst">Save, then switch</button><button data-recok="cancel">Cancel</button></div></div>`;
+  } else if (a.ask === "name" || a.ask === "copy") {
+    ask = `<div class="ask">${a.ask === "copy" ? "Name the new record" : "Name this record"}<div class="row">` +
+      `<input id="recNameIn" value="${esc(a.value)}" aria-label="Record name"><button class="primary" data-recok="${a.ask}">Save</button><button data-recok="cancel">Cancel</button></div></div>`;
+  }
+  const newOn = state.songId === EMPTY_ID || !chip;
+  $("recPop").innerHTML = `<h3>Records</h3><ul>` +
+    `<li class="new${newOn && !state.name ? " cur" : ""}"><button class="go" data-rec="${EMPTY_ID}" title="Start a new record">+ New record</button></li>` +
+    state.songs.map(row).join("") + `</ul>${ask}` +
+    `<div class="foot"><button data-recact="save"${chip && !edited ? " disabled" : ""} title="${chip ? (edited ? `Save the changes to &quot;${esc(chip.name)}&quot;` : "No changes to save") : "Save this as a record"}">Save</button>` +
+    `<button data-recact="copy" title="Save as a new record, keeping the one you are on">Save as new</button>` +
+    `<button data-recact="revert"${!chipById(state.songId) || !edited ? " disabled" : ""} title="Drop your edits and go back to the record as saved">Revert</button></div>`;
+  const input = $("recNameIn");
+  if (input && document.activeElement !== input) input.select();
+}
+
+let toastTimer = null;
+function toast(msg, undo) {
+  clearTimeout(toastTimer);
+  const t = $("toast");
+  t.innerHTML = `<span>${msg}</span><button>Undo</button>`;
+  t.hidden = false;
+  t.querySelector("button").onclick = () => { t.hidden = true; undo(); };
+  toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+}
+
+$("recPop").addEventListener("click", (e) => {
+  const go = e.target.closest("[data-rec]"), del = e.target.closest("[data-recdel]");
+  const act = e.target.closest("[data-recact]"), ok = e.target.closest("[data-recok]");
+  if (go) {
+    const id = go.dataset.rec;
+    if (id === state.songId && !songEdited()) return;
+    if (songEdited() && id !== state.songId) { recUi = { ask: "switch", id }; renderRecords(); return; }
+    switchRecord(id);
+    return;
+  }
+  if (del) {
+    // Deleted at once; Undo puts it back.
+    const i = state.songs.findIndex((c) => c.id === del.dataset.recdel);
+    if (i < 0) return;
+    const c = state.songs[i], wasOn = state.songId === c.id;
+    state.songs.splice(i, 1);
+    if (wasOn) state.songId = null;
+    changed();
+    toast(`Deleted "${esc(c.name)}"`, () => {
+      state.songs.splice(Math.min(i, state.songs.length), 0, c);
+      if (wasOn) state.songId = c.id;
+      changed();
+    });
+    return;
+  }
+  if (act) {
+    const chip = savedChip();
+    if (act.dataset.recact === "save") {
+      if (chip) { chip.song = songEncode(state); state.name = chip.name; recUi = null; changed(); return; }
+      recUi = { ask: "name", value: state.name || defaultName(state) };
+    } else if (act.dataset.recact === "copy") {
+      recUi = { ask: "copy", value: copyName(state.name || defaultName(state)) };
+    } else if (act.dataset.recact === "revert") {
+      switchRecord(state.songId);
+      return;
+    }
+    renderRecords();
+    return;
+  }
+  if (ok) {
+    const what = ok.dataset.recok, name = ($("recNameIn") ? $("recNameIn").value : "").trim();
+    if (what === "cancel") recUi = null;
+    else if (what === "switch") { switchRecord(recUi.id); return; }
+    else if (what === "savefirst") {
+      const then = recUi.id, chip = savedChip();
+      if (chip) { chip.song = songEncode(state); switchRecord(then); return; }
+      recUi = { ask: "name", value: state.name || defaultName(state), then };
+    } else if (what === "name" || what === "copy") {
+      const then = recUi.then;
+      addChip(name || recUi.value);
+      recUi = null;
+      if (then) { switchRecord(then); return; }
+      changed();
+      return;
+    } else if (what === "rename") {
+      const c = chipById(recUi.id);
+      if (c && name) { c.name = name; if (state.songId === c.id) state.name = name; }
+      recUi = null;
+      changed();
+      return;
+    }
+    renderRecords();
+  }
+});
+$("recPop").addEventListener("dblclick", (e) => {
+  const b = e.target.closest("[data-rec]");
+  if (!b || b.dataset.rec === EMPTY_ID) return;
+  recUi = { ask: "rename", id: b.dataset.rec };
+  renderRecords();
+});
+$("recPop").addEventListener("keydown", (e) => {
+  if (e.target.id !== "recNameIn") return;
+  if (e.key === "Enter") { e.preventDefault(); e.target.parentElement.querySelector("[data-recok]").click(); }
+  if (e.key === "Escape") { e.stopPropagation(); recUi = null; renderRecords(); }
+});
+
+// Copy link: names the record first if it has no name, and saves it.
+$("copyLink").addEventListener("click", () => {
+  closePops();
+  if (!state.name) {
+    const n = askName(defaultName(state));
+    if (n === null) return;
+    state.name = n;
+  }
+  // Kept as Save does: the chip being edited is updated, or a new one made.
+  const chip = savedChip();
+  if (chip) { chip.song = songEncode(state); chip.name = state.name; }
+  else addChip(state.name);
+  changed();
+  copyText(location.href.split("#")[0] + "#" + songLink(state), "Link copied");
+});
+
+// A song link opened (or pasted into this tab): it becomes a chip (or finds
+// the one it already is) and is picked, asking first if the current song has
+// unsaved changes. The link text is then taken off the address, so later
+// edits are not undone by a reload.
+function loadFromLink() {
+  let text = location.hash.slice(1);
+  try { text = decodeURIComponent(text); } catch (e) { /* not encoded */ }
+  if (!text) return;
+  const song = songDecode(text);
+  history.replaceState(null, "", location.href.split("#")[0]);
+  if (!song) { alert("That link does not hold a valid record."); return; }
+  const str = songEncode(song), name = song.name || defaultName(song);
+  let chip = state.songs.find((c) => c.song === str && c.name === name);
+  if (!chip) {
+    chip = { id: newSongId(), name, song: str };
+    state.songs.push(chip);
+  }
+  const before = state.songId;
+  selectSong(chip.id);
+  if (state.songId === chip.id && before !== chip.id) { cursor = cursorRev = resumeStep = resumeRev = 0; placeBand(); }
+  changed();
+}
+window.addEventListener("hashchange", loadFromLink);
+
+// --- Template ------------------------------------------------------------------------------
+function currentModel() {
+  const model = templateModel({ ...state, code: sceneCodeEncode(state.scene), marks: platterMarks, customs: customInPlay(state.scene) });
+  if (!showLabels) model.items = model.items.filter((it) => it.color !== COLOR_LABEL);
+  return model;
+}
+
+function renderTemplate() {
+  const model = currentModel();
+  // Preview: the disc only, with lines thick enough to see.
+  const page = PAGES[state.paper];
+  const svg = svgString(model, 0.35).replace(/viewBox="[^"]*"/, `viewBox="${page.w / 2 - 102} 10 204 204"`)
+    .replace(/ width="[^"]*" height="[^"]*"/, "");
+  $("preview").innerHTML = svg;
+  $("codeWarn").hidden = model.codeFit !== "edge";
+  $("nameWarn").hidden = model.nameFit !== "edge" && model.nameFit !== "off";
+  $("nameWarn").textContent = model.nameFit === "off"
+    ? (showLabels ? "No room for the name on the record, so it is only on the label below it."
+                  : "No room for the name on the record, so it is left off.")
+    : "No track has room for a readable name, so it is only 1.5 mm tall at the edge.";
+  const customs = customInPlay(state.scene).map((c) => c.name).join(" and ");
+  $("customTplWarn").hidden = !customs;
+  $("customTplWarn").textContent = !customs ? ""
+    : showLabels ? `Layer ${customs}'s Custom scale is not in the Scene Code (the table loads it as Major). The labels below the record list its notes, to set with Edit Scale on the table.`
+                 : `Layer ${customs}'s Custom scale is not in the Scene Code (the table loads it as Major), and with the labels off it is not on the export either.`;
+}
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const fileBase = () => `record-${sceneCodeEncode(state.scene)}-${state.beats}x${state.subdiv}-${state.paper}`;
+$("exportSvg").addEventListener("click", () => download(fileBase() + ".svg", svgString(currentModel()), "image/svg+xml"));
+$("exportPdf").addEventListener("click", () => download(fileBase() + ".pdf", pdfString(currentModel()), "application/pdf"));
+
+// Platter marks are the cover's, not the song's: kept per browser, like the
+// theme, and left out of the song and its link.
+const MARKS_KEY = "magnetrone-record-designer-marks";
+const MARKS_DEFAULT = 16;   // the current platter cover's
+let platterMarks = MARKS_DEFAULT;
+try {
+  const kept = localStorage.getItem(MARKS_KEY);
+  if (kept !== null) platterMarks = parseInt(kept, 10);
+} catch (e) { /* default */ }
+if (![0, 10, 12, 16].includes(platterMarks)) platterMarks = MARKS_DEFAULT;
+$("marks").value = String(platterMarks);
+$("marks").addEventListener("change", (e) => {
+  platterMarks = parseInt(e.target.value, 10) || 0;
+  try { localStorage.setItem(MARKS_KEY, String(platterMarks)); } catch (err) { /* not kept */ }
+  renderTemplate();
+});
+
+// Labels below the record, the same way: kept per browser, not in the song.
+const LABELS_KEY = "magnetrone-record-designer-labels";
+let showLabels = true;
+try { showLabels = localStorage.getItem(LABELS_KEY) !== "0"; } catch (e) { /* default */ }
+$("labels").checked = showLabels;
+$("labels").addEventListener("change", (e) => {
+  showLabels = e.target.checked;
+  try { localStorage.setItem(LABELS_KEY, showLabels ? "1" : "0"); } catch (err) { /* not kept */ }
+  renderTemplate();
+});
+
+function bindSettings() {
+  $("paper").addEventListener("change", (e) => { state.paper = e.target.value; changed(); });
+  $("forward").addEventListener("change", (e) => { state.forward = e.target.value; changed(); });
+  $("hole").addEventListener("change", (e) => {
+    const v = parseFloat(e.target.value);
+    if (v >= 5 && v <= 20) state.hole = v;
+    changed();
+  });
+  $("block").addEventListener("change", (e) => { state.block = e.target.checked; changed(); });
+  $("clear").addEventListener("click", () => {
+    if (state.cells.some((r) => r.some(Boolean)) && confirm("Remove every magnet from the grid?")) {
+      recordGrid();
+      state.cells = emptyCells(steps());
+      changed();
+    }
+  });
+  $("bpm").addEventListener("change", (e) => {
+    state.bpm = parseFloat(e.target.value) || DEFAULTS.bpm;
+    changed();
+  });
+}
+
+// --- Sound preview ----------------------------------------------------------------------------
+// The built-in voices from firmware/src/audio/voice.cpp, by voice id: wave, or
+// h = harmonic levels 1-16 (%); a/d/s/r = envelope (ms, ms, %, ms); ms = note
+// length; filter c = cutoff % (100 = off), q = resonance %, m = amount %,
+// fs/fa/fd/fr = its envelope (%, ms). Drums (4) and None (5) are not tones.
+const VOICE_SOUNDS = [
+  { h: [100, 25, 22, 6, 8, 2, 2], a: 1, d: 1200, s: 0, r: 300, ms: 500, c: 65, q: 0, m: 35, fs: 0, fa: 0, fd: 60, fr: 200 },   // Piano
+  { h: [100, 50, 33, 25, 20, 17, 14, 12], a: 300, d: 0, s: 100, r: 600, ms: 350, c: 50, q: 0, m: 0 },                     // Strings
+  { h: [100, 20, 65, 10, 35, 5, 25, 5, 15], a: 1, d: 280, s: 5, r: 300, ms: 450, c: 60, q: 5, m: 15, fs: 5, fa: 1, fd: 180, fr: 250 },   // Synth
+  { wave: "sawtooth", a: 2, d: 300, s: 35, r: 80, ms: 220, c: 30, q: 10, m: 20, fs: 15, fa: 0, fd: 200, fr: 80 },              // Bass
+  null, null,
+  { h: [100, 40, 8, 5, 8, 0, 6], a: 0, d: 1200, s: 10, r: 350, ms: 400, c: 40, q: 10, m: 35, fs: 0, fa: 0, fd: 600, fr: 400 },   // E. Piano
+  { h: [100, 70, 50, 60, 0, 40, 0, 45, 0, 0, 0, 6, 0, 0, 0, 5], a: 40, d: 0, s: 100, r: 120, ms: 800, c: 100 },               // Organ
+  { h: [100, 90, 80, 70, 55, 40, 30, 20, 12, 8], a: 60, d: 300, s: 70, r: 100, ms: 400, c: 35, q: 15, m: 60, fs: 30, fa: 80, fd: 250, fr: 100 },   // Brass
+  { wave: "triangle", a: 1, d: 500, s: 0, r: 200, ms: 400, c: 55, q: 0, m: 35, fs: 0, fa: 0, fd: 60, fr: 200 },              // Mallets
+  { h: [100, 0, 45, 0, 25, 0, 14, 0, 8, 0, 4], a: 40, d: 100, s: 85, r: 150, ms: 1200, c: 45, q: 10, m: 0 },                // Reed
+  { h: [100, 80, 60, 40, 20], a: 0, d: 800, s: 0, r: 300, ms: 500, c: 30, q: 10, m: 45, fs: 0, fa: 0, fd: 180, fr: 300 },     // Guitar
+];
+// firmware/src/audio/audio.cpp: cutoff % to Hz, resonance % to Q; the filter
+// envelope opens the cutoff by up to 7 octaves at Amount 100%, never past
+// VOICE_FILTER_MAX_HZ (14 kHz).
+const FILTER_MAX_HZ = 14000;
+const cutoffHz = (pct) => Math.min(60 * Math.pow(16000 / 60, Math.min(pct, 90) / 90), FILTER_MAX_HZ);
+const filterQ  = (pct) => 0.707 + (pct / 100) * (4 - 0.707);
+// An ADSR's level t seconds after Note On, with Note Off at n: 0 to 1.
+function envAt(t, a, d, s, r, n) {
+  const held = (x) => (x < a ? (a ? x / a : 1) : x < a + d ? 1 + (s - 1) * (d ? (x - a) / d : 1) : s);
+  if (t < n) return held(t);
+  return r ? Math.max(0, held(n) * (1 - (t - n) / r)) : 0;
+}
+const periodicWaves = new Map();   // per audio context, by levels
+function periodicWave(levels) {
+  const key = levels.join(",");
+  if (!periodicWaves.has(key)) {
+    const re = new Float32Array(17), im = new Float32Array(17);
+    levels.forEach((v, i) => { im[i + 1] = v / 100; });   // sine partials, scaled to full level as the table does
+    periodicWaves.set(key, ac.createPeriodicWave(re, im));
+  }
+  return periodicWaves.get(key);
+}
+
+// --- Live sound: volume, bend and effects ---------------------------------------------------
+// As on the table, but live only: none of it is in the song (the Scene Code
+// cannot hold it). Set from MIDI (CC 7, the bend wheel, the effect CCs).
+// firmware/src/config/storage.cpp storageFactoryFx(), DEFAULT_VOLUME.
+const DEFAULT_VOLUME = 0.5;
+const FX_CUTOFF_OFF = 100, FX_FEEDBACK_MAX = 90;
+const factoryFx = () => ({ cutoff: FX_CUTOFF_OFF, resonance: 0, chorusRate: 30, chorusDepth: 50, chorusMix: 0,
+  delaySync: 1, delayFeedback: 30, delayMix: 0, roomSize: 50, damping: 50, reverbMix: 0 });
+const live = { volume: DEFAULT_VOLUME, bend: 0, fx: [factoryFx(), factoryFx()] };
+// Delay Sync times (layers.cpp SYNC_TIMES), as fractions of a beat.
+const SYNC_TIMES = [[1, 1], [1, 2], [3, 8], [1, 3], [1, 4], [1, 5], [1, 6], [3, 16], [1, 8], [1, 10], [1, 12], [1, 16], [1, 32]];
+const DELAY_MAX_MS = 2400;
+
+let ac = null, master = null, bus = null, noiseBuf = null, timer = null;
+// Per layer: its effects (Tone, Chorus, Delay, Reverb, as audio.cpp chains
+// them); fxIn is where its sound goes in. bendSrc drives every tone's detune,
+// so the bend wheel retunes notes already sounding, as on the table.
+let fxChain = null, bendSrc = null;
+let nextTime = 0, nextStep = 0, rev = 0;
+// The position: the step shown (the band) and its revolution, and where
+// Play starts from.
+let cursor = 0, cursorRev = 0, resumeStep = 0, resumeRev = 0;
+let gen = 0;   // bumped with each bus, so playhead updates already queued for the old one are dropped
+const sounding = new Map();
+
+function ensureAudio() {
+  if (!ac) {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ac.createDynamicsCompressor();
+    master = ac.createGain();
+    master.connect(comp);
+    comp.connect(ac.destination);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    bendSrc = ac.createConstantSource();
+    bendSrc.start();
+    fxChain = [0, 1].map(makeFxChain);
+    applyLive();
+    newBus();
+  }
+  // iOS Safari reports "interrupted", not "suspended", after an app switch.
+  if (ac.state !== "running") ac.resume();
+}
+
+// One layer's effects, each blended with its input by a dry/wet pair (Tone
+// picks one). Delay and Reverb keep running at Mix 0, as on the table.
+function makeFxChain() {
+  const g = () => ac.createGain();
+  const stage = (input, wetNode, wetOut = wetNode) => {
+    const dry = g(), wet = g(), out = g();
+    input.connect(dry); dry.connect(out);
+    input.connect(wetNode); wetOut.connect(wet); wet.connect(out);
+    return { dry, wet, out };
+  };
+  const fxIn = g();
+  const tone = ac.createBiquadFilter();
+  tone.type = "lowpass";
+  const toneMix = stage(fxIn, tone);
+  // Chorus: one copy delayed by a time a sine sweeps, from 10 ms up by the depth.
+  const chDelay = ac.createDelay(0.05), lfo = ac.createOscillator(), lfoAmt = g();
+  lfo.connect(lfoAmt); lfoAmt.connect(chDelay.delayTime); lfo.start();
+  const chorusMix = stage(toneMix.out, chDelay);
+  const dl = ac.createDelay(DELAY_MAX_MS / 1000 + 0.1), fb = g();
+  dl.connect(fb); fb.connect(dl);
+  const delayMix = stage(chorusMix.out, dl);
+  const verb = ac.createConvolver();
+  const reverbMix = stage(delayMix.out, verb);
+  reverbMix.out.connect(master);
+  return { fxIn, tone, toneMix, chDelay, lfo, lfoAmt, chorusMix, dl, fb, delayMix, verb, reverbMix, room: null };
+}
+
+// A reverb tail for Room Size and Damping: decaying noise, darker with more
+// damping. An approximation of the table's Freeverb.
+function reverbImpulse(room, damping) {
+  const sr = ac.sampleRate, len = Math.floor(sr * (0.4 + 3 * room / 100));
+  const buf = ac.createBuffer(2, len, sr), k = 0.05 + 0.9 * (1 - damping / 100);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    let lp = 0;
+    for (let i = 0; i < len; i++) {
+      lp += k * ((Math.random() * 2 - 1) - lp);
+      d[i] = lp * Math.pow(1 - i / len, 3);
+    }
+  }
+  return buf;
+}
+
+// The delay time a layer plays with: a Sync fraction of one beat at the BPM,
+// halved until it fits the buffer (layerDelayMs()).
+function delaySeconds(fx) {
+  const [num, den] = SYNC_TIMES[fx.delaySync] || SYNC_TIMES[0];
+  let ms = 60000 / state.bpm * num / den;
+  while (ms > DELAY_MAX_MS) ms *= 0.5;
+  return ms / 1000;
+}
+
+// Pushes volume, bend and both layers' effects to the audio (audioSetEffects()).
+function applyLive() {
+  if (!ac) return;
+  const now = ac.currentTime, set = (p, v) => p.setTargetAtTime(v, now, 0.01);
+  set(master.gain, 0.7 * live.volume / DEFAULT_VOLUME);   // the designer's level at the table's default volume
+  set(bendSrc.offset, live.bend * 100);
+  fxChain.forEach((c, l) => {
+    const fx = live.fx[l], mix = (st, pct) => { set(st.dry.gain, 1 - pct / 100); set(st.wet.gain, pct / 100); };
+    if (fx.cutoff >= FX_CUTOFF_OFF) mix(c.toneMix, 0);
+    else {
+      mix(c.toneMix, 100);
+      set(c.tone.frequency, Math.min(60 * Math.pow(16000 / 60, Math.min(fx.cutoff, 90) / 90), ac.sampleRate / 2 - 100));
+      c.tone.Q.value = 20 * Math.log10(0.707 + fx.resonance / 100 * 9);
+    }
+    c.lfo.frequency.value = 0.1 * Math.pow(5 / 0.1, fx.chorusRate / 100);
+    const depth = fx.chorusDepth / 100 * 0.005;
+    c.chDelay.delayTime.value = 0.010 + depth / 2;
+    c.lfoAmt.gain.value = depth / 2;
+    mix(c.chorusMix, fx.chorusMix);
+    set(c.dl.delayTime, delaySeconds(fx));
+    set(c.fb.gain, Math.min(fx.delayFeedback, FX_FEEDBACK_MAX) / 100);
+    mix(c.delayMix, fx.delayMix);
+    const room = `${fx.roomSize},${fx.damping}`;
+    if (c.room !== room) { c.verb.buffer = reverbImpulse(fx.roomSize, fx.damping); c.room = room; }
+    mix(c.reverbMix, fx.reverbMix);
+  });
+}
+
+// The layer whose effects the drums go through: the one playing them, or
+// Layer A's when both do (audioSetDrumLayer()).
+const drumLayer = () => (resolveLayer(state.scene, 0).kit ? 0 : 1);
+
+// Leaving the page pauses. iOS cuts the audio and can leave the context stuck
+// "interrupted", so it is closed and the next sound makes a fresh one.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden || !ac) return;
+  if (timer) pause();
+  keysOff();
+  ac.close();
+  ac = null; bus = null; hearBus = null; fxChain = null; bendSrc = null;
+  periodicWaves.clear();
+});
+
+// Every sound goes through the bus, one per layer (bus[l]) into that layer's
+// effects. A new one fades the old out, which silences notes already
+// scheduled ahead (on Pause or a jump).
+function newBus() {
+  if (bus) {
+    const now = ac.currentTime;
+    for (const old of bus) {
+      old.gain.setValueAtTime(old.gain.value, now);
+      old.gain.linearRampToValueAtTime(0, now + 0.02);
+      setTimeout(() => old.disconnect(), 100);
+    }
+  }
+  bus = fxChain.map((c) => {
+    const b = ac.createGain();
+    b.connect(c.fxIn);
+    return b;
+  });
+  gen++;
+  sounding.clear();
+  midiOutFlush();
+}
+
+// A tone's oscillator, its pitch following the bend wheel.
+function toneOsc(v, note) {
+  const osc = ac.createOscillator();
+  if (v.h) osc.setPeriodicWave(periodicWave(v.h));
+  else osc.type = v.wave;
+  osc.frequency.value = 440 * Math.pow(2, (note - 69) / 12);
+  bendSrc.connect(osc.detune);
+  osc.onended = () => { try { bendSrc.disconnect(osc.detune); } catch (e) { /* context gone */ } };
+  return osc;
+}
+
+function playTone(note, voice, t, key, dest, noteMs = null) {
+  const v = VOICE_SOUNDS[voice] || VOICE_SOUNDS[0];
+  const osc = toneOsc(v, note), env = ac.createGain(), cut = ac.createGain();
+  const a = v.a / 1000, d = v.d / 1000, s = v.s / 100, r = v.r / 1000, on = (noteMs ?? v.ms) / 1000;
+  const dur = on + r, steps = Math.max(8, Math.ceil(dur * 400));
+  let node = osc;
+  if (v.c < 100) {
+    const lp = ac.createBiquadFilter(), nyq = Math.min(ac.sampleRate / 2 - 100, FILTER_MAX_HZ), base = cutoffHz(v.c);
+    lp.type = "lowpass";
+    lp.Q.value = 20 * Math.log10(filterQ(v.q || 0));   // Web Audio's low-pass Q is in dB
+    if (v.m) {
+      const oct = 7 * v.m / 100, fa = v.fa / 1000, fd = v.fd / 1000, fs = v.fs / 100, fr = v.fr / 1000;
+      const fdur = Math.max(dur, on + fr), fsteps = Math.max(8, Math.ceil(fdur * 400));
+      const fc = new Float32Array(fsteps);
+      for (let i = 0; i < fsteps; i++) fc[i] = Math.min(nyq, base * Math.pow(2, oct * envAt(fdur * i / (fsteps - 1), fa, fd, fs, fr, on)));
+      lp.frequency.setValueCurveAtTime(fc, t, Math.max(fdur, 0.01));
+    } else lp.frequency.value = Math.min(nyq, base);
+    osc.connect(lp); node = lp;
+  }
+  node.connect(env); env.connect(cut); cut.connect(dest);
+  const curve = new Float32Array(steps);
+  for (let i = 0; i < steps; i++) curve[i] = 0.22 * envAt(dur * i / (steps - 1), a, d, s, r, on);
+  env.gain.value = 0;
+  env.gain.setValueCurveAtTime(curve, t, Math.max(dur, 0.01));
+  const end = t + dur + 0.02;
+  osc.start(t); osc.stop(end);
+  // Retrigger: the sensor's previous note on this layer ends.
+  const prev = sounding.get(key);
+  if (prev && prev.end > t) {
+    prev.cut.gain.setValueAtTime(1, t);
+    prev.cut.gain.linearRampToValueAtTime(0, t + 0.01);
+  }
+  sounding.set(key, { cut, end });
+}
+
+function noiseHit(t, dur, type, freq, peak, dest) {
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = noiseBuf;
+  f.type = type; f.frequency.value = freq;
+  src.connect(f); f.connect(g); g.connect(dest);
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.start(t); src.stop(t + dur + 0.02);
+}
+
+function sweepHit(t, f0, f1, dur, peak, type, dest) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  o.connect(g); g.connect(dest);
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+
+// Approximate kit, one sound per slot (kit.h order).
+function playDrum(slot, t, dest) {
+  switch (slot) {
+    case 0: noiseHit(t, 1.2, "highpass", 5000, 0.25, dest); break;                       // Crash
+    case 1: sweepHit(t, 130, 80, 0.35, 0.6, "sine", dest); break;                         // Low Tom
+    case 2: sweepHit(t, 220, 150, 0.3, 0.5, "sine", dest); break;                         // High Tom
+    case 3: for (const o of [0, 0.012, 0.024]) noiseHit(t + o, 0.03, "bandpass", 1200, 0.5, dest);
+            noiseHit(t + 0.036, 0.15, "bandpass", 1200, 0.4, dest); break;                // Clap
+    case 4: noiseHit(t, 0.35, "highpass", 7000, 0.22, dest); break;                       // Open Hat
+    case 5: noiseHit(t, 0.2, "bandpass", 1800, 0.4, dest);
+            sweepHit(t, 200, 160, 0.1, 0.3, "triangle", dest); break;                     // Snare
+    case 6: sweepHit(t, 150, 45, 0.3, 0.9, "sine", dest); break;                          // Kick
+    case 7: noiseHit(t, 0.05, "highpass", 7000, 0.22, dest); break;                       // Closed Hat
+  }
+}
+
+// --- Hear a layer ---------------------------------------------------------------------------
+// The table's welcome tune (playWelcomeTune() in firmware/src/menu/menu.cpp):
+// each track's note in turn, tracks 1 to 8, a sixteenth's rest, then 8 to 1,
+// in sixteenths at the BPM (kept to 40 to 200), each note at most a sixteenth
+// long. The table plays it for Layer A; here either layer can be heard, with
+// that layer's settings, whether or not the layer is On. A new run cuts off
+// the one before. It has its own output, so the grid playing is left alone.
+let hearBus = null;
+
+function hearLayer(l) {
+  ensureAudio();
+  if (hearBus) {
+    const old = hearBus, now = ac.currentTime;
+    old.gain.setValueAtTime(old.gain.value, now);
+    old.gain.linearRampToValueAtTime(0, now + 0.02);
+    setTimeout(() => old.disconnect(), 100);
+  }
+  hearBus = ac.createGain();
+  hearBus.connect(fxChain[l].fxIn);
+  const r = resolveLayer(state.scene, l);
+  if (r.silent) return;   // voice None: the table keeps time in silence
+  const bpm = Math.min(Math.max(Math.trunc(state.bpm), 40), 200);
+  const step = 60 / bpm / 4;
+  const noteMs = r.kit ? null : Math.min(VOICE_SOUNDS[r.voice].ms, step * 1000);
+  const order = [0, 1, 2, 3, 4, 5, 6, 7, null, 7, 6, 5, 4, 3, 2, 1, 0];
+  const t0 = ac.currentTime + 0.03;
+  order.forEach((track, i) => {
+    if (track === null) return;
+    const t = t0 + i * step, d = r.degree(track);
+    if (r.kit) playDrum(d, t, hearBus);
+    else playTone(scaleNote(r.eff.root, r.eff.scale, d, r.eff.octave, r.eff.custom), r.voice, t, `hear:${i}`, hearBus, noteMs);
+  });
+}
+
+$("hearA").addEventListener("click", () => hearLayer(0));
+$("hearB").addEventListener("click", () => hearLayer(1));
+$("autoHear").addEventListener("change", (e) => { state.autoHear = e.target.checked; save(); });
+
+// One step, as sequencerUpdate() and noteOn() would play its magnets. With
+// `out`, the notes go to MIDI out too (playback, not a one-off listen).
+function scheduleStep(step, revolution, t, out = false) {
+  for (let track = 0; track < NUM_TRACKS; track++) {
+    const cell = state.cells[track][step];
+    if (!cell) continue;
+    for (const l of layersForPole(state.scene, cell - 1, revolution)) {
+      const n = layerNoteFor(state.scene, l, track);
+      if (!n) continue;
+      if (n.kit) playDrum(n.slot, t, bus[drumLayer()]);
+      else playTone(n.note, n.voice, t, `${l}:${track}`, bus[l]);
+      if (out) midiOutNote(l, track, n, t);
+    }
+  }
+}
+
+// The step that passes the arm after step s of revolution r, in the
+// direction of play. Backwards, step 1 is followed by the last step of the
+// revolution before.
+function stepAfter(s, r) {
+  const N = steps();
+  if (!state.reverse) return s + 1 >= N ? [0, r + 1] : [s + 1, r];
+  return s - 1 < 0 ? [N - 1, r - 1] : [s - 1, r];
+}
+
+function tick() {
+  const N = steps();
+  if (nextStep >= N) nextStep = 0;
+  const dur = 60 / (state.bpm * state.subdiv);
+  while (nextTime < ac.currentTime + 0.12) {
+    scheduleStep(nextStep, rev, nextTime, true);
+    const s = nextStep, r = rev, g = gen;
+    setTimeout(() => { if (g === gen) showPlayhead(s, r); }, Math.max(0, (nextTime - ac.currentTime) * 1000));
+    nextTime += dur;
+    [nextStep, rev] = stepAfter(nextStep, rev);
+  }
+  // Beats/Rev changed while playing: the clock starts over, as on the table.
+  if (clock.rolling && clock.tpr !== PPQN * state.beats) { clockHalt(); clockStart(nextStep, nextTime); }
+  clockTick(ac.currentTime + 0.12);
+}
+
+// The band sits in the cursor's grid column: after the label column and any
+// beat gaps before it.
+function placeBand() {
+  const band = $("band");
+  if (!band) return;
+  if (cursor >= steps()) cursor = resumeStep = 0;
+  const gaps = state.subdiv > 1 ? Math.floor(cursor / state.subdiv) : 0;
+  const line = `${2 + cursor + gaps} / span 1`;
+  band.style.gridColumn = turned ? "1 / -1" : line;
+  band.style.gridRow = turned ? line : "1 / -1";
+  band.hidden = false;
+  const heard = ["A", "B"].filter((n, l) => turnHeard(state.scene, l, cursorRev));
+  $("turn").textContent = state.scene.B.turns === TURNS_TOGETHER ? "" : `Turn: ${heard.length ? heard.join(" + ") : "none"}`;
+  markTurns();
+}
+
+// Edit Turns: mark the playhead's turn in each layer's cycle.
+function markTurns() {
+  for (let l = 0; l < 2; l++) {
+    const { len } = turnPattern(state.scene, l), now = ((cursorRev % len) + len) % len;
+    for (const b of document.querySelectorAll(`.turns button[data-tl="${l}"]`)) b.classList.toggle("now", +b.dataset.turn === now);
+  }
+}
+
+function showPlayhead(s, r) {
+  if (!timer) return;
+  cursor = s; cursorRev = r;
+  placeBand();
+}
+
+const ICON_PLAY  = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+const ICON_PAUSE = `<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
+const ICON_REVERSE = `<svg viewBox="0 0 24 24"><path d="M17 5v14L6 12z"/></svg>`;
+const ICON_START = `<svg viewBox="0 0 24 24"><rect x="5" y="5" width="2.5" height="14" rx="1"/><path d="M19 5v14L9 12z"/></svg>`;
+
+function showTransport() {
+  const playing = !!timer;
+  $("play").innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+  $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
+  $("play").title = playing ? "Pause (Space)" : "Play (Space)";
+  $("toStart").innerHTML = ICON_START;
+  $("reverse").innerHTML = ICON_REVERSE;
+  $("reverse").setAttribute("aria-pressed", state.reverse);
+}
+
+function play() {
+  ensureAudio();
+  newBus();
+  nextStep = resumeStep; rev = resumeRev;
+  nextTime = ac.currentTime + 0.05;
+  clockStart(nextStep, nextTime);
+  timer = setInterval(tick, 25);
+  showTransport();
+  tick();
+}
+
+// Pause keeps the position: Play goes on from the step after the one shown.
+function pause() {
+  clearInterval(timer); timer = null;
+  newBus();
+  clockHalt();
+  [resumeStep, resumeRev] = stepAfter(cursor, cursorRev);
+  showTransport();
+}
+
+const playPause = () => (timer ? pause() : play());
+
+// Moves the position to step s. Playing, it goes on from there; paused, that
+// column plays once (`listen`) and Play starts there.
+function setCursor(s, r, listen) {
+  cursor = s; cursorRev = r;
+  resumeStep = s; resumeRev = r;
+  placeBand();
+  if (timer) {
+    newBus();
+    nextStep = s; rev = r;
+    nextTime = ac.currentTime + 0.05;
+    clockHalt();   // a jump the platter cannot make: the clock starts over
+    clockStart(nextStep, nextTime);
+  } else if (listen) {
+    ensureAudio();
+    scheduleStep(s, r, ac.currentTime + 0.01);
+  }
+}
+
+// What a magnet just placed plays, so each edit is heard.
+function listenToMagnet(t, v) {
+  if (!v) return;
+  ensureAudio();
+  const now = ac.currentTime + 0.01;
+  for (const l of layersForPole(state.scene, v - 1)) {
+    const n = layerNoteFor(state.scene, l, t);
+    if (!n) continue;
+    if (n.kit) playDrum(n.slot, now, bus[drumLayer()]);
+    else playTone(n.note, n.voice, now, `${l}:${t}`, bus[l]);
+  }
+}
+
+$("play").addEventListener("click", playPause);
+$("toStart").addEventListener("click", () => setCursor(0, 0, false));
+
+// Backwards and forwards. Playing, it turns round at the step shown.
+$("reverse").addEventListener("click", () => {
+  state.reverse = !state.reverse;
+  save();
+  showTransport();
+  if (timer) {
+    newBus();
+    [nextStep, rev] = stepAfter(cursor, cursorRev);
+    nextTime = ac.currentTime + 0.05;
+    clockHalt();   // reversed: the clock starts over, as the table's does
+    clockStart(nextStep, nextTime);
+  } else if (resumeStep !== cursor || resumeRev !== cursorRev) {
+    [resumeStep, resumeRev] = stepAfter(cursor, cursorRev);
+  }
+});
+
+// Space plays and pauses, Home goes to the start; Ctrl+Z / Ctrl+Y (or
+// Ctrl+Shift+Z) undo and redo grid edits. Not while typing in a field.
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, select, textarea")) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (e.key === " " && !mod) {
+    e.preventDefault();
+    playPause();
+  } else if (e.key === "Home" && !mod) {
+    e.preventDefault();
+    setCursor(0, 0, false);
+  } else if (mod && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    if (e.shiftKey) redo(); else undo();
+  } else if (mod && e.key.toLowerCase() === "y") {
+    e.preventDefault();
+    redo();
+  }
+});
+
+// --- MIDI ---------------------------------------------------------------------------------------
+// The table's MIDI IN and OUT (firmware/src/midi), through the browser's Web
+// MIDI (Chrome, Edge; not Safari). Settings are kept per browser, like the
+// table's Play Setup, not in the song. MIDI In changes to the scene edit the
+// song, so Save keeps them and Revert drops them, as Save Scene does on the
+// table. Volume, bend and effects are live only (see `live`).
+const MIDI_KEY = "magnetrone-record-designer-midi";
+const MIDI_FN_NAMES = ["Off", "Pitch", "Set Scale", "Fingered", "One Finger", "Shift", "Play Along", "Scale Learn"];
+const FN_OFF = 0, FN_PITCH = 1, FN_SET_SCALE = 2, FN_FINGERED = 3, FN_ONE_FINGER = 4, FN_SHIFT = 5, FN_PLAY_ALONG = 6, FN_SCALE_LEARN = 7;
+const MIDI_DEFAULTS = { on: false, inId: "all", outId: "", chA: 1, chB: 2, fn: FN_OFF, cc: false };
+const midi = { ...MIDI_DEFAULTS };
+try { Object.assign(midi, JSON.parse(localStorage.getItem(MIDI_KEY) || "{}")); } catch (e) { /* defaults */ }
+const saveMidi = () => { try { localStorage.setItem(MIDI_KEY, JSON.stringify(midi)); } catch (e) { /* not kept */ } };
+let midiAccess = null, midiError = "";
+
+// config.h and voice.cpp: the CCs, the bend wheel's range, each voice's Auto
+// channel (by voice id), and kit.h's General MIDI drum notes (by slot).
+const CC_VOLUME = 7, CC_OCTAVE = 20, BEND_IN_RANGE = 2, BEND_OUT_RANGE = 2;
+const FX_CCS = { 74: ["cutoff", 100], 71: ["resonance", 100], 93: ["chorusMix", 100], 94: ["delayMix", 100],
+                 12: ["delayFeedback", FX_FEEDBACK_MAX], 91: ["reverbMix", 100] };
+const VOICE_CHANNEL = [1, 3, 4, 2, 10, 1, 5, 6, 7, 8, 9, 11];
+const KIT_GM_NOTE = [49, 45, 50, 39, 46, 38, 36, 42];
+const DRUM_NOTE_MS = 50;
+const CHORD_WINDOW_MS = 40, CHORD_MAX_KEYS = 4;
+
+const midiOutPort = () => (midiAccess && midi.on && midi.outId ? midiAccess.outputs.get(midi.outId) || null : null);
+
+// --- MIDI In: port of firmware/src/midi/midi_in.cpp ------------------------------------------
+// Which layers listen on channel `ch`: bit 0 = A, bit 1 = B. Layer B on Same
+// as A plays A's settings, so it is left out.
+function listeners(ch) {
+  let m = 0;
+  if (midi.chA === ch) m |= 1;
+  if (midi.chB === ch && state.scene.B.mode !== MODE_SAME_AS_A) m |= 2;
+  return m;
+}
+const eachLayer = (layers, fn) => { for (let l = 0; l < 2; l++) if (layers & (1 << l)) fn(l); };
+const layerCfg = (l) => (l ? state.scene.B : state.scene.A);
+let midiTouched = false;   // a scene change from MIDI, shown on the next frame
+
+// Pitch: the key becomes the layer's root and octave (G3: root G, octave 3).
+function keyPitch(layers, note) {
+  eachLayer(layers, (l) => {
+    layerCfg(l).root = note % 12;
+    layerCfg(l).octave = Math.min(Math.max(Math.floor(note / 12) - 1, 0), 7);
+  });
+  midiTouched = true;
+}
+
+// Shift: the key becomes the note of the layer's low track; a key outside
+// the scale snaps to the nearest scale note (the lower one on a tie).
+function keyShift(layers, note) {
+  const want = note % 12, s = state.scene;
+  eachLayer(layers, (l) => {
+    if (l === 1 && (s.B.mode === MODE_SAME_AS_A || s.B.shiftSameAsA)) return;   // plays A's shift
+    const r = resolveLayer(s, l);
+    if (r.kit) return;
+    let best = 0, bestDist = 12;
+    for (let d = 0; d < NUM_TRACKS; d++) {
+      const pc = scaleNote(r.eff.root, r.eff.scale, d, 0, r.eff.custom) % 12;
+      const k = (pc + 12 - want) % 12, dist = Math.min(k, 12 - k);
+      if (dist < bestDist) { bestDist = dist; best = d; }
+    }
+    layerCfg(l).shift = best;
+    midiTouched = true;
+  });
+}
+
+// The arm, track by track (Scale Learn, Fingered, One Finger). Track t counts
+// from the layer's Low Note end. Notes are semitones from the layer's root
+// and octave, so Root Note and Octave still transpose them.
+function trackDegree(l, t) {
+  const s = state.scene, own = layerCfg(l);
+  const lowSrc = l === 1 && (s.B.mode === MODE_SAME_AS_A || s.B.lowNoteSameAsA) ? s.A : own;
+  return resolveLayer(s, l).degree(lowSrc.lowNote ? NUM_TRACKS - 1 - t : t);
+}
+const layerBase = (c) => 12 + 12 * Math.min(Math.max(c.octave, 0), 9) + c.root;
+function foldStep(st) {
+  while (st > CUSTOM_STEP_MAX) st -= 12;
+  while (st < CUSTOM_STEP_MIN) st += 12;
+  return st;
+}
+const armStep = (l, t) => scaleStep(layerCfg(l).scale, trackDegree(l, t), layerCfg(l).custom);
+
+// Makes the layer's scale Custom with track t playing arm[t], at the current
+// Shift and Wrap; a degree past the last slot (No Wrap) plays it an octave up.
+function writeArm(l, arm) {
+  const c = layerCfg(l), next = new Array(CUSTOM_SLOTS).fill(0);
+  for (let t = 0; t < NUM_TRACKS; t++) {
+    const d = trackDegree(l, t);
+    next[d % CUSTOM_SLOTS] = foldStep(arm[t] - 12 * Math.floor(d / CUSTOM_SLOTS));
+  }
+  c.custom = next;
+  c.scale = SCALE_CUSTOM;
+}
+
+// Scale Learn: a key goes in at the far end of the arm and everything slides
+// one track toward the Low Note end. The root stays on its track: whatever
+// slides onto it is the new root, every slot moved the other way.
+function keyLearn(layers, note) {
+  eachLayer(layers, (l) => {
+    if (resolveLayer(state.scene, l).kit) return;
+    const c = layerCfg(l), arm = [];
+    for (let t = 0; t + 1 < NUM_TRACKS; t++) arm[t] = armStep(l, t + 1);
+    arm[NUM_TRACKS - 1] = note - layerBase(c);
+    writeArm(l, arm);
+    let up = ((c.custom[0] % 12) + 12) % 12;
+    if (up > 6) up -= 12;
+    const oldBase = layerBase(c), r = c.root + up;
+    c.root = (r + 12) % 12;
+    c.octave = Math.min(Math.max(c.octave + (r < 0 ? -1 : r > 11 ? 1 : 0), 0), 7);
+    const moved = layerBase(c) - oldBase;
+    c.custom = c.custom.map((st) => foldStep(st - moved));
+    midiTouched = true;
+  });
+}
+
+// Fingered (and One Finger): the keys are the scale, low to high from the
+// Low Note track, the lowest setting root and octave. Fewer than eight repeat
+// up by octaves to the top of the Custom range, then from the bottom again.
+function keysToArm(l, keys) {
+  if (!keys.length || resolveLayer(state.scene, l).kit) return;
+  const c = layerCfg(l), low = Math.min(...keys);
+  c.root = low % 12;
+  c.octave = Math.min(Math.max(Math.floor(low / 12) - 1, 0), 7);
+  const base = layerBase(c);
+  const st = keys.map((k) => foldStep(k - base)).sort((a, b) => a - b);
+  const arm = [];
+  for (let up = 0; arm.length < NUM_TRACKS; up++) {
+    let any = false;
+    for (const v0 of st) {
+      if (arm.length >= NUM_TRACKS) break;
+      const v = v0 + 12 * up;
+      if (v > CUSTOM_STEP_MAX) continue;
+      arm.push(v);
+      any = true;
+    }
+    if (!any) up = -1;   // past the top: back to the held keys
+  }
+  writeArm(l, arm);
+  midiTouched = true;
+}
+
+// Fingered: each layer's held keys, in the order pressed. Releases close
+// together count as one, and one that leaves nothing held keeps the chord.
+const held = [[], []], releaseTimer = [null, null];
+function fingeredOn(layers, note) {
+  eachLayer(layers, (l) => {
+    clearTimeout(releaseTimer[l]); releaseTimer[l] = null;   // a press shows at once
+    if (!held[l].includes(note) && held[l].length < NUM_TRACKS) held[l].push(note);
+    keysToArm(l, held[l]);
+  });
+}
+function fingeredOff(layers, note) {
+  eachLayer(layers, (l) => {
+    const i = held[l].indexOf(note);
+    if (i < 0) return;
+    held[l].splice(i, 1);
+    clearTimeout(releaseTimer[l]);
+    releaseTimer[l] = setTimeout(() => { releaseTimer[l] = null; keysToArm(l, held[l]); midiSceneChanged(); }, CHORD_WINDOW_MS);
+  });
+}
+
+// Set Scale and One Finger: single-finger chords. The highest key is the
+// root (and octave); a black key to its left makes it minor, a white key a
+// 7th, both a minor 7th. Set Scale sets the scale (Major, Minor, Mixolydian,
+// Dorian); One Finger puts the chord's notes on the arm, as Fingered would.
+let chordKeys = [], chordLayers = 0, chordTimer = null;
+function keyChord(layers, note) {
+  if (!chordKeys.length) {
+    chordLayers = 0;
+    chordTimer = setTimeout(() => { chordTimer = null; chordClose(); midiSceneChanged(); }, CHORD_WINDOW_MS);
+  }
+  chordLayers |= layers;
+  if (chordKeys.length < CHORD_MAX_KEYS) chordKeys.push(note);
+}
+const isBlack = (n) => [1, 3, 6, 8, 10].includes(n % 12);
+function chordClose() {
+  const root = Math.max(...chordKeys);
+  let black = false, white = false;
+  for (const k of chordKeys) if (k !== root) { if (isBlack(k)) black = true; else white = true; }
+  chordKeys = [];
+  if (midi.fn === FN_ONE_FINGER) {
+    const keys = [root, root + (black ? 3 : 4), root + 7, root + 10].slice(0, white ? 4 : 3).map((k) => (k > 127 ? k - 12 : k));
+    eachLayer(chordLayers, (l) => keysToArm(l, keys));
+    return;
+  }
+  const scale = black && white ? 6 : black ? 1 : white ? 7 : 0;   // Dorian, Minor, Mixolydian, Major
+  keyPitch(chordLayers, root);
+  eachLayer(chordLayers, (l) => { layerCfg(l).scale = scale; });
+}
+
+// Play Along: keys play the layer's voice as played (no Root, Octave or
+// scale; the bend wheel applies), velocity counting, as long as held. Both
+// layers on one channel: Layer A plays. A drum layer plays each drum on its
+// General MIDI key. Keys are not sent to MIDI out.
+const keyChannel = [new Map(), new Map()];   // note -> the channel it came in on
+const keyVoices = [new Map(), new Map()];    // note -> its sounding tone
+function playOn(layers, ch, note, velocity) {
+  const l = layers & 1 ? 0 : 1, r = resolveLayer(state.scene, l);
+  if (!r.active || r.silent) return;
+  ensureAudio();
+  if (r.kit) {
+    const slot = KIT_GM_NOTE.indexOf(note);
+    if (slot >= 0) playDrum(slot, ac.currentTime, fxChain[drumLayer()].fxIn);
+    return;
+  }
+  if (keyChannel[l].has(note)) keyOff(l, note);   // a repeat without an off
+  keyVoices[l].set(note, keyToneOn(l, note, velocity, r.voice));
+  keyChannel[l].set(note, ch);
+}
+function playOff(ch, note) {
+  for (let l = 0; l < 2; l++) if (keyChannel[l].get(note) === ch) keyOff(l, note);
+}
+function keyOff(l, note) {
+  const v = keyVoices[l].get(note);
+  if (v) keyToneOff(v);
+  keyVoices[l].delete(note);
+  keyChannel[l].delete(note);
+}
+function keysOff() {
+  for (let l = 0; l < 2; l++) for (const note of [...keyVoices[l].keys()]) keyOff(l, note);
+}
+
+// A held tone for a key: the voice's envelope up to Sustain, then Release on
+// key up (playTone() plays a magnet's fixed length instead).
+function keyToneOn(l, note, velocity, voice) {
+  const v = VOICE_SOUNDS[voice] || VOICE_SOUNDS[0], t = ac.currentTime + 0.005;
+  const osc = toneOsc(v, note), env = ac.createGain();
+  const peak = 0.22 * velocity / 127, a = v.a / 1000, d = v.d / 1000, s = v.s / 100;
+  let node = osc, lp = null, base = 0;
+  if (v.c < 100) {
+    const nyq = Math.min(ac.sampleRate / 2 - 100, FILTER_MAX_HZ);
+    lp = ac.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.Q.value = 20 * Math.log10(filterQ(v.q || 0));
+    base = Math.min(nyq, cutoffHz(v.c));
+    lp.frequency.setValueAtTime(base, t);
+    if (v.m) {
+      const oct = 7 * v.m / 100, top = Math.min(nyq, base * Math.pow(2, oct)), sus = Math.min(nyq, base * Math.pow(2, oct * v.fs / 100));
+      lp.frequency.linearRampToValueAtTime(top, t + Math.max(v.fa / 1000, 0.001));
+      lp.frequency.linearRampToValueAtTime(sus, t + v.fa / 1000 + Math.max(v.fd / 1000, 0.001));
+    }
+    osc.connect(lp); node = lp;
+  }
+  node.connect(env); env.connect(fxChain[l].fxIn);
+  env.gain.setValueAtTime(0, t);
+  env.gain.linearRampToValueAtTime(peak, t + Math.max(a, 0.002));
+  env.gain.linearRampToValueAtTime(peak * s, t + Math.max(a, 0.002) + Math.max(d, 0.001));
+  osc.start(t);
+  return { osc, env, lp, base, v };
+}
+function keyToneOff(k) {
+  if (!ac) return;
+  const t = ac.currentTime, r = Math.max(k.v.r / 1000, 0.01);
+  const hold = (p) => { if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); } };
+  hold(k.env.gain);
+  k.env.gain.linearRampToValueAtTime(0, t + r);
+  if (k.lp && k.v.m) { hold(k.lp.frequency); k.lp.frequency.linearRampToValueAtTime(k.base, t + Math.max(k.v.fr / 1000, 0.01)); }
+  k.osc.stop(t + r + 0.05);
+}
+
+// An effects CC, on each listening layer (fxCc()).
+function fxCc(layers, cc, value) {
+  const f = FX_CCS[cc];
+  if (!f) return false;
+  const pct = Math.floor((value * f[1] + 63) / 127);
+  eachLayer(layers, (l) => { live.fx[l][f[0]] = pct; });
+  applyLive();
+  return true;
+}
+
+function midiInReset() {
+  chordKeys = []; clearTimeout(chordTimer); chordTimer = null;
+  for (let l = 0; l < 2; l++) { held[l] = []; clearTimeout(releaseTimer[l]); releaseTimer[l] = null; }
+  keysOff();
+}
+
+function midiMessage(data) {
+  const [st, d0 = 0, d1 = 0] = data;
+  if (st >= 0xF0) return;   // system messages: nothing to do
+  const type = st & 0xF0, ch = (st & 0x0F) + 1;
+  flashMidi();
+  const off = type === 0x80 || (type === 0x90 && d1 === 0);
+  if (off) playOff(ch, d0);
+  const layers = listeners(ch);
+  if (!layers) return;
+  if (type === 0x80 || type === 0x90) {
+    if (off) { if (midi.fn === FN_FINGERED) fingeredOff(layers, d0); }
+    else switch (midi.fn) {
+      case FN_PITCH: keyPitch(layers, d0); break;
+      case FN_SHIFT: keyShift(layers, d0); break;
+      case FN_SCALE_LEARN: keyLearn(layers, d0); break;
+      case FN_SET_SCALE: case FN_ONE_FINGER: keyChord(layers, d0); break;
+      case FN_FINGERED: fingeredOn(layers, d0); break;
+      case FN_PLAY_ALONG: playOn(layers, ch, d0, d1); break;
+    }
+  } else if (type === 0xB0) {
+    if (d0 === CC_VOLUME) { live.volume = d1 / 127; applyLive(); renderMidiLive(); }
+    else if (d0 === CC_OCTAVE) { eachLayer(layers, (l) => { layerCfg(l).octave = Math.floor(d1 * 8 / 128); }); midiTouched = true; }
+    else if (midi.cc && fxCc(layers, d0, d1)) renderMidiLive();
+  } else if (type === 0xE0) {
+    // 14-bit, centre 8192: a temporary offset that springs back.
+    live.bend = (((d1 << 7) | d0) - 8192) / 8192 * BEND_IN_RANGE;
+    applyLive();
+    midiOutBend();
+  }
+  midiSceneChanged();
+}
+
+// MIDI In edits to the scene: drawn once per frame, however many keys arrive.
+let midiFrame = 0;
+function midiSceneChanged() {
+  if (!midiTouched || midiFrame) return;
+  midiFrame = requestAnimationFrame(() => {
+    midiFrame = 0;
+    midiTouched = false;
+    $("codeMsg").textContent = "";
+    changed();
+  });
+}
+
+// --- MIDI Out: notes, bend, clock (midi.cpp, sequencer.cpp, transport.cpp) ---------------------
+// Each layer plays on its voice's Auto channel at velocity 127 (Level 100%,
+// A/B Balance centred), for the voice's note length (drums 50 ms). A
+// sensor's next note ends the one before. Note Ons go out timestamped with
+// the audio; Note Offs from a timer, so a retrigger can still cancel them.
+const outNotes = new Map();   // "layer:track" -> { ch, note, at, timer }
+const msAt = (t) => performance.now() + Math.max(0, t - ac.currentTime) * 1000;
+
+function midiOutNote(l, track, n, t) {
+  const out = midiOutPort();
+  if (!out) return;
+  const ch = VOICE_CHANNEL[n.voice] || 1, note = n.kit ? KIT_GM_NOTE[n.slot] : n.note;
+  const key = `${l}:${track}`, prev = outNotes.get(key);
+  if (prev) {
+    clearTimeout(prev.timer);
+    out.send([0x80 | (prev.ch - 1), prev.note, 0], msAt(Math.min(prev.at, t)));
+  }
+  if (!n.kit) midiOutUseChannel(out, ch);
+  out.send([0x90 | (ch - 1), note, 127], msAt(t));
+  const len = n.kit ? DRUM_NOTE_MS : VOICE_SOUNDS[n.voice].ms;
+  const at = t + len / 1000;
+  const entry = { ch, note, at };
+  entry.timer = setTimeout(() => {
+    if (outNotes.get(key) !== entry) return;
+    outNotes.delete(key);
+    const o = midiOutPort();
+    if (o) o.send([0x80 | (ch - 1), note, 0]);
+  }, Math.max(0, (at - ac.currentTime) * 1000));
+  outNotes.set(key, entry);
+}
+
+// Pause or a jump: what was queued ahead is dropped and every note ends.
+function midiOutFlush() {
+  const out = midiOutPort();
+  if (out && out.clear) out.clear();
+  for (const e of outNotes.values()) {
+    clearTimeout(e.timer);
+    if (out) out.send([0x80 | (e.ch - 1), e.note, 0]);
+  }
+  outNotes.clear();
+}
+
+// The bend wheel goes out on the melodic channels in use, each told the bend
+// range first (RPN 0), as the table does.
+const bendChannels = new Set();
+function midiOutUseChannel(out, ch) {
+  if (bendChannels.has(ch)) return;
+  bendChannels.add(ch);
+  for (const [c, v] of [[101, 0], [100, 0], [6, BEND_OUT_RANGE], [38, 0], [101, 127], [100, 127]]) out.send([0xB0 | (ch - 1), c, v]);
+  sendBend(out, ch);
+}
+function sendBend(out, ch) {
+  const v = Math.min(Math.max(8192 + Math.round(Math.max(-1, Math.min(1, live.bend / BEND_OUT_RANGE)) * 8191), 0), 16383);
+  out.send([0xE0 | (ch - 1), v & 0x7F, (v >> 7) & 0x7F]);
+}
+function midiOutBend() {
+  const out = midiOutPort();
+  if (out) for (const ch of bendChannels) sendBend(out, ch);
+}
+
+// Clock: 24 a beat while playing, always forward in time, whichever way the
+// grid plays. Each start sends the Song Position of the next sixteenth (never
+// behind the last, as the table's song position only grows) and Continue,
+// then clocks from that sixteenth (transport.cpp start()).
+const PPQN = 24, TICKS_PER_16TH = 6, SPP_LIMIT = 16384;
+const clock = { rolling: false, songTick: 0, next: 0, tpr: 0 };
+function clockStart(step, t) {
+  const out = midiOutPort();
+  if (!out) return;
+  const N = steps(), tpr = PPQN * state.beats;
+  const p = state.reverse ? (N - step) % N : step;
+  const t0 = p * tpr / N;                                 // the start, in ticks into the bar
+  let w = (Math.floor(t0 / TICKS_PER_16TH) + 1) * TICKS_PER_16TH, bars = Math.floor(clock.songTick / tpr);
+  if (w >= tpr) { w -= tpr; bars++; }
+  let target = bars * tpr + w;
+  if (target < clock.songTick) target += tpr;
+  if (target / TICKS_PER_16TH >= SPP_LIMIT) target = w;
+  const spp = target / TICKS_PER_16TH;
+  out.send([0xF2, spp & 0x7F, (spp >> 7) & 0x7F], msAt(t));
+  out.send([0xFB], msAt(t));
+  const tickDur = 60 / state.bpm / PPQN;
+  clock.songTick = target;
+  clock.next = t + ((w > t0 ? w : w + tpr) - t0) * tickDur;
+  clock.tpr = tpr;
+  clock.rolling = true;
+}
+function clockHalt() {
+  if (!clock.rolling) return;
+  clock.rolling = false;
+  const out = midiOutPort();
+  if (out) out.send([0xFC]);
+}
+// Clocks due before `until`, from the playback scheduler.
+function clockTick(until) {
+  const out = midiOutPort();
+  if (!clock.rolling || !out) return;
+  while (clock.next < until) {
+    out.send([0xF8], msAt(clock.next));
+    clock.songTick++;
+    clock.next += 60 / state.bpm / PPQN;
+  }
+}
+
+// --- MIDI panel ------------------------------------------------------------------------------------
+function flashMidi() {
+  const b = $("menuBtn");
+  b.classList.add("rx");
+  clearTimeout(flashMidi.t);
+  flashMidi.t = setTimeout(() => b.classList.remove("rx"), 150);
+}
+
+function bindMidiPorts() {
+  if (!midiAccess) return;
+  for (const input of midiAccess.inputs.values()) {
+    input.onmidimessage = midi.on && (midi.inId === "all" || midi.inId === input.id) ? (e) => midiMessage(e.data) : null;
+  }
+}
+
+async function midiEnable() {
+  if (!midi.on) { bindMidiPorts(); renderMidi(); return; }
+  if (!midiAccess) {
+    if (!navigator.requestMIDIAccess) { midiError = "This browser has no Web MIDI. Use Chrome or Edge."; renderMidi(); return; }
+    try {
+      midiAccess = await navigator.requestMIDIAccess();
+      midiAccess.onstatechange = () => { bindMidiPorts(); renderMidi(); };
+      midiError = "";
+    } catch (e) {
+      midiError = "MIDI access was refused. Allow it in the browser's site settings.";
+      renderMidi();
+      return;
+    }
+  }
+  bindMidiPorts();
+  renderMidi();
+}
+
+const chOptions = (v) => `<option value="0"${v ? "" : " selected"}>Off</option>` +
+  Array.from({ length: 16 }, (_, i) => `<option value="${i + 1}"${v === i + 1 ? " selected" : ""}>${i + 1}</option>`).join("");
+
+function renderMidi() {
+  $("midiOn").checked = midi.on;
+  $("midiStatus").textContent = midiError || (!midi.on ? "Off." : !midiAccess ? "Asking for MIDI access..." :
+    `${midiAccess.inputs.size} input${midiAccess.inputs.size === 1 ? "" : "s"}, ${midiAccess.outputs.size} output${midiAccess.outputs.size === 1 ? "" : "s"} found.`);
+  const ports = (map) => (midiAccess ? [...map.values()] : []);
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  $("midiIn").innerHTML = `<option value="all">All inputs</option><option value="">None</option>` +
+    ports(midiAccess && midiAccess.inputs).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  $("midiIn").value = midi.inId;
+  $("midiOut").innerHTML = `<option value="">None</option>` +
+    ports(midiAccess && midiAccess.outputs).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  $("midiOut").value = midi.outId;
+  if ($("midiOut").value !== midi.outId) $("midiOut").value = "";   // not connected now
+  $("midiChA").innerHTML = chOptions(midi.chA);
+  $("midiChB").innerHTML = chOptions(midi.chB);
+  $("midiFn").innerHTML = MIDI_FN_NAMES.map((n, i) => `<option value="${i}"${i === midi.fn ? " selected" : ""}>${n}</option>`).join("");
+  $("midiCc").checked = midi.cc;
+  for (const id of ["midiIn", "midiOut", "midiChA", "midiChB", "midiFn", "midiCc"]) $(id).disabled = !midi.on || !midiAccess;
+  $("menuMidi").classList.toggle("on", midi.on && !!midiAccess);
+  renderMidiLive();
+}
+
+function renderMidiLive() {
+  const fxText = (fx) => `Tone ${fx.cutoff >= FX_CUTOFF_OFF ? "Off" : fx.cutoff + "%"}${fx.cutoff < FX_CUTOFF_OFF ? `, Res ${fx.resonance}%` : ""}` +
+    `, Chorus ${fx.chorusMix}%, Delay ${fx.delayMix}% (Fb ${fx.delayFeedback}%), Reverb ${fx.reverbMix}%`;
+  $("midiLive").innerHTML = `Volume ${Math.round(live.volume * 100)}%, Bend ${live.bend >= 0 ? "+" : ""}${live.bend.toFixed(2)}<br>` +
+    `<span class="dot a"></span>${fxText(live.fx[0])}<br><span class="dot b"></span>${fxText(live.fx[1])}`;
+}
+
+$("midiOn").addEventListener("change", (e) => {
+  midi.on = e.target.checked;
+  saveMidi();
+  if (!midi.on) { midiInReset(); if (ac) midiOutFlush(); clockHalt(); }
+  midiEnable();
+});
+$("midiIn").addEventListener("change", (e) => { midi.inId = e.target.value; saveMidi(); midiInReset(); bindMidiPorts(); });
+$("midiOut").addEventListener("change", (e) => {
+  if (ac) midiOutFlush();
+  clockHalt();
+  midi.outId = e.target.value;
+  saveMidi();
+  bendChannels.clear();
+  if (timer) clockStart(nextStep, nextTime);
+});
+$("midiChA").addEventListener("change", (e) => { midi.chA = +e.target.value; saveMidi(); });
+$("midiChB").addEventListener("change", (e) => { midi.chB = +e.target.value; saveMidi(); });
+$("midiFn").addEventListener("change", (e) => { midi.fn = +e.target.value; saveMidi(); midiInReset(); });   // releases all keys
+$("midiCc").addEventListener("change", (e) => { midi.cc = e.target.checked; saveMidi(); });
+$("fxReset").addEventListener("click", () => {
+  live.volume = DEFAULT_VOLUME; live.bend = 0; live.fx = [factoryFx(), factoryFx()];
+  applyLive(); midiOutBend(); renderMidiLive();
+});
+
+// --- Wiring -------------------------------------------------------------------------------------
+function syncInputs() {
+  $("beats").value = state.beats;
+  $("subdiv").value = state.subdiv;
+  $("block").checked = state.block;
+  $("autoHear").checked = state.autoHear;
+  $("bpm").value = state.bpm;
+  $("paper").value = state.paper;
+  $("hole").value = state.hole;
+  $("forward").value = state.forward;
+  $("rpm").textContent = `${+(state.bpm / state.beats).toFixed(2)} RPM`;
+}
+
+// BPM = RPM x Beats/Rev; the table runs MIN_RPM to MAX_RPM (config.h).
+function clampBpm() {
+  state.bpm = Math.min(Math.max(state.bpm, state.beats * 1), state.beats * 120);
+  $("bpm").min = state.beats * 1;
+  $("bpm").max = state.beats * 120;
+}
+
+function changed() {
+  clampBpm();
+  syncInputs();
+  renderGrid();
+  renderScene();
+  renderTemplate();
+  renderRecords();
+  renderBar();
+  applyLive();   // the delay's Sync time follows the BPM
+  save();
+}
+
+bindSteps();
+// --- Theme ---------------------------------------------------------------------------------------
+// Auto follows the system; Light and Dark override it. Kept per browser,
+// apart from the song.
+const THEME_KEY = "magnetrone-record-designer-theme";
+const THEMES = {
+  auto:  { next: "light", label: "Theme: Auto (follows your system)",
+           icon: `<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>` },
+  light: { next: "dark", label: "Theme: Light",
+           icon: `<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>` },
+  dark:  { next: "auto", label: "Theme: Dark",
+           icon: `<svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>` },
+};
+
+function applyTheme(name) {
+  const t = THEMES[name] ? name : "auto";
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  $("theme").innerHTML = THEMES[t].icon + THEMES[t].label;
+  $("theme").title = "Click to change.";
+  $("theme").dataset.theme = t;
+}
+
+$("theme").addEventListener("click", () => {
+  const next = THEMES[$("theme").dataset.theme].next;
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* not kept */ }
+});
+
+let savedTheme = "auto";
+try { savedTheme = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* default */ }
+applyTheme(savedTheme);
+
+bindSettings();
+showTransport();
+changed();
+loadFromLink();
+renderMidi();
+midiEnable();
+</script>
+</body>
+</html>
