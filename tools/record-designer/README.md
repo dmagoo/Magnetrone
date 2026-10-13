@@ -20,11 +20,12 @@ Dark.
 - Steps per revolution = Beats/Rev x Subdivisions (default 4 x 4 = 16).
   Changing them keeps every magnet that lands on a step of the new grid.
   Steps are named by beat: 1, 1.2, 1.3, 1.4, 2, ...
-- Click an empty slot to place a magnet: A (normal pole, plays Layer A) or
-  B (reversed pole, plays Layer B), whichever layer you used last (A at
-  first). Click again to flip it to the other layer, again to remove it.
-  Clicking a magnet already there flips it, then removes it. Right click
-  removes a magnet at once. With the
+- **Layer** (toolbar) picks what a click places: A (normal pole, plays
+  Layer A) or B (reversed pole, plays Layer B). Hold Shift while clicking to
+  place the other layer for that click; while Shift is held the buttons show
+  it. A click puts the layer's magnet in the slot; if that layer's magnet
+  is already there, it removes it, and one of the other layer switches over.
+  Right click removes a magnet at once. With the
   colored magnets, A is blue side
   up and B is black side up (the table's calibration sets this; Menu >
   System > Magnet Pole swaps it). B magnets are black in both themes,
@@ -42,7 +43,8 @@ Dark.
   C clap, O open hat, S snare, K kick, H closed hat). With Stack it shows
   both layers' notes. Each row label shows what an A and a B magnet on
   that track play ("C4/X"), once if they match ("C4"); hovering an empty
-  slot shows the same.
+  slot shows the same. While a layer plays Drums, a line under the grid
+  lists the drum letters.
 
 ## Scene
 
@@ -50,15 +52,24 @@ The Scene Code fields, grouped as Sound (voice, root, octave, scale, each
 with a Same as A box for Layer B; Octave, Root and Scale on by default),
 Arrangement (shift, Low Note, Wrap, Layer B's Same as A settings) and
 Layers (modes, Layer Turns, Edit Turns). Settings that have no effect right now (a Drums
-layer's root, a layer that is Off, Layer B on Same as A) are greyed out but
-stay editable, since the code still holds them; hover one to see why.
+layer's root, a layer that is Off) are greyed out but stay editable, since
+the code still holds them; hover one to see why.
+
+A Layer B setting with Same as A on shows Layer A's value, greyed. Its own
+value is kept: unchecking Same as A brings it back. Changing the setting
+turns Same as A off, starting from A's values (Shift's box covers Wrap too,
+and Scale's covers the Custom notes). With Layer B's Mode on Same as A,
+Layer B's settings show Layer A's and are locked; Mode and Layer Turns stay
+editable.
 Hover a setting's name (dotted underline) for what it does. Each Shift
 option shows what the low track then plays ("1  D4", or "5  Snare" on
 Drums); Low Note's options say which track is low (Inner, track 1; Outer,
 track 8). Octave is a number box, 0 to 7.
 
 **Scale** includes **Custom**: one note per track, as on the table. The
-**Edit Scale** row lists each layer's eight slots as the table's Edit Scale
+**Edit Scale** row (folded until opened with the arrow or a click on its
+summary, which lists the notes each layer's slots play, marked "(custom)"
+on a Custom scale) lists each layer's eight slots as the table's Edit Scale
 does ("C+0" is the C in the layer's Octave, "C+1" the one above; slot 1 is
 the low track at Shift 0), the Custom notes or, until the layer plays a
 Custom scale, its scale's first eight notes. Changing a slot makes the scale
@@ -83,7 +94,8 @@ two layers share: Voice, Root, Octave, Scale, Shift, Low Note, Wrap and the
 turn patterns. Mode, Layer B's Same as A boxes and Layer Turns stay as they
 are.
 
-**Edit Turns** shows each layer's turns as the table does: a turn's number
+**Edit Turns** (folded like Edit Scale; its summary is each layer's
+pattern, marked "(custom)" while Layer Turns is Custom) shows each layer's turns as the table does: a turn's number
 if the layer's magnets are heard on that revolution, - if not, | where the
 cycle ends (8 turns without one). Click a turn to change it: on, off, the
 end of the cycle (not turn 1), on again. Clicking the | or past it makes the
@@ -91,7 +103,7 @@ cycle 8 turns again. Changing a turn sets Layer Turns to Custom, starting
 from what it was playing; Together and Alternate keep the Custom patterns.
 The turn the position is on is shaded in each layer's strip.
 
-**Reset Scene**, under the settings, sets every scene setting to the factory
+**Reset Scene**, beside Load in the Scene header, sets every scene setting to the factory
 values, as with nothing saved (asks first). The grid, BPM and template
 settings stay.
 

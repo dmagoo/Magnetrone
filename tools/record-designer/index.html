@@ -102,6 +102,8 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 14px; }
 .toolbar .spacer { flex: 1; }
 .toolbar .group { display: flex; align-items: center; gap: 6px; }
+.layerpick button { padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.layerpick button[aria-pressed=true] { background: var(--text); color: var(--panel); border-color: var(--text); }
 #gridWrap { overflow-x: auto; padding: 4px 0; }
 #grid { display: grid; grid-template-rows: auto repeat(8, var(--cs)); gap: 8px; user-select: none; width: max-content; margin: 0 auto; position: relative; }
 #grid > * { position: relative; }
@@ -152,7 +154,6 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .turns button { width: 22px; height: 22px; padding: 0; font: 600 12px ui-monospace, Consolas, monospace; }
 /* The playhead's turn in each layer's cycle, like the band on the grid. */
 .turns button.now { background: color-mix(in srgb, var(--text) 16%, transparent); border-color: var(--muted); }
-.scenefoot { margin-top: 14px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
 .dot.a { background: var(--a); }
 .dot.b { background: var(--b); box-shadow: inset 0 0 0 1px var(--b-ring); }
@@ -190,6 +191,10 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .groups .escale label.slot { display: flex; align-items: center; gap: 2px; margin: 0; font-size: 11px; }
 .escale select { padding: 2px 2px; font-size: 12px; }
 .escale button { padding: 2px 8px; font-size: 12px; }
+/* Edit Scale and Edit Turns fold to a summary line per layer. */
+.groups th .fold { border: 0; padding: 0 4px 0 0; color: var(--muted); font-size: 10px; }
+.foldsum { display: block; width: 100%; border: 0; padding: 2px 0; text-align: left; font-size: 12px; }
+.foldsum span.dim { opacity: .4; }
 .legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 8px; }
 </style>
 </head>
@@ -266,6 +271,12 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
           <label for="subdiv">Subdivisions</label><input type="number" id="subdiv" min="1" max="8">
           <span id="stepsInfo" class="muted small"></span>
         </div>
+        <div class="group layerpick" role="group" aria-label="Layer to place"
+             title="The layer a click places. Hold Shift while clicking for the other layer.">
+          <span>Layer</span>
+          <button data-layer="1"><span class="dot a"></span>A</button>
+          <button data-layer="2"><span class="dot b"></span>B</button>
+        </div>
         <label><input type="checkbox" id="block"> Block collisions</label>
         <span id="magnetCount" class="small"></span>
         <span class="spacer"></span>
@@ -280,8 +291,10 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         </div>
       </div>
       <div id="gridWrap"><div id="grid"></div></div>
-      <p class="hint">Click an empty slot to place a magnet on the layer you used last (A, normal pole, or B, reversed pole); click again to flip it, again to remove it.
+      <p class="hint">Click a slot to place a magnet on the chosen Layer (A, normal pole, or B, reversed pole); Shift-click for the other layer.
+        Clicking a magnet of that layer removes it; one of the other layer switches over. Right click removes.
         Track 1, the inner track, is the bottom row. Step 1 is the start mark. Striped slots would overlap a placed magnet.</p>
+      <p id="drumKey" class="hint" hidden></p>
     </section>
 
     <section class="card">
@@ -309,6 +322,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
           </button>
           <input id="codeIn" placeholder="Scene Code" maxlength="14" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
           <button id="codeLoad">Load</button>
+          <button id="resetScene" title="Every scene setting to the factory values, as with nothing saved. The grid, BPM and template settings stay.">Reset Scene</button>
           <span id="codeMsg" class="muted small"></span>
         </div>
       </div>
@@ -318,9 +332,6 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
         <div><h3>Layers</h3><table id="gLayers"></table></div>
       </div>
       <p id="customWarn" class="warn" style="margin-top:12px" hidden></p>
-      <div class="scenefoot">
-        <button id="resetScene" class="small" title="Every scene setting to the factory values, as with nothing saved. The grid, BPM and template settings stay.">Reset Scene</button>
-      </div>
     </section>
   </div>
 
@@ -1162,7 +1173,7 @@ const STORE_KEY = "magnetrone-record-designer-v1";
 const DEFAULTS = {
   view: "sequence",
   beats: 4, subdiv: 4, block: true,
-  lastLayer: 1,   // layer of the last magnet placed (1 A, 2 B): new magnets start on it
+  layer: 1,       // the layer a click places (1 A, 2 B); Shift-click places the other
   reverse: false, // play backwards, as the table does with Speed below zero
   autoHear: false, // hear a layer's run when a scene setting changes
   name: "",        // the current song's name
@@ -1195,6 +1206,7 @@ function loadState() {
       }
     }
   } catch (e) { /* no storage: start fresh */ }
+  if (st.lastLayer !== undefined) { st.layer = st.lastLayer; delete st.lastLayer; }   // saved before the Layer buttons
   st.songs = Array.isArray(st.songs) ? st.songs.filter((c) => c && c.id && typeof c.song === "string") : [];
   if (st.rpm !== undefined) {   // saved before BPM replaced RPM
     if (!st.bpm || st.bpm === DEFAULTS.bpm) st.bpm = st.rpm * st.beats;
@@ -1267,6 +1279,7 @@ function stepName(s) {
 // or the drum letter Track Notes uses) and long (for the tooltip). Stack
 // plays both layers; a silent layer plays nothing.
 const DRUM_LETTERS = ["X", "t", "T", "C", "O", "S", "K", "H"];   // firmware/src/menu/menu.cpp
+$("drumKey").textContent = "Drums: " + DRUM_LETTERS.map((d, i) => `${d} ${KIT_NAMES[i]}`).join(", ");
 
 function poleNotes(track, pole) {
   const notes = layersForPole(state.scene, pole).map((l) => layerNoteFor(state.scene, l, track)).filter(Boolean);
@@ -1275,6 +1288,7 @@ function poleNotes(track, pole) {
     short: notes.map((n) => (n.kit ? DRUM_LETTERS[n.slot] : noteName(n.note))).join("/"),
     long: notes.map((n) => (n.kit ? KIT_NAMES[n.slot] : noteName(n.note))).join(" + "),
     multi: notes.length > 1,
+    kit: notes.some((n) => n.kit),
   };
 }
 
@@ -1300,8 +1314,10 @@ function renderGrid() {
     const beat = s % state.subdiv === 0;
     html += `<div class="hdr${beat ? " beat" : ""}" data-hs="${s}" title="Go to step ${stepName(s)}">${stepName(s)}</div>`;
   }
+  let kit = false;
   for (let t = NUM_TRACKS - 1; t >= 0; t--) {
     const noteA = poleNotes(t, 0), noteB = poleNotes(t, 1);
+    kit ||= !!(noteA.kit || noteB.kit);
     // What an A and a B magnet play here, once if they match.
     const both = noteA.short === noteB.short ? noteA.short : `${noteA.short}/${noteB.short}`;
     html += `<div class="lbl"><b>Track ${t + 1}</b><span class="muted">${both}</span></div>`;
@@ -1326,6 +1342,8 @@ function renderGrid() {
   }
   g.innerHTML = html;
   placeBand();
+  renderLayerPick();
+  $("drumKey").hidden = !kit;
   $("stepsInfo").textContent = `= ${N} steps`;
   const flat = state.cells.flat(), nA = flat.filter((v) => v === 1).length, nB = flat.filter((v) => v === 2).length;
   $("magnetCount").innerHTML = `<b>${nA + nB}</b> magnet${nA + nB === 1 ? "" : "s"} <span class="muted">(${nA} A, ${nB} B)</span>`;
@@ -1333,12 +1351,8 @@ function renderGrid() {
   $("redo").disabled = !redoStack.length;
 }
 
-// Clicking a slot: an empty one gets a magnet on the layer used last; the
-// next click flips it to the other layer, the one after removes it. A magnet
-// already there flips first, then goes. `cycle` remembers which layer the
-// slot being clicked started on.
-let cycle = null;
-
+// Clicking a slot puts a magnet of the chosen layer there (Shift: the other
+// layer); if one of that layer is already there, it goes.
 // Right click removes a magnet.
 $("grid").addEventListener("contextmenu", (e) => {
   const c = e.target.closest(".c");
@@ -1348,7 +1362,6 @@ $("grid").addEventListener("contextmenu", (e) => {
   if (!state.cells[t][s]) return;
   recordGrid();
   state.cells[t][s] = 0;
-  cycle = null;
   changed();
 });
 
@@ -1360,16 +1373,29 @@ $("grid").addEventListener("click", (e) => {
   const t = +c.dataset.t, s = +c.dataset.s;
   const v = state.cells[t][s];
   if (!v && state.block && overlapsWith(t, s).length) return;
-  const same = cycle && cycle.t === t && cycle.s === s;
-  const start = !v ? state.lastLayer : same ? cycle.start : v;
-  const next = !v ? start : v === start ? 3 - start : 0;
-  cycle = { t, s, start };
+  const want = e.shiftKey ? 3 - state.layer : state.layer;
   recordGrid();
-  state.cells[t][s] = next;
-  if (next) state.lastLayer = next;
+  state.cells[t][s] = v === want ? 0 : want;
   changed();
   listenToMagnet(t, state.cells[t][s]);
 });
+
+// The Layer buttons; while Shift is held they show the layer a click places.
+let shiftHeld = false;
+function renderLayerPick() {
+  const on = shiftHeld ? 3 - state.layer : state.layer;
+  for (const b of document.querySelectorAll(".layerpick [data-layer]")) b.setAttribute("aria-pressed", +b.dataset.layer === on);
+}
+document.querySelector(".layerpick").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-layer]");
+  if (!b) return;
+  state.layer = +b.dataset.layer;
+  changed();
+});
+const setShift = (on) => { if (on !== shiftHeld) { shiftHeld = on; renderLayerPick(); } };
+document.addEventListener("keydown", (e) => { if (e.key === "Shift") setShift(true); });
+document.addEventListener("keyup", (e) => { if (e.key === "Shift") setShift(false); });
+window.addEventListener("blur", () => setShift(false));
 
 // Steps per revolution changed: keep every magnet that lands on a step of the new grid.
 function resizeSteps(beats, subdiv) {
@@ -1461,6 +1487,27 @@ const TERMS = {
 };
 const term = (name, key = name) => `<span class="term" title="${TERMS[key]}">${name}</span>`;
 
+// Layer B's Same as A boxes: the settings each one links to Layer A's.
+const LINKS = { voiceSameAsA: ["voice"], rootSameAsA: ["root"], octaveSameAsA: ["octave"],
+                scaleSameAsA: ["scale", "custom"], shiftSameAsA: ["shift", "wrap"], lowNoteSameAsA: ["lowNote"] };
+const LINK_OF = Object.fromEntries(Object.entries(LINKS).flatMap(([f, ks]) => ks.map((k) => [k, f])));
+// Where Layer B's `key` is shown from: Layer A's while B follows it.
+const bFollows = (s, key) => s.B.mode === MODE_SAME_AS_A || !!(LINK_OF[key] && s.B[LINK_OF[key]]);
+const shownFrom = (s, l, key) => (l === "B" && bFollows(s, key) ? s.A : s[l]);
+// Layer B on Same as A plays Layer A: its settings are locked (Mode and Layer Turns stay).
+const bLocked = (s, l, key) => l === "B" && s.B.mode === MODE_SAME_AS_A && key !== "mode" && key !== "turns";
+// Editing a Layer B setting that follows A unlinks it, first taking A's
+// values for everything that box links, so it starts from what was shown.
+function unlinkB(key) {
+  const f = LINK_OF[key], A = state.scene.A, B = state.scene.B;
+  if (!f || !B[f]) return;
+  for (const k of LINKS[f]) B[k] = Array.isArray(A[k]) ? [...A[k]] : A[k];
+  B[f] = 0;
+}
+
+// Edit Scale and Edit Turns rows: folded to a summary until opened.
+const openRows = { scale: false, turns: false };
+
 function renderScene() {
   const s = state.scene, dims = sceneDims(s);
   const range = (n) => Array.from({ length: n }, (_, i) => String(i));
@@ -1468,23 +1515,25 @@ function renderScene() {
     const why = dims[l][key];
     return `<td${why ? ` class="dim" title="${why}"` : ""}>${html}</td>`;
   };
-  const sel = (l, key, names, order = null) => cell(l, key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key], order)}</select>`);
+  const lock = (l, key) => (bLocked(s, l, key) ? " disabled" : "");
+  const val = (l, key) => shownFrom(s, l, key)[key];
+  const sel = (l, key, names, order = null) => cell(l, key, `<select data-l="${l}" data-k="${key}"${lock(l, key)}>${options(names, val(l, key), order)}</select>`);
   // A Layer B control with its Same as A box below.
   const linkCell = (key, control, flag) => {
     const why = dims.B[key];
     return `<td><div${why ? ` class="dim" title="${why}"` : ""}>${control}</div>` +
-      `<label${dims.B[flag] ? ` class="dim" title="${dims.B[flag]}"` : ""}><input type="checkbox" data-l="B" data-k="${flag}"${s.B[flag] ? " checked" : ""}> ${term("Same as A", flag)}</label></td>`;
+      `<label${dims.B[flag] ? ` class="dim" title="${dims.B[flag]}"` : ""}><input type="checkbox" data-l="B" data-k="${flag}"${s.B[flag] ? " checked" : ""}${lock("B", flag)}> ${term("Same as A", flag)}</label></td>`;
   };
   const selWith = (l, key, names, flag, order = null) =>
-    linkCell(key, `<select data-l="${l}" data-k="${key}">${options(names, s[l][key], order)}</select>`, flag);
+    linkCell(key, `<select data-l="${l}" data-k="${key}"${lock(l, key)}>${options(names, val(l, key), order)}</select>`, flag);
   const numWith = (key, min, max, flag) =>
-    linkCell(key, `<input type="number" data-l="B" data-k="${key}" min="${min}" max="${max}" value="${s.B[key]}">`, flag);
+    linkCell(key, `<input type="number" data-l="B" data-k="${key}" min="${min}" max="${max}" value="${val("B", key)}"${lock("B", key)}>`, flag);
   // Shift options: the number and what the low track then plays, from the
   // layer's own settings. The low track plays degree `shift` either way
   // round (Low Note flips first), so only the number changes the note.
   const NBSP2 = "\u00a0\u00a0";
   const shiftNames = (l) => {
-    const c = l === "B" ? { ...s.B, ...bKey(s) } : s[l];
+    const c = l === "B" && s.B.mode !== MODE_SAME_AS_A ? { ...s.B, ...bKey(s) } : s.A;
     if (c.voice === VOICE_NONE) return range(8);
     return range(8).map((k) => `${k}${NBSP2}${c.voice === VOICE_DRUMS ? KIT_NAMES[+k] : noteName(scaleNote(c.root, c.scale, +k, c.octave, c.custom))}`);
   };
@@ -1493,16 +1542,16 @@ function renderScene() {
   // eight notes. A select per slot, then Reset.
   const STEP_RANGE = Array.from({ length: CUSTOM_STEP_MAX - CUSTOM_STEP_MIN + 1 }, (_, i) => i + CUSTOM_STEP_MIN);
   const scaleStrip = (l) => {
-    const k = l ? "B" : "A", c = s[k], root = l ? bKey(s).root : c.root;
+    const k = l ? "B" : "A", c = shownFrom(s, k, "scale"), root = shownFrom(s, k, "root").root;
     const steps = scaleToCustom(c.scale, c.custom);
-    const why = dims[k].editScale;
+    const why = dims[k].editScale, off = lock(k, "scale");
     let html = `<div class="escale${why ? " dim" : ""}"${why ? ` title="${why}"` : ""}><span class="dot ${l ? "b" : "a"}"></span><div class="eslots">`;
     steps.forEach((st, i) => {
-      html += `<label class="slot"><span class="muted">${i + 1}</span><select data-es="${l}" data-slot="${i}" aria-label="Layer ${k} Edit Scale slot ${i + 1}">` +
+      html += `<label class="slot"><span class="muted">${i + 1}</span><select data-es="${l}" data-slot="${i}" aria-label="Layer ${k} Edit Scale slot ${i + 1}"${off}>` +
         STEP_RANGE.map((v) => `<option value="${v}"${v === st ? " selected" : ""}>${customStepName(root, v)}</option>`).join("") +
         `</select></label>`;
     });
-    return html + `</div><button class="small" data-esreset="${l}" title="Layer ${k}'s Scale and Custom notes back to the song as saved">Reset</button></div>`;
+    return html + `</div><button class="small" data-esreset="${l}" title="Layer ${k}'s Scale and Custom notes back to the song as saved"${off}>Reset</button></div>`;
   };
   const LOW_NOTE_NAMES = ["Inner (track 1)", "Outer (track 8)"];
   const num = (l, key, min, max) => cell(l, key, `<input type="number" data-l="${l}" data-k="${key}" min="${min}" max="${max}" value="${s[l][key]}">`);
@@ -1519,13 +1568,36 @@ function renderScene() {
     return html + "</div>";
   };
   const row = (label, a, b) => `<tr><th>${term(label)}</th>${a}${b}</tr>`;
+  // A foldable row: its full controls when open, else one summary line per layer.
+  const foldRow = (key, label, full, sum) => {
+    const open = openRows[key];
+    const btn = `<button class="fold" data-fold="${key}" aria-expanded="${open}" aria-label="${open ? "Hide" : "Show"} ${label}">${open ? "▾" : "▸"}</button>`;
+    const body = open ? full(0) + full(1)
+      : `<button class="foldsum" data-fold="${key}" title="Show ${label}">${sum(0)}<br>${sum(1)}</button>`;
+    return `<tr><th>${btn}${term(label)}</th><td colspan="2">${body}</td></tr>`;
+  };
+  const sumLine = (l, text, custom, why) =>
+    `<span${why ? ` class="dim" title="${why}"` : ""}><span class="dot ${l ? "b" : "a"}"></span>${text}${custom ? ' <span class="muted">(custom)</span>' : ""}</span>`;
+  // Edit Scale's summary: the note each slot plays, from the same notes as its strip.
+  const scaleSum = (l) => {
+    const k = l ? "B" : "A", c = shownFrom(s, k, "scale");
+    const st = scaleToCustom(c.scale, c.custom);
+    const names = st.map((_, i) => noteName(scaleNote(shownFrom(s, k, "root").root, SCALE_CUSTOM, i, shownFrom(s, k, "octave").octave, st)));
+    return sumLine(l, names.join(" "), c.scale === SCALE_CUSTOM, dims[k].editScale);
+  };
+  // Edit Turns' summary: the turns as the strip shows them.
+  const turnSum = (l) => {
+    const { len, mask } = turnPattern(s, l);
+    const t = Array.from({ length: Math.min(len + 1, TURN_MAX) }, (_, i) => i < len ? (mask & (1 << i) ? String(i + 1) : "-") : "|");
+    return sumLine(l, t.join(" "), s.B.turns === TURNS_CUSTOM, "");
+  };
 
   $("gSound").innerHTML = head + "<tbody>" +
     row("Voice", sel("A", "voice", VOICE_NAMES, VOICE_MENU_ORDER), selWith("B", "voice", VOICE_NAMES, "voiceSameAsA", VOICE_MENU_ORDER)) +
     row("Root", sel("A", "root", ROOT_NAMES), selWith("B", "root", ROOT_NAMES, "rootSameAsA")) +
     row("Octave", num("A", "octave", 0, 7), numWith("octave", 0, 7, "octaveSameAsA")) +
     row("Scale", sel("A", "scale", SCALE_NAMES, SCALE_ORDER), selWith("B", "scale", SCALE_NAMES, "scaleSameAsA", SCALE_ORDER)) +
-    `<tr><th>${term("Edit Scale")}</th><td colspan="2">${scaleStrip(0)}${scaleStrip(1)}</td></tr>` + "</tbody>";
+    foldRow("scale", "Edit Scale", scaleStrip, scaleSum) + "</tbody>";
   const customs = customInPlay(s);
   $("customWarn").hidden = !customs.length;
   $("customWarn").textContent = customs.length
@@ -1539,7 +1611,7 @@ function renderScene() {
   $("gLayers").innerHTML = head + "<tbody>" +
     row("Mode", sel("A", "mode", MODE_NAMES.slice(0, 2)), sel("B", "mode", MODE_NAMES)) +
     row("Layer Turns", "<td></td>", sel("B", "turns", TURNS_NAMES)) +
-    `<tr><th>${term("Edit Turns")}</th><td colspan="2">${turnStrip(0)}${turnStrip(1)}</td></tr>` + "</tbody>";
+    foldRow("turns", "Edit Turns", turnStrip, turnSum) + "</tbody>";
   $("code").textContent = sceneCodeEncode(s);
   markTurns();
 }
@@ -1552,6 +1624,7 @@ for (const id of ["gSound", "gArrange", "gLayers"]) {
     if (!l) return;
     let v = el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10);
     if (el.type === "number") v = Math.min(Math.max(Number.isNaN(v) ? state.scene[l][k] : v, +el.min), +el.max);
+    if (l === "B") unlinkB(k);
     // Custom with none set starts from the scale it was playing.
     if (k === "scale" && v === SCALE_CUSTOM && !state.scene[l].custom) {
       state.scene[l].custom = scaleToCustom(state.scene[l].scale, null);
@@ -1568,6 +1641,7 @@ for (const id of ["gSound", "gArrange", "gLayers"]) {
 // Custom arrays are replaced, never changed in place, so a copied one (Copy
 // A to B) stays apart.
 function editScaleSlot(l, i, step) {
+  if (l) unlinkB("scale");
   const c = l ? state.scene.B : state.scene.A;
   const next = scaleToCustom(c.scale, c.custom);
   next[i] = step;
@@ -1635,6 +1709,14 @@ function turnClick(l, t) {
   else c.turnMask |= bit;                                             // turn 1 cannot end the cycle
   $("codeMsg").textContent = "";
   changed();
+}
+for (const id of ["gSound", "gLayers"]) {
+  $(id).addEventListener("click", (e) => {
+    const f = e.target.closest("button[data-fold]");
+    if (!f) return;
+    openRows[f.dataset.fold] = !openRows[f.dataset.fold];
+    renderScene();
+  });
 }
 $("gLayers").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-turn]");
