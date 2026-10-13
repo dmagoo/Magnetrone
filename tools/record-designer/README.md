@@ -26,8 +26,10 @@ saves over the other's current work.
   menu. A dot after the name means unsaved edits.
 - **Grid**: fills the screen up to 1200 px wide, cells as large as fit.
   The top bar, scene bar and pages line up with the grid's edges. On a tall screen it
-  turns: steps run down, track 1 is on the left. The A / B buttons at its
-  bottom right pick the layer a click places, with Undo and Redo.
+  turns: steps run down, track 1 is on the left, and the cells fill the
+  width (the steps scroll). Under the grid: the drums legend (while a layer
+  plays Drums), then the A / B buttons that pick the layer a click places,
+  with Undo and Redo.
 - **Scene bar** (under the grid): pick one scene setting, then A, B or
   Both, then change it. Both changes each layer; Layer B is left alone
   where it follows Layer A (Same as A). Edit Scale and Edit Turns with Both

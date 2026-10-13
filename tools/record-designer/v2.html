@@ -115,8 +115,8 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 
 /* Grid: sized to fit the stage. Portrait (.tp) turns it: steps run down,
    track 1 on the left. */
-.stage { grid-row: 2; position: relative; min-height: 0; background: var(--panel); }
-#gridWrap { position: absolute; inset: 0; overflow: auto; display: flex; padding: 8px 8px 60px; }
+.stage { grid-row: 2; min-height: 0; background: var(--panel); display: flex; flex-direction: column; }
+#gridWrap { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 8px; }
 #grid { display: grid; gap: var(--g); user-select: none; -webkit-user-select: none; width: max-content; margin: auto; position: relative; }
 #grid > * { position: relative; }
 /* Playhead: a soft band behind the step being played. */
@@ -146,13 +146,14 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 #grid .c.blocked { background: repeating-linear-gradient(45deg, var(--slot), var(--slot) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
 #grid .c.overlap { box-shadow: 0 0 0 2px var(--warn); }
 #grid .c.b.overlap { box-shadow: inset 0 0 0 1.5px var(--b-ring), 0 0 0 2px var(--warn); }
-.fab { position: absolute; right: var(--side); bottom: 10px; z-index: 5; display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 12px; padding: 4px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+/* Under the grid: the drums legend, then the layer buttons with Undo and Redo. */
+.gridfoot { display: flex; align-items: center; gap: 8px 12px; padding: 6px var(--side); }
+.fab { margin-left: auto; flex: none; display: flex; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
 .fab button { border: 0; border-radius: 8px; }
 .fab .layerbtn { padding: 6px 10px; font-weight: 600; font-size: 13px; }
 .fab .layerbtn[aria-pressed=true] { background: var(--text); color: var(--panel); }
 .fab .sep { width: 1px; background: var(--line); margin: 2px; }
-#drumKey { position: absolute; left: var(--side); bottom: 12px; max-width: calc(var(--colw) - 200px); margin: 0; z-index: 4; }
+#drumKey { margin: 0; min-width: 0; }
 
 /* The scene bar: a setting, the layers it applies to, its control. */
 .bar { grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px var(--side);
@@ -267,6 +268,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 
 <div class="stage">
   <div id="gridWrap"><div id="grid"></div></div>
+  <div class="gridfoot">
   <p id="drumKey" class="hint" hidden></p>
   <div class="fab layerpick" role="group" aria-label="Layer to place"
        title="The layer a click places. Hold Shift while clicking for the other layer.">
@@ -279,6 +281,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
     <button id="redo" class="icon" title="Redo (Ctrl+Y)" aria-label="Redo">
       <svg class="i" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg>
     </button>
+  </div>
   </div>
 </div>
 
@@ -342,7 +345,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
       <span id="magnetCount" class="small"></span>
       <button id="clear">Clear</button>
     </div>
-    <p class="hint">Click a slot to place a magnet on the layer picked at the bottom right of the grid (A, normal pole, or B, reversed pole); Shift-click for the other layer.
+    <p class="hint">Click a slot to place a magnet on the layer picked under the grid, on the right (A, normal pole, or B, reversed pole); Shift-click for the other layer.
       Clicking a magnet of that layer removes it; one of the other layer switches over. Right click removes.
       Track 1 is the inner track. Step 1 is the start mark. Striped slots would overlap a placed magnet.
       On a tall screen the grid turns: steps run down and track 1 is on the left.</p>
@@ -1386,13 +1389,15 @@ function setColumn() {
   document.documentElement.style.setProperty("--colw", w + "px");
 }
 function fitGrid() {
-  const wrap = $("gridWrap"), W = Math.min(wrap.clientWidth, COL_MAX) - 16, H = wrap.clientHeight - 68;
+  const wrap = $("gridWrap"), W = Math.min(wrap.clientWidth, COL_MAX) - 16, H = wrap.clientHeight - 16;
   const N = steps(), nGaps = state.subdiv > 1 ? state.beats - 1 : 0;
   turned = H > W * 1.1;
   const across = turned ? NUM_TRACKS : N, down = turned ? N : NUM_TRACKS;
   const labelW = turned ? 34 : 72, headH = turned ? 34 : 18;
   const gapsW = turned ? 0 : nGaps * BEAT_GAP, gapsH = turned ? nGaps * BEAT_GAP : 0;
-  const cs = Math.floor(Math.min((W - labelW - gapsW) / (across * 1.15), (H - headH - gapsH) / (down * 1.15)));
+  // Turned, the cells fill the width and the steps scroll down.
+  const fitW = (W - labelW - gapsW) / (across * 1.15), fitH = (H - headH - gapsH) / (down * 1.15);
+  const cs = Math.floor(turned ? fitW : Math.min(fitW, fitH));
   const size = Math.max(cs, 24);
   const root = document.documentElement.style;
   root.setProperty("--cs", size + "px");
