@@ -10,6 +10,7 @@
   --slot: #e4e4de; --blocked: #c4c4bc; --warn: #d22;
   --a: #89CFF0; --a-text: #1d1d1b;   /* Layer A magnet */
   --b: #1D1D1B; --b-text: #ffffff;   /* Layer B magnet */
+  --b-ring: transparent;             /* Layer B outline (dark themes) */
   --cs: 48px;                        /* grid cell size */
   color-scheme: light;
 }
@@ -18,14 +19,14 @@
   :root:not([data-theme="light"]) {
     --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
     --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
-    --b: #D0D0CC; --b-text: #1d1d1b;
+    --b: #0b0b0a; --b-text: #ececE8; --b-ring: #8a8a84;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
     --bg: #161615; --panel: #20201f; --text: #ececE8; --muted: #9a9a94; --line: #34342f;
     --slot: #2e2e2b; --blocked: #4c4c48; --warn: #ff5a5a;
-    --b: #D0D0CC; --b-text: #1d1d1b;
+    --b: #0b0b0a; --b-text: #ececE8; --b-ring: #8a8a84;
     color-scheme: dark;
 }
 @media (max-width: 600px) { :root { --cs: 36px; } }
@@ -72,13 +73,11 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .transport .buttons { display: flex; align-items: center; gap: 8px; }
 .tostart { width: 36px; height: 36px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; }
 .tostart svg { width: 16px; height: 16px; fill: currentColor; }
-#reverse svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #reverse[aria-pressed=true] { background: var(--text); color: var(--panel); border-color: var(--text); }
 .tempo { display: flex; align-items: baseline; gap: 8px; }
 .tempo label { font-weight: 600; }
 .tempo input { font-size: 18px; width: 4.2em; }
 .codebox { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.code { font: 700 24px/1 ui-monospace, Consolas, monospace; letter-spacing: 2px; }
 
 /* Songs */
 .songs { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
@@ -125,13 +124,18 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 #grid .c.a { background: var(--a); color: var(--a-text); }
 #grid .c[data-ghost]:not(.blocked):hover::before { content: attr(data-ghost); color: var(--muted); font-size: 10px; font-weight: 600; }
 #grid .c.multi { font-size: 10px; }
-#grid .c.b { background: var(--b); color: var(--b-text); }
+#grid .c.b { background: var(--b); color: var(--b-text); box-shadow: inset 0 0 0 1.5px var(--b-ring); }
+/* The layer's letter, small above the note. */
+#grid .c.a::after, #grid .c.b::after { content: attr(data-l); position: absolute; top: 4px; font-size: 8px; font-weight: 600; opacity: .7; }
 #grid .c.blocked { background: repeating-linear-gradient(45deg, var(--slot), var(--slot) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
 #grid .c.overlap { box-shadow: 0 0 0 2px var(--warn); }
+#grid .c.b.overlap { box-shadow: inset 0 0 0 1.5px var(--b-ring), 0 0 0 2px var(--warn); }
 
 /* Scene */
 .scenehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 14px; }
-.load { display: flex; align-items: center; gap: 6px; }
+.load { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.code { font: 700 24px/1 ui-monospace, Consolas, monospace; letter-spacing: 2px; }
+.load #copyCode { margin-right: 10px; }
 .headleft { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
 .hear { display: flex; align-items: center; gap: 6px; }
 .hear button:not(.icon) { padding: 3px 10px; font-size: 12px; font-weight: 600; }
@@ -151,7 +155,7 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 .scenefoot { margin-top: 14px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
 .dot.a { background: var(--a); }
-.dot.b { background: var(--b); }
+.dot.b { background: var(--b); box-shadow: inset 0 0 0 1px var(--b-ring); }
 .dim { opacity: .4; }
 .term { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
 
@@ -239,11 +243,6 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
       </div>
       <span id="turn" class="muted small"></span>
       <div class="codebox">
-        <span class="muted small term" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">Scene Code</span>
-        <span class="code" id="code"></span>
-        <button id="copyCode" class="icon" title="Copy the code" aria-label="Copy the code">
-          <svg class="i" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>
-        </button>
         <button id="copyLink" class="icon" title="Copy a link to this song" aria-label="Copy a link to this song">
           <svg class="i" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
         </button>
@@ -303,6 +302,11 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
           </div>
         </div>
         <div class="load">
+          <span class="muted small term" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">Scene Code</span>
+          <span class="code" id="code"></span>
+          <button id="copyCode" class="icon" title="Copy the code" aria-label="Copy the code">
+            <svg class="i" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>
+          </button>
           <input id="codeIn" placeholder="Scene Code" maxlength="14" spellcheck="false" aria-label="Scene Code to load" title="A short code for this scene's sound (the settings under Scene). Read it here or on a Magnetrone table (Aux > Scene Codes > Get). Enter it here with Load, or on a table (Aux > Scene Codes > Enter), to get the same sound.">
           <button id="codeLoad">Load</button>
           <span id="codeMsg" class="muted small"></span>
@@ -1314,8 +1318,9 @@ function renderGrid() {
       if (n && n.multi) cls.push("multi");
       const where = `Track ${t + 1}, step ${stepName(s)}`;
       const what = n ? `Layer ${v === 1 ? "A" : "B"} magnet: ${n.long}` : `empty. A plays ${noteA.long}, B plays ${noteB.long}`;
-      const title = over.length ? `Overlaps the magnet at step ${over.join(", ")}` : `${where}, ${what}`;
-      const ghost = v ? "" : ` data-ghost="${both}"`;
+      const title = !v && over.length && state.block ? "Magnets would collide"
+        : over.length ? `Overlaps the magnet at step ${over.join(", ")}` : `${where}, ${what}`;
+      const ghost = v ? ` data-l="${v === 1 ? "A" : "B"}"` : ` data-ghost="${both}"`;
       html += `<button class="${cls.join(" ")}" data-t="${t}" data-s="${s}"${ghost} title="${title}" aria-label="${where}, ${what}">${n ? n.short : ""}</button>`;
     }
   }
@@ -1598,8 +1603,8 @@ function loadCode() {
 $("codeLoad").addEventListener("click", loadCode);
 $("codeIn").addEventListener("keydown", (e) => { if (e.key === "Enter") loadCode(); });
 
-function copyText(text, msg) {
-  const done = () => { $("copyMsg").textContent = msg; setTimeout(() => { $("copyMsg").textContent = ""; }, 1500); };
+function copyText(text, msg, out = "copyMsg") {
+  const done = () => { $(out).textContent = msg; setTimeout(() => { $(out).textContent = ""; }, 1500); };
   const fallback = () => {
     const ta = document.createElement("textarea");
     ta.value = text; document.body.appendChild(ta); ta.select();
@@ -1610,7 +1615,7 @@ function copyText(text, msg) {
   else fallback();
 }
 
-$("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied"));
+$("copyCode").addEventListener("click", () => copyText(sceneCodeEncode(state.scene), "Code copied", "codeMsg"));
 
 // Edit Turns: a click on turn t of layer l, as the table's Edit Turns does it.
 function turnClick(l, t) {
@@ -1766,7 +1771,18 @@ function renderSongs() {
       : c.id === EMPTY_ID ? "Start a new song" : "Switch to this song. Double-click to rename.";
     return `<div class="chip${on ? " on" : ""}"><button data-id="${c.id}" title="${tip}">${label}</button>${x}</div>`;
   }).join("");
+  // When the song changes (and at load), scroll the strip to show its chip.
+  if (state.songId !== chipShown) {
+    chipShown = state.songId;
+    const strip = $("chips"), on = strip.querySelector(".chip.on");
+    if (on) {
+      const r = on.getBoundingClientRect(), w = strip.getBoundingClientRect();
+      if (r.left < w.left) strip.scrollLeft -= w.left - r.left + 2;
+      else if (r.right > w.right) strip.scrollLeft += r.right - w.right + 2;
+    }
+  }
 }
+let chipShown;
 
 $("chips").addEventListener("click", (e) => {
   const x = e.target.closest("[data-x]");
@@ -2321,7 +2337,7 @@ function showPlayhead(s, r) {
 
 const ICON_PLAY  = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
 const ICON_PAUSE = `<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
-const ICON_REVERSE = `<svg viewBox="0 0 24 24"><path d="M20 7H5l3-3M5 7l3 3"/><path d="M4 17h15l-3-3m3 3-3 3"/></svg>`;
+const ICON_REVERSE = `<svg viewBox="0 0 24 24"><path d="M17 5v14L6 12z"/></svg>`;
 const ICON_START = `<svg viewBox="0 0 24 24"><rect x="5" y="5" width="2.5" height="14" rx="1"/><path d="M19 5v14L9 12z"/></svg>`;
 
 function showTransport() {

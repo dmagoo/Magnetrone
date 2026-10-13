@@ -27,15 +27,17 @@ Dark.
   removes a magnet at once. With the
   colored magnets, A is blue side
   up and B is black side up (the table's calibration sets this; Menu >
-  System > Magnet Pole swaps it).
+  System > Magnet Pole swaps it). B magnets are black in both themes,
+  outlined in the dark one.
 - Block collisions: striped slots would overlap a placed magnet and cannot
-  be used; hover one to see which. With it off, overlapping magnets are
+  be used; hovering one says "Magnets would collide". With it off, overlapping magnets are
   outlined in red. The check uses the larger of the magnet diameter and the
   magnet hole.
 - The toolbar counts the magnets placed, in all and per layer.
 - Undo and Redo (Ctrl+Z, Ctrl+Y) cover grid edits: slots, Clear and step
   count changes. The history lasts until the page is closed.
-- Each magnet shows what it plays with the current scene: a note ("C3"),
+- Each magnet shows its layer's letter (A or B) and what it plays with the
+  current scene: a note ("C3"),
   or for drums the letter Track Notes uses (X crash, t low tom, T high tom,
   C clap, O open hat, S snare, K kick, H closed hat). With Stack it shows
   both layers' notes. Each row label shows what an A and a B magnet on
@@ -93,7 +95,8 @@ The turn the position is on is shaded in each layer's strip.
 values, as with nothing saved (asks first). The grid, BPM and template
 settings stay.
 
-The code shows beside Play, with a copy button, and updates as you change
+The code shows in the Scene header, with a copy button, beside the box to
+load one, and updates as you change
 the settings. It is up to 10 characters, or 14 with Layer Turns on Custom or
 a voice from E. Piano on. A code can be loaded back. Enter the
 code on the table under Aux > Scene Codes > Enter. Beats/Rev is not in the
@@ -111,7 +114,7 @@ shown ("Turn: A + B") unless Layer Turns is Together.
 
 - Play / Pause (Space). Pause keeps the position; Play goes on from there.
 - To start (Home) moves the position back to step 1.
-- The arrows button (right of Play) plays backwards, as the table does with
+- The backwards button (right of Play) plays backwards, as the table does with
   Speed turned below zero. Playing, it turns round at the current step.
 - Click a step number to move the position there. Paused, that column
   plays once; playing, it jumps there.
@@ -168,7 +171,8 @@ Not here, as on the table: following an external clock.
 
 The **Songs** strip under the transport keeps saved songs as chips, in
 this browser's local storage. On a narrow screen (under 600 px) the chips
-wrap onto as many rows as they need, with the buttons below them.
+wrap onto as many rows as they need, with the buttons below them. On a
+wide screen the strip scrolls to show the song you are on when it changes.
 
 - **Save** keeps your changes in the chip you are on (it is greyed when
   there is nothing to save). A song not saved yet (new, or started from
@@ -182,9 +186,9 @@ wrap onto as many rows as they need, with the buttons below them.
   does the same.
 - Click a chip to switch to it. Playing carries on into the new song. If
   the current song has unsaved changes, it asks first.
-- Double-click a chip to rename it; x removes it. **Empty** is always
+- Double-click a chip to rename it; x removes it (asks first). **Empty** is always
   there: the factory scene on an empty grid.
-- The link button beside the Scene Code copies a link holding the whole
+- The link button (right end of the transport) copies a link holding the whole
   song and its name: grid, scene (Custom scales included), BPM and template
   settings. It asks for a
   name if the song has none, and saves the song as Save does.
