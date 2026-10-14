@@ -27,24 +27,27 @@ saves over the other's current work.
 - **Grid**: fills the screen up to 1200 px wide, cells as large as fit.
   The top bar, scene bar and pages line up with the grid's edges. On a tall screen it
   turns: steps run down, track 1 is on the left, and the cells fill the
-  width (the steps scroll). Under the grid: the drums legend (while a layer
-  plays Drums), then the A / B buttons that pick the layer a click places,
-  with Undo and Redo.
-- **Scene bar** (under the grid): pick one scene setting, then A, B or
-  Both, then change it. Both changes each layer; Layer B is left alone
+  width (the steps scroll). Above the grid: **Place**, two magnets (A and
+  B) that pick the layer a click puts down; **Drum key** (while a layer
+  plays Drums), which lists the drum letters (hovering a magnet also names
+  its drum); then Undo and Redo.
+- **Scene bar** (under the grid): pick one scene setting, then **Apply to**
+  A, B or Both, then change it. Both changes each layer; Layer B is left alone
   where it follows Layer A (Same as A). Edit Scale and Edit Turns with Both
   show Layer A's and apply each change to both. Layer Turns is Layer B's
   only. **Show all** (first in the list) opens the Scene page with every
   setting, the Scene Code, Hear, Swap, A to B and Reset Scene.
 - **Records** (click the name): the saved records, the same list as the
   song chips here. + New record starts one (Empty here); click a record to
-  load it, double-click to rename. x deletes at once, with Undo for 5
+  load it (the list closes), double-click to rename. x deletes at once, with Undo for 5
   seconds. Save, Save as new and Revert are at the bottom. Switching with
   unsaved edits asks first: Switch anyway, Save then switch, or Cancel.
 - **Menu**: Grid setup (Beats/Rev, Subdivisions, Block collisions, Clear),
   MIDI, Template and export, Copy a link to this record, and the theme.
   Each page covers the grid with a back arrow (or Esc); the top bar stays,
   so play goes on.
+- While the Records list or the menu is open, a click outside it only
+  closes it, so it never places or removes a magnet.
 
 ## Grid
 

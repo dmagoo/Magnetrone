@@ -146,21 +146,26 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 #grid .c.blocked { background: repeating-linear-gradient(45deg, var(--slot), var(--slot) 3px, var(--blocked) 3px, var(--blocked) 5px); cursor: not-allowed; }
 #grid .c.overlap { box-shadow: 0 0 0 2px var(--warn); }
 #grid .c.b.overlap { box-shadow: inset 0 0 0 1.5px var(--b-ring), 0 0 0 2px var(--warn); }
-/* Under the grid: the drums legend, then the layer buttons with Undo and Redo. */
-.gridfoot { display: flex; align-items: center; gap: 8px 12px; padding: 6px var(--side); }
-.fab { margin-left: auto; flex: none; display: flex; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
-.fab button { border: 0; border-radius: 8px; }
-.fab .layerbtn { padding: 6px 10px; font-weight: 600; font-size: 13px; }
-.fab .layerbtn[aria-pressed=true] { background: var(--text); color: var(--panel); }
-.fab .sep { width: 1px; background: var(--line); margin: 2px; }
-#drumKey { margin: 0; min-width: 0; }
+/* Above the grid: Place (the magnet a click puts down), the drum key, Undo and Redo. */
+.gridhead { position: relative; display: flex; align-items: center; gap: 8px 12px; padding: 8px var(--side) 0; }
+.place { display: flex; align-items: center; gap: 8px; }
+.place .lbl2, .applyto { font-size: 12px; font-weight: 600; color: var(--muted); }
+.mag { width: 30px; height: 30px; border-radius: 50%; padding: 0; border: 0; font-weight: 700; font-size: 13px; opacity: .45; }
+.mag.a { background: var(--a); color: var(--a-text); }
+.mag.b { background: var(--b); color: var(--b-text); box-shadow: inset 0 0 0 1.5px var(--b-ring); }
+.mag[aria-pressed=true] { opacity: 1; outline: 2px solid var(--text); outline-offset: 2px; }
+.gridhead .grow { flex: 1; }
+.gridhead .icon { border: 0; }
+.keypop { left: var(--side); right: auto; padding: 10px 14px; }
+.keypop ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto auto; gap: 4px 14px; font-size: 13px; }
+.keypop b { font: 700 13px ui-monospace, Consolas, monospace; }
 
 /* The scene bar: a setting, the layers it applies to, its control. */
 .bar { grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px var(--side);
   background: var(--panel); border-top: 1px solid var(--line); }
 #pick { font-weight: 650; padding: 6px 8px; }
 .seg { display: inline-flex; background: var(--slot); border-radius: 9px; padding: 3px; gap: 2px; flex: none; }
-.seg button { border: 0; border-radius: 7px; padding: 4px 10px; color: var(--muted); display: flex; align-items: center; }
+.seg button { border: 0; border-radius: 7px; padding: 4px 10px; color: var(--muted); }
 .seg button.sel { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
 .ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .ctl > select { font-weight: 600; padding: 6px 8px; max-width: 100%; }
@@ -267,14 +272,16 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
 </header>
 
 <div class="stage">
-  <div id="gridWrap"><div id="grid"></div></div>
-  <div class="gridfoot">
-  <p id="drumKey" class="hint" hidden></p>
-  <div class="fab layerpick" role="group" aria-label="Layer to place"
-       title="The layer a click places. Hold Shift while clicking for the other layer.">
-    <button class="layerbtn" data-layer="1"><span class="dot a"></span>A</button>
-    <button class="layerbtn" data-layer="2"><span class="dot b"></span>B</button>
-    <span class="sep"></span>
+  <div class="gridhead">
+    <div class="place layerpick" role="group" aria-label="Place"
+         title="The magnet a click puts down: Layer A (normal pole) or Layer B (reversed pole). Hold Shift while clicking for the other.">
+      <span class="lbl2">Place</span>
+      <button class="mag a" data-layer="1" aria-label="Place Layer A magnets">A</button>
+      <button class="mag b" data-layer="2" aria-label="Place Layer B magnets">B</button>
+    </div>
+    <button id="keyBtn" class="small" hidden aria-haspopup="true" aria-expanded="false">Drum key</button>
+    <div id="keyPop" class="pop keypop" hidden role="dialog" aria-label="Drum key"><ul id="drumKey"></ul></div>
+    <span class="grow"></span>
     <button id="undo" class="icon" title="Undo (Ctrl+Z)" aria-label="Undo">
       <svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
     </button>
@@ -282,11 +289,12 @@ svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round
       <svg class="i" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg>
     </button>
   </div>
-  </div>
+  <div id="gridWrap"><div id="grid"></div></div>
 </div>
 
 <div class="bar" id="bar">
   <select id="pick" aria-label="Scene setting"></select>
+  <span class="applyto">Apply to</span>
   <span class="seg" id="seg" role="group" aria-label="Apply to"></span>
   <span class="ctl" id="ctl"></span>
   <span id="turn" class="muted small" title="The layers heard on the playhead's turn"></span>
@@ -1294,21 +1302,37 @@ function openPop(id) {
   closePops();
   if (was) return;
   $(id).hidden = false;
-  $(id === "recPop" ? "recBtn" : "menuBtn").setAttribute("aria-expanded", true);
+  $({ recPop: "recBtn", menuPop: "menuBtn", keyPop: "keyBtn" }[id]).setAttribute("aria-expanded", true);
   if (id === "recPop") { recUi = null; renderRecords(); }
 }
 function closePops() {
-  for (const id of ["recPop", "menuPop"]) $(id).hidden = true;
+  for (const id of ["recPop", "menuPop", "keyPop"]) $(id).hidden = true;
+  $("keyBtn").setAttribute("aria-expanded", false);
   $("recBtn").setAttribute("aria-expanded", false);
   $("menuBtn").setAttribute("aria-expanded", false);
 }
 
 $("recBtn").addEventListener("click", (e) => { e.stopPropagation(); openPop("recPop"); });
 $("menuBtn").addEventListener("click", (e) => { e.stopPropagation(); openPop("menuPop"); });
+$("keyBtn").addEventListener("click", (e) => { e.stopPropagation(); openPop("keyPop"); });
 $("menuPop").addEventListener("click", (e) => {
   const b = e.target.closest("[data-page]");
   if (b) openPage(b.dataset.page);
 });
+// While a pop-up is open, a click (or right click) outside it only closes
+// it: it does not also place or remove a magnet.
+const popsOpen = () => !$("recPop").hidden || !$("menuPop").hidden || !$("keyPop").hidden;
+for (const type of ["click", "contextmenu"]) {
+  window.addEventListener(type, (e) => {
+    if (!popsOpen()) return;
+    const inside = e.composedPath().some((n) => n.classList && (n.classList.contains("pop") || n.classList.contains("toast"))
+      || n.id === "recBtn" || n.id === "menuBtn" || n.id === "keyBtn");
+    if (inside) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closePops();
+  }, true);
+}
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-back]");
   if (b) { closePage(); return; }
@@ -1318,7 +1342,7 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (!$("recPop").hidden || !$("menuPop").hidden) closePops();
+  if (popsOpen()) closePops();
   else if (pageOpen()) closePage();
 });
 
@@ -1356,7 +1380,7 @@ function stepName(s) {
 // or the drum letter Track Notes uses) and long (for the tooltip). Stack
 // plays both layers; a silent layer plays nothing.
 const DRUM_LETTERS = ["X", "t", "T", "C", "O", "S", "K", "H"];   // firmware/src/menu/menu.cpp
-$("drumKey").textContent = "Drums: " + DRUM_LETTERS.map((d, i) => `${d} ${KIT_NAMES[i]}`).join(", ");
+$("drumKey").innerHTML = DRUM_LETTERS.map((d, i) => `<li><b>${d}</b> ${KIT_NAMES[i]}</li>`).join("");
 
 function poleNotes(track, pole) {
   const notes = layersForPole(state.scene, pole).map((l) => layerNoteFor(state.scene, l, track)).filter(Boolean);
@@ -1464,7 +1488,8 @@ function renderGrid() {
   setColumn();
   placeBand();
   renderLayerPick();
-  $("drumKey").hidden = !kit;
+  $("keyBtn").hidden = !kit;
+  if (!kit && !$("keyPop").hidden) closePops();
   $("stepsInfo").textContent = `= ${N} steps`;
   const flat = state.cells.flat(), nA = flat.filter((v) => v === 1).length, nB = flat.filter((v) => v === 2).length;
   $("magnetCount").innerHTML = `<b>${nA + nB}</b> magnet${nA + nB === 1 ? "" : "s"} <span class="muted">(${nA} A, ${nB} B)</span>`;
@@ -1877,7 +1902,7 @@ function renderBar() {
     BAR_SETTINGS.map((b) => `<option value="${b.k}"${b.k === set.k ? " selected" : ""}>${b.name}</option>`).join("");
   $("seg").innerHTML = ["A", "B", "Both"].map((t) =>
     `<button data-tgt="${t}" class="${ui.target === t ? "sel" : ""}"${set.bOnly && t !== "B" ? " disabled" : ""} aria-pressed="${ui.target === t}">` +
-    (t === "Both" ? "" : `<span class="dot ${t.toLowerCase()}"></span>`) + `${t}</button>`).join("");
+    `${t}</button>`).join("");
   $("seg").title = set.bOnly ? "Layer Turns is Layer B's setting" : "The layers the setting changes";
 
   const T = ui.target, show = T === "Both" ? "A" : T;
@@ -2042,6 +2067,7 @@ function switchRecord(id) {
   state.name = id === EMPTY_ID ? "" : chip.name;
   state.songId = id;
   recUi = null;
+  closePops();
   changed();   // playing carries on, into the new record
 }
 
